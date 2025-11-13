@@ -141,10 +141,11 @@ class AdminService {
   }
 
   // Eliminar producto inapropiado
-  async eliminarProductoInapropiado(id: number, _motivo: string): Promise<ApiResponse> {
+  async eliminarProductoInapropiado(id: number, motivo: string): Promise<ApiResponse> {
     try {
       const response = await apiService.delete(
-        `/admin/producto/${id}`
+        `/admin/producto/${id}`,
+        { motivo }
       );
       return response;
     } catch (error) {

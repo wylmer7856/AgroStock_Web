@@ -166,11 +166,11 @@ export class EstadisticasModel {
 
       // Pedidos por mes (últimos 6 meses)
       const pedidosPorMes = await conexion.query(`
-        SELECT DATE_FORMAT(fecha, '%Y-%m') as mes, COUNT(*) as cantidad
+        SELECT DATE_FORMAT(fecha_pedido, '%Y-%m') as mes, COUNT(*) as cantidad
         FROM pedidos
         WHERE id_productor = ? 
-          AND fecha >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-        GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+          AND fecha_pedido >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        GROUP BY DATE_FORMAT(fecha_pedido, '%Y-%m')
         ORDER BY mes DESC
       `, [id_usuario]);
 
@@ -276,10 +276,10 @@ export class EstadisticasModel {
       `);
 
       const pedidosNuevos = await conexion.query(`
-        SELECT DATE(fecha) as fecha, COUNT(*) as cantidad
+        SELECT DATE(fecha_pedido) as fecha, COUNT(*) as cantidad
         FROM pedidos
-        WHERE fecha >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        GROUP BY DATE(fecha)
+        WHERE fecha_pedido >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(fecha_pedido)
         ORDER BY fecha DESC
         LIMIT 30
       `);

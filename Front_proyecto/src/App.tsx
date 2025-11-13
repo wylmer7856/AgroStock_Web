@@ -44,7 +44,7 @@ import EditarProductoPage from './pages/productor/EditarProductoPage';
 import NotificacionesPage from './pages/NotificacionesPage';
 
 // Páginas de admin
-import AdminDashboard from './pages/admin/Dashboard';
+import { AdminDashboard } from './Screens/ADMIN/Dashboard';
 
 // Función helper para obtener el dashboard según el rol
 const getDashboardPath = (rol?: string): string => {
@@ -207,13 +207,22 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Rutas de admin */}
+        {/* Rutas de admin - Todas usan el mismo panel AdminDashboard */}
         <Route
           path="/admin/*"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Routes>
                 <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="usuarios" element={<AdminDashboard />} />
+                <Route path="productos" element={<AdminDashboard />} />
+                <Route path="pedidos" element={<AdminDashboard />} />
+                <Route path="reportes" element={<AdminDashboard />} />
+                <Route path="estadisticas" element={<AdminDashboard />} />
+                <Route path="categorias" element={<AdminDashboard />} />
+                <Route path="auditoria" element={<AdminDashboard />} />
+                <Route path="configuracion" element={<AdminDashboard />} />
+                <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
             </ProtectedRoute>
           }

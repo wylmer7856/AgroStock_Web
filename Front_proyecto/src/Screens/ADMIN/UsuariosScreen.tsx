@@ -110,25 +110,49 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
     cargarUsuarios();
   }, [filtros, busquedaDebounced]);
 
+  useEffect(() => {
+    console.log('[UsuariosScreen] showCreateModal cambió a:', showCreateModal);
+  }, [showCreateModal]);
+
+  useEffect(() => {
+    console.log('[UsuariosScreen] showEditModal cambió a:', showEditModal);
+  }, [showEditModal]);
+
+  useEffect(() => {
+    console.log('[UsuariosScreen] showDeleteModal cambió a:', showDeleteModal);
+  }, [showDeleteModal]);
+
   const handleEliminarUsuario = (id: number) => {
+    console.log('[UsuariosScreen] Eliminando usuario ID:', id);
     setShowDeleteModal({ show: true, id });
+    console.log('[UsuariosScreen] showDeleteModal debería ser true ahora');
   };
 
   const confirmEliminarUsuario = async () => {
-    if (showDeleteModal.id === undefined) return;
+    if (showDeleteModal.id === undefined) {
+      console.error('[UsuariosScreen] No hay ID para eliminar');
+      return;
+    }
+
+    console.log('[UsuariosScreen] Confirmando eliminación de usuario ID:', showDeleteModal.id);
 
     try {
       const response = await adminService.eliminarUsuario(showDeleteModal.id);
+      console.log('[UsuariosScreen] Respuesta de eliminación:', response);
       
       if (response.success) {
         setUsuarios(prev => prev.filter(u => u.id_usuario !== showDeleteModal.id));
         mostrarToast('Usuario eliminado exitosamente', 'success');
         setShowDeleteModal({ show: false });
       } else {
-        mostrarToast(response.message || 'Error eliminando usuario', 'error');
+        const errorMsg = response.message || 'Error eliminando usuario';
+        console.error('[UsuariosScreen] Error en respuesta:', errorMsg);
+        mostrarToast(errorMsg, 'error');
       }
-    } catch {
-      mostrarToast('Error eliminando usuario', 'error');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      console.error('[UsuariosScreen] Excepción al eliminar:', errorMsg, error);
+      mostrarToast(`Error eliminando usuario: ${errorMsg}`, 'error');
     }
   };
 
@@ -150,8 +174,10 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
   };
 
   const handleEditarUsuario = (usuario: UsuarioAdmin) => {
+    console.log('[UsuariosScreen] Editando usuario:', usuario);
     setUsuarioSeleccionado(usuario);
     setShowEditModal(true);
+    console.log('[UsuariosScreen] showEditModal debería ser true ahora');
   };
 
   const mostrarToast = (message: string, type: 'success' | 'error') => {
@@ -177,7 +203,11 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
         <div className="header-actions">
           <Button
             variant="primary"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              console.log('[UsuariosScreen] Click en Nuevo Usuario, abriendo modal...');
+              setShowCreateModal(true);
+              console.log('[UsuariosScreen] showCreateModal debería ser true ahora');
+            }}
           >
             Nuevo Usuario
           </Button>
@@ -459,6 +489,37 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
         cancelText="Cancelar"
         variant="danger"
       />
+
+      {/* Modal para crear usuario */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => {
+          console.log('[UsuariosScreen] Cerrando modal de crear usuario');
+          setShowCreateModal(false);
+        }}
+        onSuccess={() => {
+          console.log('[UsuariosScreen] Usuario creado exitosamente');
+          setShowCreateModal(false);
+          cargarUsuarios();
+        }}
+      />
+
+      {/* Modal para editar usuario */}
+      {usuarioSeleccionado && (
+        <EditUserModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setUsuarioSeleccionado(null);
+          }}
+          usuario={usuarioSeleccionado}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setUsuarioSeleccionado(null);
+            cargarUsuarios();
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -548,6 +609,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (error) setError(null);
   };
 
+  console.log('[CreateUserModal] Renderizando, isOpen:', isOpen, 'ciudades:', ciudades.length);
+  
   return (
     <Modal
       isOpen={isOpen}
