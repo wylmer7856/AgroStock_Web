@@ -1,0 +1,26 @@
+{
+  "title": "¡Ups! Página no encontrada",
+  "message": "Lo sentimos, la página que buscas no existe o ha sido movida.",
+  "suggestions": [
+    "Verifica que la URL esté correcta",
+    "Regresa a la página principal",
+    "Usa el menú de navegación",
+    "Busca lo que necesitas en el buscador"
+  ],
+  "buttonText": "Volver al Inicio",
+  "image": "/assets/404/404-illustration.svg"
+}
+
+
+
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
+
+
+
+
+
+

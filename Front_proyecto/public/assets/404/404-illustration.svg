@@ -1,0 +1,45 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo del campo -->
+  <rect width="400" height="300" fill="#F5F7FA"/>
+  
+  <!-- Cielo -->
+  <rect width="400" height="150" fill="#E0F2FE"/>
+  
+  <!-- Montañas -->
+  <path d="M0,150 L100,80 L200,120 L300,60 L400,100 L400,150 Z" fill="#CBD5E0"/>
+  
+  <!-- Campo -->
+  <rect y="150" width="400" height="150" fill="#FDF6E3"/>
+  
+  <!-- Líneas de cultivo -->
+  <line x1="50" y1="200" x2="350" y2="200" stroke="#4A7C47" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="50" y1="230" x2="350" y2="230" stroke="#4A7C47" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="50" y1="260" x2="350" y2="260" stroke="#4A7C47" stroke-width="2" stroke-dasharray="5,5"/>
+  
+  <!-- Señal de 404 -->
+  <rect x="120" y="80" width="160" height="100" rx="10" fill="white" stroke="#2D5016" stroke-width="3"/>
+  <text x="200" y="130" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#2D5016" text-anchor="middle">404</text>
+  
+  <!-- Planta -->
+  <circle cx="200" cy="250" r="15" fill="#4A7C47"/>
+  <path d="M200,235 Q190,220 180,210 Q200,200 220,210 Q210,220 200,235" fill="#6B9E68"/>
+  
+  <!-- Nube -->
+  <circle cx="320" cy="50" r="20" fill="white" opacity="0.8"/>
+  <circle cx="340" cy="50" r="25" fill="white" opacity="0.8"/>
+  <circle cx="360" cy="50" r="20" fill="white" opacity="0.8"/>
+</svg>
+
+
+
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
+
+
+
+
+
+
