@@ -51,17 +51,19 @@ export const getPedidos = async (ctx: Context) => {
     const objPedido = new PedidosModel();
     const lista = await objPedido.ListarPedidos();
 
-    ctx.response.status = lista.length > 0 ? 200 : 404;
+    ctx.response.status = 200;
     ctx.response.body = {
-      success: lista.length > 0,
+      success: true,
       message: lista.length > 0 ? "Pedidos encontrados." : "No se encontraron pedidos.",
       data: lista,
     };
-  } catch (_error) {
+  } catch (error) {
+    console.error("Error en getPedidos:", error);
     ctx.response.status = 500;
     ctx.response.body = {
       success: false,
       message: "Error interno del servidor.",
+      data: [],
     };
   }
 };

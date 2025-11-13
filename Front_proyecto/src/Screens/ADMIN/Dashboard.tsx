@@ -1,6 +1,7 @@
 // DASHBOARD PRINCIPAL DEL ADMIN - PANEL DE CONTROL
 
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Button, Loading, Toast } from '../../components/ReusableComponents';
 import AgroStockLogo from '../../components/AgroStockLogo';
 import { UsuariosScreen } from './UsuariosScreen';
@@ -21,10 +22,43 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
+  // ===== HOOKS =====
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   // ===== ESTADOS =====
   const { user, logout } = useAuth();
   const [currentView, setCurrentView] = useState<'overview' | 'usuarios' | 'productos' | 'reportes' | 'estadisticas' | 'pedidos' | 'categorias' | 'auditoria' | 'configuracion'>('overview');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // ===== DETECTAR RUTA Y ACTUALIZAR VISTA =====
+  useEffect(() => {
+    const path = location.pathname;
+    
+    // Mapear rutas a vistas
+    if (path === '/admin/dashboard' || path === '/admin') {
+      setCurrentView('overview');
+    } else if (path === '/admin/usuarios') {
+      setCurrentView('usuarios');
+    } else if (path === '/admin/productos') {
+      setCurrentView('productos');
+    } else if (path === '/admin/pedidos') {
+      setCurrentView('pedidos');
+    } else if (path === '/admin/reportes') {
+      setCurrentView('reportes');
+    } else if (path === '/admin/estadisticas') {
+      setCurrentView('estadisticas');
+    } else if (path === '/admin/categorias') {
+      setCurrentView('categorias');
+    } else if (path === '/admin/auditoria') {
+      setCurrentView('auditoria');
+    } else if (path === '/admin/configuracion') {
+      setCurrentView('configuracion');
+    } else {
+      // Si la ruta no coincide, mantener la vista actual o ir a overview
+      setCurrentView('overview');
+    }
+  }, [location.pathname]);
 
   // ===== FUNCIONES =====
   // mostrarToast se usa implícitamente a través de setToast en el componente Toast
@@ -32,6 +66,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const handleNavigate = (view: string) => {
     // Cambiar la vista interna del panel de admin
     setCurrentView(view as 'overview' | 'usuarios' | 'productos' | 'reportes' | 'estadisticas' | 'pedidos' | 'categorias' | 'auditoria' | 'configuracion');
+    
+    // Actualizar la URL sin recargar la página
+    const routeMap: Record<string, string> = {
+      'overview': '/admin/dashboard',
+      'usuarios': '/admin/usuarios',
+      'productos': '/admin/productos',
+      'pedidos': '/admin/pedidos',
+      'reportes': '/admin/reportes',
+      'estadisticas': '/admin/estadisticas',
+      'categorias': '/admin/categorias',
+      'auditoria': '/admin/auditoria',
+      'configuracion': '/admin/configuracion'
+    };
+    
+    const route = routeMap[view] || '/admin/dashboard';
+    navigate(route, { replace: true });
+    
     // Si hay un callback de navegación externa, también llamarlo
     if (onNavigate) {
       onNavigate(view);
@@ -159,9 +210,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             size="small"
             onClick={async () => {
               await logout();
-              if (onNavigate) {
-                onNavigate('welcome');
-              }
+              navigate('/login');
             }}
             style={{ marginTop: '1rem', width: '100%' }}
           >

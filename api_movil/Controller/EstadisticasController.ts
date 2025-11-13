@@ -180,13 +180,13 @@ export class EstadisticasController {
 
       const pedidosPorMes = await conexion.query(`
         SELECT 
-          DATE_FORMAT(fecha, '%Y-%m') as mes,
+          DATE_FORMAT(fecha_pedido, '%Y-%m') as mes,
           COUNT(*) as total_pedidos,
           SUM(total) as valor_total,
           AVG(total) as promedio_valor
         FROM pedidos
-        WHERE fecha >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-        GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+        WHERE fecha_pedido >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(fecha_pedido, '%Y-%m')
         ORDER BY mes DESC
       `);
 

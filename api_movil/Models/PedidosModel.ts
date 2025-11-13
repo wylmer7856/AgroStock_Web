@@ -23,10 +23,25 @@ export class PedidosModel {
     this._objPedido = objPedido;
   }
 
-  public async ListarPedidos(): Promise<PedidoData[]> {
+  public async ListarPedidos(): Promise<any[]> {
     try {
-      const result = await conexion.query("SELECT * FROM pedidos ORDER BY fecha_pedido DESC");
-      return result as PedidoData[];
+      const result = await conexion.query(`
+        SELECT 
+          p.*,
+          uc.nombre as nombre_consumidor,
+          uc.email as email_consumidor,
+          up.nombre as nombre_productor,
+          up.email as email_productor,
+          c.nombre as ciudad_nombre,
+          d.nombre as departamento_nombre
+        FROM pedidos p
+        LEFT JOIN usuarios uc ON p.id_consumidor = uc.id_usuario
+        LEFT JOIN usuarios up ON p.id_productor = up.id_usuario
+        LEFT JOIN ciudades c ON p.id_ciudad_entrega = c.id_ciudad
+        LEFT JOIN departamentos d ON c.id_departamento = d.id_departamento
+        ORDER BY p.fecha_pedido DESC
+      `);
+      return result as any[];
     } catch (error) {
       console.error("Error al listar pedidos:", error);
       throw new Error("Error al listar pedidos.");

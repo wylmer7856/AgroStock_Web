@@ -1,6 +1,7 @@
 // 🧩 COMPONENTES REUTILIZABLES
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import './ReusableComponents.css';
 
 // ===== TIPOS =====
@@ -171,7 +172,14 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'medium',
   showCloseButton = true
 }) => {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const modalClasses = ['modal', `modal-${size}`].join(' ');
 
@@ -181,9 +189,10 @@ export const Modal: React.FC<ModalProps> = ({
     }
   };
 
-  return (
+  // Renderizar el modal directamente en el body usando portal
+  const modalContent = (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className={modalClasses}>
+      <div className={modalClasses} onClick={(e) => e.stopPropagation()}>
         {(title || showCloseButton) && (
           <div className="modal-header">
             {title && <h2 className="modal-title">{title}</h2>}
@@ -198,6 +207,16 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  // Usar createPortal para renderizar el modal directamente en el body
+  // Esto evita problemas con overflow y z-index de contenedores padres
+  if (typeof document !== 'undefined') {
+    console.log('[Modal] Renderizando modal con portal, isOpen:', isOpen, 'title:', title);
+    return createPortal(modalContent, document.body);
+  }
+
+  console.log('[Modal] Renderizando modal sin portal (SSR)');
+  return modalContent;
 };
 
 // ===== COMPONENTE LOADING =====

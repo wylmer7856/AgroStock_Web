@@ -191,8 +191,11 @@ class ApiService {
   }
 
   // DELETE request
-  async delete<T>(endpoint: string, includeAuth: boolean = true): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' }, includeAuth);
+  async delete<T>(endpoint: string, data?: any, includeAuth: boolean = true): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
+    }, includeAuth);
   }
 
   // PATCH request

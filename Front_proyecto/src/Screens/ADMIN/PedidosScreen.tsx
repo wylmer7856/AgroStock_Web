@@ -52,29 +52,45 @@ export const PedidosScreen: React.FC<PedidosScreenProps> = ({ onNavigate }) => {
       
       console.log('[PedidosScreen] Cargando pedidos...');
       const response = await adminService.getPedidos();
-      console.log('[PedidosScreen] Respuesta recibida:', response);
+      console.log('[PedidosScreen] Respuesta completa:', JSON.stringify(response, null, 2));
       
-      if (response.success && response.data) {
-        let pedidosFiltrados = response.data;
-        
-        // Filtrar por estado
-        if (filtroEstado !== 'todos') {
-          pedidosFiltrados = pedidosFiltrados.filter((p: Pedido) => p.estado === filtroEstado);
+      // Manejar diferentes formatos de respuesta - incluso si success es false pero hay data
+      let pedidosData: Pedido[] = [];
+      
+      if (response.data && Array.isArray(response.data)) {
+        pedidosData = response.data;
+      } else if (response.data && Array.isArray((response.data as any).pedidos)) {
+        pedidosData = (response.data as any).pedidos;
+      } else if ((response as any).pedidos && Array.isArray((response as any).pedidos)) {
+        pedidosData = (response as any).pedidos;
+      }
+      
+      console.log('[PedidosScreen] Pedidos parseados:', pedidosData.length);
+      
+      // Filtrar por estado
+      let pedidosFiltrados = pedidosData;
+      if (filtroEstado !== 'todos') {
+        pedidosFiltrados = pedidosFiltrados.filter((p: Pedido) => p.estado === filtroEstado);
+      }
+      
+      // Filtrar por búsqueda
+      if (busquedaDebounced) {
+        pedidosFiltrados = pedidosFiltrados.filter((p: Pedido) => 
+          p.id_pedido.toString().includes(busquedaDebounced) ||
+          p.nombre_consumidor?.toLowerCase().includes(busquedaDebounced.toLowerCase()) ||
+          p.nombre_productor?.toLowerCase().includes(busquedaDebounced.toLowerCase())
+        );
+      }
+      
+      setPedidos(pedidosFiltrados);
+      console.log('[PedidosScreen] Pedidos finales después de filtros:', pedidosFiltrados.length);
+      
+      if (pedidosFiltrados.length === 0 && pedidosData.length === 0 && !response.success) {
+        // Solo mostrar error si realmente hubo un error, no si simplemente no hay pedidos
+        const errorMsg = response.message || 'No se encontraron pedidos';
+        if (errorMsg.includes('Error') || errorMsg.includes('error')) {
+          setError(errorMsg);
         }
-        
-        // Filtrar por búsqueda
-        if (busquedaDebounced) {
-          pedidosFiltrados = pedidosFiltrados.filter((p: Pedido) => 
-            p.id_pedido.toString().includes(busquedaDebounced) ||
-            p.nombre_consumidor?.toLowerCase().includes(busquedaDebounced.toLowerCase()) ||
-            p.nombre_productor?.toLowerCase().includes(busquedaDebounced.toLowerCase())
-          );
-        }
-        
-        setPedidos(pedidosFiltrados);
-        console.log('[PedidosScreen] Pedidos cargados:', pedidosFiltrados.length);
-      } else {
-        setError(response.message || 'Error cargando pedidos');
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error desconocido';

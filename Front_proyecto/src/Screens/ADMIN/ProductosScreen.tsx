@@ -19,6 +19,7 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
   const [busqueda, setBusqueda] = useState('');
   const [filtros, setFiltros] = useState<FiltrosProductos>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState<ProductoDetallado | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -71,6 +72,7 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
 
   const handleEliminarProducto = async (id: number, motivo: string) => {
     try {
+      setLoading(true);
       const response = await adminService.eliminarProductoInapropiado(id, motivo);
       
       if (response.success) {
@@ -82,7 +84,11 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
         mostrarToast(response.message || 'Error eliminando producto', 'error');
       }
     } catch (err) {
-      mostrarToast('Error eliminando producto', 'error');
+      const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
+      console.error('Error eliminando producto:', err);
+      mostrarToast(`Error eliminando producto: ${errorMsg}`, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -295,8 +301,8 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
                       variant="secondary"
                       icon="👁️"
                       onClick={() => {
-                        // Aquí podrías abrir un modal con detalles completos
-                        alert(`Detalles del producto: ${producto.nombre}`);
+                        setProductoSeleccionado(producto);
+                        setShowDetailsModal(true);
                       }}
                     >
                       Ver Detalles
@@ -350,6 +356,18 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
         </div>
       )}
 
+      {/* Modal para ver detalles del producto */}
+      {showDetailsModal && productoSeleccionado && (
+        <ProductDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setProductoSeleccionado(null);
+          }}
+          producto={productoSeleccionado}
+        />
+      )}
+
       {/* Modal para eliminar producto */}
       {showDeleteModal && productoSeleccionado && (
         <DeleteProductModal
@@ -359,8 +377,8 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
             setProductoSeleccionado(null);
           }}
           producto={productoSeleccionado}
-          onConfirm={(motivo) => {
-            handleEliminarProducto(productoSeleccionado.id_producto, motivo);
+          onConfirm={async (motivo) => {
+            await handleEliminarProducto(productoSeleccionado.id_producto, motivo);
           }}
         />
       )}
@@ -374,6 +392,138 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
         />
       )}
     </div>
+  );
+};
+
+// ===== MODAL PARA VER DETALLES DEL PRODUCTO =====
+interface ProductDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  producto: ProductoDetallado;
+}
+
+const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
+  isOpen,
+  onClose,
+  producto
+}) => {
+  const formatearMoneda = (cantidad: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0
+    }).format(cantidad);
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Detalles del Producto: ${producto.nombre}`}
+      size="large"
+    >
+      <div className="product-details-modal-content">
+        {/* Imagen del producto */}
+        <div className="product-details-image">
+          {producto.imagenUrl ? (
+            <img src={producto.imagenUrl} alt={producto.nombre} />
+          ) : (
+            <div className="no-image-large">
+              <span>🛍️</span>
+              <p>Sin imagen</p>
+            </div>
+          )}
+        </div>
+
+        {/* Información principal */}
+        <div className="product-details-section">
+          <h3 className="product-details-title">Información General</h3>
+          <div className="product-details-grid">
+            <div className="detail-row">
+              <span className="detail-label">Nombre:</span>
+              <span className="detail-value">{producto.nombre}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Descripción:</span>
+              <span className="detail-value">{producto.descripcion || 'Sin descripción'}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Categoría:</span>
+              <span className="detail-value">{producto.nombre_categoria || 'Sin categoría'}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Precio:</span>
+              <span className="detail-value price">{formatearMoneda(producto.precio)}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Stock disponible:</span>
+              <span className={`detail-value ${producto.stock === 0 ? 'out-of-stock' : 'in-stock'}`}>
+                {producto.stock} {producto.unidad_medida}
+              </span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Stock mínimo:</span>
+              <span className="detail-value">{producto.stock_minimo} {producto.unidad_medida}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Disponible:</span>
+              <span className="detail-value">
+                <Badge variant={producto.stock > 0 ? 'success' : 'error'}>
+                  {producto.stock > 0 ? 'Disponible' : 'Agotado'}
+                </Badge>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Información del productor */}
+        <div className="product-details-section">
+          <h3 className="product-details-title">Información del Productor</h3>
+          <div className="product-details-grid">
+            <div className="detail-row">
+              <span className="detail-label">Nombre:</span>
+              <span className="detail-value">{producto.nombre_productor}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Email:</span>
+              <span className="detail-value">{producto.email_productor}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Ubicación:</span>
+              <span className="detail-value">
+                {producto.ciudad_origen}, {producto.departamento_origen}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Estadísticas */}
+        {producto.total_resenas && producto.total_resenas > 0 && (
+          <div className="product-details-section">
+            <h3 className="product-details-title">Calificaciones</h3>
+            <div className="product-details-grid">
+              <div className="detail-row">
+                <span className="detail-label">Calificación promedio:</span>
+                <span className="detail-value">
+                  ⭐ {producto.calificacion_promedio?.toFixed(1) || '0.0'}
+                </span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Total de reseñas:</span>
+                <span className="detail-value">{producto.total_resenas}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Botón de cerrar */}
+        <div className="product-details-actions">
+          <Button variant="primary" onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 
@@ -403,8 +553,13 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
     }
 
     setLoading(true);
-    onConfirm(motivo);
-    setLoading(false);
+    try {
+      await onConfirm(motivo);
+    } catch (error) {
+      console.error('Error en confirmación de eliminación:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
