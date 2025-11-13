@@ -1,0 +1,269 @@
+/* 🎨 TEMA PROFESIONAL COLOMBIANO - AGROSTOCK */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Tipografía Profesional */
+  --font-primary: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-secondary: 'Inter', -apple-system, sans-serif;
+
+  /* Colores del Campo Colombiano */
+  --verde-bosque: #2D5016;
+  --verde-medio: #4A7C47;
+  --verde-claro: #6B9E68;
+  --verde-muy-claro: #A8D5BA;
+  
+  --ocre-tierra: #8B6914;
+  --ocre-claro: #B8942A;
+  --ocre-dorado: #D4B85C;
+  
+  --azul-cielo: #4A90E2;
+  --azul-profundo: #3571B8;
+  
+  --crema-trigo: #FDF6E3;
+  --crema-claro: #FFFBF0;
+  --blanco-puro: #FFFFFF;
+  
+  --rojo-colombiano: #CE1126;
+  --amarillo-colombiano: #FCD116;
+  --azul-colombiano: #003893;
+
+  /* Gradientes Profesionales */
+  --gradient-primary: linear-gradient(135deg, #2D5016 0%, #4A7C47 50%, #6B9E68 100%);
+  --gradient-earth: linear-gradient(135deg, #8B6914 0%, #B8942A 100%);
+  --gradient-sky: linear-gradient(135deg, #4A90E2 0%, #6BADFF 100%);
+  --gradient-field: linear-gradient(180deg, #F8FAFC 0%, #FDF6E3 50%, #F5E8D3 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(45, 80, 22, 0.95) 0%, rgba(74, 124, 71, 0.9) 100%);
+
+  /* Sombras Profesionales */
+  --shadow-soft: 0 2px 8px rgba(45, 80, 22, 0.08);
+  --shadow-medium: 0 4px 16px rgba(45, 80, 22, 0.12);
+  --shadow-large: 0 8px 24px rgba(45, 80, 22, 0.16);
+  --shadow-glow: 0 0 30px rgba(107, 158, 104, 0.4);
+
+  /* Espaciado */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  --spacing-2xl: 4rem;
+
+  /* Bordes */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Transiciones */
+  --transition-fast: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estilos Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-primary);
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1E293B;
+  background: var(--gradient-field);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tipografía */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--verde-bosque);
+  margin: 0;
+}
+
+h1 { font-size: 3rem; letter-spacing: -0.02em; }
+h2 { font-size: 2.25rem; letter-spacing: -0.01em; }
+h3 { font-size: 1.75rem; }
+h4 { font-size: 1.5rem; }
+
+/* Botones Profesionales */
+.btn {
+  font-family: var(--font-primary);
+  font-weight: 600;
+  padding: 0.875rem 2rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-medium);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-large);
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--verde-bosque);
+  border: 2px solid var(--verde-bosque);
+}
+
+.btn-secondary:hover {
+  background: var(--verde-bosque);
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Cards Profesionales */
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(45, 80, 22, 0.1);
+  transition: all var(--transition-normal);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-large);
+  border-color: var(--verde-medio);
+}
+
+/* Inputs Profesionales */
+.input {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  border: 2px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-family: var(--font-secondary);
+  transition: all var(--transition-fast);
+  background: white;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--verde-medio);
+  box-shadow: 0 0 0 3px rgba(74, 124, 71, 0.1);
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.6s ease-out;
+}
+
+/* Efectos de Campo Colombiano */
+.field-background {
+  position: relative;
+  background: var(--gradient-field);
+  overflow: hidden;
+}
+
+.field-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(107, 158, 104, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 105, 20, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Decoraciones del Campo */
+.field-decoration {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.field-decoration::after {
+  content: '🌾';
+  position: absolute;
+  font-size: 8rem;
+  opacity: 0.05;
+  top: 10%;
+  right: 10%;
+  transform: rotate(-15deg);
+}
+
+/* Scrollbar Personalizado */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--crema-trigo);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--verde-bosque);
+}
+
+
+

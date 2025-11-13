@@ -1,0 +1,60 @@
+{
+  "categorias": [
+    {
+      "id": 1,
+      "nombre": "Semillas",
+      "descripcion": "Semillas de diferentes cultivos",
+      "icono": "🌱",
+      "color": "#2D5016"
+    },
+    {
+      "id": 2,
+      "nombre": "Fertilizantes",
+      "descripcion": "Fertilizantes orgánicos e inorgánicos",
+      "icono": "🌿",
+      "color": "#4A7C47"
+    },
+    {
+      "id": 3,
+      "nombre": "Maquinaria",
+      "descripcion": "Equipos y maquinaria agrícola",
+      "icono": "🚜",
+      "color": "#8B6914"
+    },
+    {
+      "id": 4,
+      "nombre": "Herramientas",
+      "descripcion": "Herramientas manuales y eléctricas",
+      "icono": "🔧",
+      "color": "#B8942A"
+    },
+    {
+      "id": 5,
+      "nombre": "Insumos",
+      "descripcion": "Insumos agrícolas diversos",
+      "icono": "📦",
+      "color": "#4A90E2"
+    },
+    {
+      "id": 6,
+      "nombre": "Productos Orgánicos",
+      "descripcion": "Productos agrícolas orgánicos",
+      "icono": "🌾",
+      "color": "#10B981"
+    }
+  ]
+}
+
+
+
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
+
+
+
+
+
+

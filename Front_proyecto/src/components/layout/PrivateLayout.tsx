@@ -1,0 +1,70 @@
+import React, { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import Sidebar from './Sidebar';
+import DashboardHeader from './DashboardHeader';
+
+const PrivateLayout: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Siempre abierto por defecto
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDesktop = () => {
+      const isDesktopSize = window.innerWidth >= 992;
+      setIsDesktop(isDesktopSize);
+      // En desktop, sidebar siempre abierto y no se puede cerrar
+      if (isDesktopSize) {
+        setSidebarOpen(true);
+      }
+    };
+    
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Asegurar que el sidebar esté siempre abierto en desktop
+  useEffect(() => {
+    if (isDesktop && !sidebarOpen) {
+      setSidebarOpen(true);
+    }
+  }, [isDesktop, sidebarOpen]);
+
+  const toggleSidebar = () => {
+    // Solo permitir cerrar en móvil
+    if (window.innerWidth < 992) {
+      setSidebarOpen(!sidebarOpen);
+    }
+  };
+
+  return (
+    <div className="d-flex flex-column min-vh-100">
+      {/* Header con opciones de usuario */}
+      <DashboardHeader onToggleSidebar={toggleSidebar} />
+      
+      <div className="d-flex flex-grow-1" style={{ marginTop: '60px' }}>
+        <Sidebar isOpen={sidebarOpen} onClose={() => {
+          // Solo cerrar en móvil
+          if (window.innerWidth < 992) {
+            setSidebarOpen(false);
+          }
+        }} />
+        
+        <main 
+          className="flex-grow-1 p-4"
+          style={{ 
+            marginLeft: isDesktop && sidebarOpen ? '280px' : '0',
+            transition: 'margin-left 0.3s ease-in-out',
+            width: '100%',
+            minHeight: 'calc(100vh - 60px)',
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default PrivateLayout;
+

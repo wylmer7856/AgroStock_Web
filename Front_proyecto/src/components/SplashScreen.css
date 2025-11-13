@@ -1,0 +1,100 @@
+/* 🎬 ESTILOS DEL SPLASH SCREEN - AGROSTOCK */
+
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #2D5016 0%, #4A7C47 50%, #6B9E68 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+}
+
+.splash-screen.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.splash-screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  max-width: 600px;
+  padding: 2rem;
+}
+
+.splash-animation {
+  width: 100%;
+  max-width: 500px;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-text {
+  text-align: center;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.splash-logo {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+}
+
+.splash-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 400;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .splash-animation {
+    max-width: 400px;
+    height: 400px;
+  }
+
+  .splash-logo {
+    max-width: 250px;
+  }
+
+  .splash-subtitle {
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .splash-animation {
+    max-width: 300px;
+    height: 300px;
+  }
+
+  .splash-logo {
+    max-width: 200px;
+  }
+
+  .splash-subtitle {
+    font-size: 1rem;
+  }
+}
+
