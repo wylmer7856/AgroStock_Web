@@ -313,7 +313,7 @@ export class ProductosModel {
                     try {
                         // @ts-ignore - Deno is a global object in Deno runtime
                         if (await Deno.stat(productDir).then(() => true).catch(() => false)) {
-                            // @ts-ignore
+                            // @ts-ignore - Deno.remove is a valid Deno API method
                             await Deno.remove(productDir, { recursive: true });
                             console.log(`🗑️ [ProductosModel.EditarProducto] Imagen anterior eliminada`);
                         }
@@ -341,7 +341,6 @@ export class ProductosModel {
 
                 console.log(`📊 [ProductosModel.EditarProducto] Resultado del UPDATE:`, {
                     affectedRows: result?.affectedRows,
-                    insertId: result?.insertId,
                     result: result
                 });
 

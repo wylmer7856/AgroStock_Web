@@ -4,9 +4,39 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService, categoriasService, carritoService, listaDeseosService } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { BiSearch, BiFilter, BiHeart, BiCart, BiPackage, BiX, BiCheckCircle, BiUser } from 'react-icons/bi';
+import { BiSearch, BiFilter, BiCart, BiPackage, BiX, BiUser } from 'react-icons/bi';
 import type { Producto, Categoria } from '../types';
 import './ProductosPage.css';
+
+// Componentes personalizados para los iconos de corazón
+const HeartOutline = () => (
+  <svg 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="#dc3545" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    style={{ display: 'block' }}
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+  </svg>
+);
+
+const HeartFilled = () => (
+  <svg 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="#dc3545" 
+    stroke="none"
+    style={{ display: 'block' }}
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+  </svg>
+);
 
 const ProductosPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -24,15 +54,17 @@ const ProductosPage: React.FC = () => {
       const categoriaParam = searchParams.get('categoria');
       if (categoriaParam) {
         const categoriaId = parseInt(categoriaParam, 10);
-        if (!isNaN(categoriaId)) {
+        if (!isNaN(categoriaId) && categoriaId > 0) {
           setSelectedCategory(categoriaId);
+        } else {
+          setSelectedCategory(null);
         }
       } else {
-        // Si no hay parámetro, limpiar la selección
         setSelectedCategory(null);
       }
     } catch (error) {
       console.error('Error leyendo parámetro de categoría:', error);
+      setSelectedCategory(null);
     }
   }, [searchParams]);
 
@@ -40,16 +72,48 @@ const ProductosPage: React.FC = () => {
   const { data: productosData, isLoading: productosLoading } = useQuery({
     queryKey: ['productos', searchTerm, selectedCategory, priceRange],
     queryFn: async () => {
-      const filtros = {
-        nombre: searchTerm || undefined,
-        id_categoria: selectedCategory || undefined,
-        precio_min: priceRange.min,
-        precio_max: priceRange.max,
-      };
-      console.log('ðŸ” Frontend - Filtros enviados:', filtros);
-      console.log('ðŸ” Frontend - selectedCategory:', selectedCategory);
+      const filtros: {
+        nombre?: string;
+        id_categoria?: number;
+        precio_min?: number;
+        precio_max?: number;
+      } = {};
+      
+      if (searchTerm && searchTerm.trim() !== '') {
+        filtros.nombre = searchTerm.trim();
+      }
+      
+      if (selectedCategory !== null && selectedCategory !== undefined) {
+        filtros.id_categoria = selectedCategory;
+      }
+      
+      if (priceRange.min > 0) {
+        filtros.precio_min = priceRange.min;
+      }
+      
+      if (priceRange.max < 100000) {
+        filtros.precio_max = priceRange.max;
+      }
+      
       const response = await productosService.listarProductos(filtros);
-      console.log('ðŸ“¦ Frontend - Productos recibidos:', response.data?.length || 0);
+      
+      if (selectedCategory !== null && selectedCategory !== undefined && response.data) {
+        const productosFiltrados = response.data.filter((p: Producto) => {
+          const catId = p.id_categoria ? Number(p.id_categoria) : null;
+          const esCorrecto = catId === selectedCategory;
+          if (!esCorrecto) {
+            console.error(`❌ Producto con categoría incorrecta filtrado: "${p.nombre}" tiene categoría ${p.id_categoria} pero se esperaba ${selectedCategory}`);
+          }
+          return esCorrecto;
+        });
+        
+        if (productosFiltrados.length !== response.data.length) {
+          console.error(`⚠️ Se filtraron ${response.data.length - productosFiltrados.length} productos con categoría incorrecta del backend`);
+        }
+        
+        return productosFiltrados;
+      }
+      
       return response.data || [];
     },
   });
@@ -63,12 +127,12 @@ const ProductosPage: React.FC = () => {
     },
   });
 
-  // Query para lista de deseos (para verificar quÃ© productos estÃ¡n en favoritos)
+  // Query para lista de deseos
   const { data: listaDeseosData } = useQuery({
     queryKey: ['lista-deseos'],
     queryFn: async () => {
       if (!isAuthenticated || user?.rol !== 'consumidor') return [];
-      const response = await listaDeseosService.obtenerListaDeseos();
+      const response = await listaDeseosService.obtenerMiListaDeseos();
       return response.data || [];
     },
     enabled: isAuthenticated && user?.rol === 'consumidor',
@@ -76,14 +140,14 @@ const ProductosPage: React.FC = () => {
 
   const productosEnListaDeseos = React.useMemo(() => {
     if (!listaDeseosData) return new Set<number>();
-    return new Set(listaDeseosData.map((item: any) => item.id_producto || item.producto?.id_producto));
+    return new Set(listaDeseosData.map((item: { id_producto?: number; producto?: { id_producto?: number } }) => item.id_producto || item.producto?.id_producto));
   }, [listaDeseosData]);
 
-  const productosDataRaw = productosData || [];
   const categorias = categoriasData || [];
 
   // Ordenar productos
   const productos = React.useMemo(() => {
+    const productosDataRaw = productosData || [];
     const sorted = [...productosDataRaw];
     switch (sortBy) {
       case 'precio_asc':
@@ -96,7 +160,7 @@ const ProductosPage: React.FC = () => {
       default:
         return sorted.sort((a, b) => a.nombre.localeCompare(b.nombre));
     }
-  }, [productosDataRaw, sortBy]);
+  }, [productosData, sortBy]);
 
   // Mutation para agregar al carrito
   const agregarAlCarritoMutation = useMutation({
@@ -110,7 +174,7 @@ const ProductosPage: React.FC = () => {
       toast.success('Producto agregado al carrito');
       queryClient.invalidateQueries({ queryKey: ['carrito'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error.message || 'Error al agregar al carrito');
     },
   });
@@ -124,12 +188,30 @@ const ProductosPage: React.FC = () => {
         return await listaDeseosService.eliminarProductoDeListaDeseos(idProducto);
       }
     },
+    onMutate: async ({ idProducto, agregar }) => {
+      await queryClient.cancelQueries({ queryKey: ['lista-deseos'] });
+      const previousListaDeseos = queryClient.getQueryData(['lista-deseos']);
+      
+      queryClient.setQueryData(['lista-deseos'], (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        if (agregar) {
+          return [...old, { id_producto: idProducto }];
+        } else {
+          return old.filter((item: { id_producto?: number }) => item.id_producto !== idProducto);
+        }
+      });
+      
+      return { previousListaDeseos };
+    },
     onSuccess: (_, variables) => {
       toast.success(variables.agregar ? 'Agregado a favoritos' : 'Eliminado de favoritos');
       queryClient.invalidateQueries({ queryKey: ['lista-deseos'] });
       queryClient.invalidateQueries({ queryKey: ['lista-deseos-verificar'] });
     },
-    onError: (error: any) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.previousListaDeseos) {
+        queryClient.setQueryData(['lista-deseos'], context.previousListaDeseos);
+      }
       toast.error(error.message || 'Error al actualizar favoritos');
     },
   });
@@ -139,7 +221,7 @@ const ProductosPage: React.FC = () => {
     e.stopPropagation();
     
     if (!isAuthenticated || user?.rol !== 'consumidor') {
-      toast.warning('Debes iniciar sesiÃ³n como consumidor para agregar productos al carrito');
+      toast.warning('Debes iniciar sesión como consumidor para agregar productos al carrito');
       navigate('/login', { state: { from: '/productos' } });
       return;
     }
@@ -151,7 +233,7 @@ const ProductosPage: React.FC = () => {
     e.stopPropagation();
     
     if (!isAuthenticated || user?.rol !== 'consumidor') {
-      toast.warning('Debes iniciar sesiÃ³n como consumidor para usar la lista de deseos');
+      toast.warning('Debes iniciar sesión como consumidor para usar la lista de deseos');
       navigate('/login', { state: { from: '/productos' } });
       return;
     }
@@ -171,7 +253,7 @@ const ProductosPage: React.FC = () => {
               </h5>
             </div>
             <div className="card-body">
-              {/* BÃºsqueda */}
+              {/* Búsqueda */}
               <div className="mb-4">
                 <label className="form-label fw-bold">Buscar</label>
                 <div className="input-group">
@@ -196,7 +278,11 @@ const ProductosPage: React.FC = () => {
                     className={`list-group-item list-group-item-action ${selectedCategory === null ? 'active' : ''}`}
                     onClick={() => {
                       setSelectedCategory(null);
-                      setSearchParams({});
+                      const newParams = new URLSearchParams();
+                      if (searchTerm) newParams.set('nombre', searchTerm);
+                      if (priceRange.min > 0) newParams.set('precio_min', priceRange.min.toString());
+                      if (priceRange.max < 100000) newParams.set('precio_max', priceRange.max.toString());
+                      setSearchParams(newParams);
                     }}
                   >
                     Todas las categorías
@@ -224,7 +310,7 @@ const ProductosPage: React.FC = () => {
                     <input
                       type="number"
                       className="form-control form-control-sm"
-                      placeholder="MÃ­n"
+                      placeholder="Mín"
                       value={priceRange.min || ''}
                       onChange={(e) => setPriceRange({ ...priceRange, min: Number(e.target.value) || 0 })}
                     />
@@ -233,7 +319,7 @@ const ProductosPage: React.FC = () => {
                     <input
                       type="number"
                       className="form-control form-control-sm"
-                      placeholder="MÃ¡x"
+                      placeholder="Máx"
                       value={priceRange.max || ''}
                       onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) || 100000 })}
                     />
@@ -271,7 +357,7 @@ const ProductosPage: React.FC = () => {
 
         {/* Lista de Productos */}
         <div className="col-lg-9">
-          {/* Header con bÃºsqueda y ordenamiento */}
+          {/* Header con búsqueda y ordenamiento */}
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-body">
               <div className="row align-items-center">
@@ -290,7 +376,7 @@ const ProductosPage: React.FC = () => {
                     <select
                       className="form-select form-select-sm"
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
+                      onChange={(e) => setSortBy(e.target.value as 'nombre' | 'precio_asc' | 'precio_desc' | 'stock')}
                       style={{ maxWidth: '200px' }}
                     >
                       <option value="nombre">Nombre A-Z</option>
@@ -324,7 +410,7 @@ const ProductosPage: React.FC = () => {
             <div className="text-center py-5">
               <BiPackage className="display-1 text-muted mb-3" />
               <h4 className="text-muted">No se encontraron productos</h4>
-              <p className="text-muted">Intenta ajustar los filtros de bÃºsqueda</p>
+              <p className="text-muted">Intenta ajustar los filtros de búsqueda</p>
             </div>
           ) : (
             <div className="row g-4">
@@ -333,8 +419,8 @@ const ProductosPage: React.FC = () => {
                 return (
                   <div key={producto.id_producto} className="col-md-6 col-lg-4">
                     <div className="card product-card h-100 border-0 shadow-sm">
-                      <Link to={`/productos/${producto.id_producto}`} className="text-decoration-none">
-                        <div className="position-relative overflow-hidden">
+                      <div className="position-relative overflow-hidden">
+                        <Link to={`/productos/${producto.id_producto}`} className="text-decoration-none">
                           {producto.imagen_principal || producto.imagenUrl ? (
                             <img
                               src={producto.imagenUrl || producto.imagen_principal || '/placeholder.png'}
@@ -350,48 +436,34 @@ const ProductosPage: React.FC = () => {
                               <BiPackage className="display-4 text-muted" />
                             </div>
                           )}
-                          <div className="position-absolute top-0 end-0 m-2 d-flex flex-column gap-1">
-                            {!producto.disponible && (
-                              <span className="badge bg-danger">
-                                Agotado
-                              </span>
-                            )}
-                            {producto.stock > 0 && producto.stock <= (producto.stock_minimo || 5) && producto.disponible && (
-                              <span className="badge bg-warning text-dark">
-                                Stock Bajo
-                              </span>
-                            )}
-                          </div>
-                          {/* Botón de favorito flotante */}
-                          {isAuthenticated && user?.rol === 'consumidor' && (
-                            <button
-                              className="position-absolute top-0 start-0 m-2 btn btn-sm rounded-circle"
-                              style={{
-                                backgroundColor: estaEnLista ? 'rgba(220, 53, 69, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                                border: 'none',
-                                width: '40px',
-                                height: '40px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                                zIndex: 10
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleToggleListaDeseos(e, producto.id_producto, estaEnLista);
-                              }}
-                              title={estaEnLista ? 'Eliminar de favoritos' : 'Agregar a favoritos'}
-                            >
-                              <BiHeart 
-                                className={estaEnLista ? 'text-white' : 'text-danger'} 
-                                style={{ fontSize: '1.2rem' }}
-                              />
-                            </button>
+                        </Link>
+                        <div className="position-absolute top-0 end-0 m-2 d-flex flex-column gap-1">
+                          {!producto.disponible && (
+                            <span className="badge bg-danger">
+                              Agotado
+                            </span>
+                          )}
+                          {producto.stock > 0 && producto.stock <= (producto.stock_minimo || 5) && producto.disponible && (
+                            <span className="badge bg-warning text-dark">
+                              Stock Bajo
+                            </span>
                           )}
                         </div>
-                      </Link>
+                        {/* Botón de favorito flotante CON ICONOS PERSONALIZADOS */}
+                        {isAuthenticated && user?.rol === 'consumidor' && (
+                          <button
+                            className="position-absolute top-0 start-0 m-2 btn btn-sm rounded-circle heart-button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleToggleListaDeseos(e, producto.id_producto, estaEnLista);
+                            }}
+                            title={estaEnLista ? 'Eliminar de favoritos' : 'Agregar a favoritos'}
+                          >
+                            {estaEnLista ? <HeartFilled /> : <HeartOutline />}
+                          </button>
+                        )}
+                      </div>
                       
                       <div className="card-body d-flex flex-column">
                         <Link to={`/productos/${producto.id_producto}`} className="text-decoration-none text-dark">
@@ -463,10 +535,10 @@ const ProductosPage: React.FC = () => {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  toast.warning('Debes iniciar sesiÃ³n para agregar al carrito');
+                                  toast.warning('Debes iniciar sesión para agregar al carrito');
                                   navigate('/login', { state: { from: '/productos' } });
                                 }}
-                                title="Inicia sesiÃ³n para agregar al carrito"
+                                title="Inicia sesión para agregar al carrito"
                               >
                                 <BiCart />
                               </button>

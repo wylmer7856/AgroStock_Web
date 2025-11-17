@@ -7,6 +7,8 @@ import { carritoLocalService } from '../../services/carritoLocal';
 import { listaDeseosLocalService } from '../../services/listaDeseosLocal';
 import { toast } from 'react-toastify';
 import logoProyecto from '../../assets/logoProyecto.png';
+import './Navbar.css';
+import type { Notification } from '../../types';
 import { 
   BiCart, 
   BiHeart, 
@@ -19,14 +21,27 @@ import {
   BiStore,
   BiCategory,
   BiStar,
-  BiReceipt,
-  BiMessageSquare,
-  BiCog
 } from 'react-icons/bi';
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
 }
+
+// Estilos inline para forzar transparencia en navbar
+const navLinkStyle: React.CSSProperties = {
+  backgroundColor: 'transparent',
+  background: 'transparent',
+};
+
+const handleNavLinkMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
+  e.currentTarget.style.setProperty('background-color', 'transparent', 'important');
+  e.currentTarget.style.setProperty('background', 'transparent', 'important');
+};
+
+const handleNavLinkMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
+  e.currentTarget.style.setProperty('background-color', 'transparent', 'important');
+  e.currentTarget.style.setProperty('background', 'transparent', 'important');
+};
 
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -34,9 +49,34 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const location = useLocation();
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificacionesRecientes, setNotificacionesRecientes] = useState<Notification[]>([]);
+  const [notificacionesLoading, setNotificacionesLoading] = useState(false);
+  const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [carritoCount, setCarritoCount] = useState(0);
   const [listaDeseosCount, setListaDeseosCount] = useState(0);
+
+  // Forzar estilos de navbar - aplicar cada vez que cambie algo
+  useEffect(() => {
+    const forceTransparent = () => {
+      document.querySelectorAll('.navbar .nav-link').forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        htmlEl.style.setProperty('background', 'transparent', 'important');
+        htmlEl.style.setProperty('background-color', 'transparent', 'important');
+      });
+    };
+    
+    forceTransparent();
+    const observer = new MutationObserver(forceTransparent);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    const interval = setInterval(forceTransparent, 50);
+    
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
+  }, []);
 
   // Query para carrito cuando está autenticado
   const { data: carritoData } = useQuery({
@@ -68,45 +108,63 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       }
     },
     enabled: isAuthenticated && user?.rol === 'consumidor',
-    refetchInterval: 10000,
+    refetchInterval: 10000, // Actualizar cada 10 segundos (menos frecuente)
     retry: 1,
   });
 
-  // Cargar contadores de carrito y lista de deseos
+  // Actualizar contador de lista de deseos cuando cambian los datos
+  useEffect(() => {
+    if (isAuthenticated && user?.rol === 'consumidor') {
+      if (Array.isArray(listaDeseosData)) {
+        setListaDeseosCount(listaDeseosData.length);
+      } else {
+        setListaDeseosCount(0);
+      }
+    } else {
+      // Usar datos locales
+      const listaDeseos = listaDeseosLocalService.obtenerListaDeseos();
+      setListaDeseosCount(listaDeseos?.length || 0);
+    }
+  }, [listaDeseosData, isAuthenticated, user]);
+
+  // Cargar contadores de carrito
   useEffect(() => {
     const actualizarContadores = () => {
       try {
         if (isAuthenticated && user?.rol === 'consumidor') {
           // Usar datos del servidor
           setCarritoCount(carritoData?.items?.length || 0);
-          setListaDeseosCount(Array.isArray(listaDeseosData) ? listaDeseosData.length : 0);
         } else {
           // Usar datos locales
           const carrito = carritoLocalService.obtenerCarrito();
-          const listaDeseos = listaDeseosLocalService.obtenerListaDeseos();
           setCarritoCount(carrito?.items?.length || 0);
-          setListaDeseosCount(listaDeseos?.length || 0);
         }
       } catch (error) {
         console.error('Error actualizando contadores:', error);
         setCarritoCount(0);
-        setListaDeseosCount(0);
       }
     };
 
     actualizarContadores();
-    // Actualizar cuando cambia la ruta (menos frecuente)
+    // Actualizar cuando cambia la ruta o los datos
     const interval = setInterval(actualizarContadores, 2000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, user, location.pathname, carritoData, listaDeseosData]);
+  }, [isAuthenticated, user, location.pathname, carritoData]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!isAuthenticated || !user) return;
+
+    const fetchNotifications = () => {
       cargarNotificacionesNoLeidas();
-      const interval = setInterval(cargarNotificacionesNoLeidas, 30000); // Cada 30 segundos
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, user]);
+      if (showNotifications) {
+        cargarNotificacionesRecientes();
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000); // refrescar cada 5s para una experiencia más cercana a tiempo real
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user, showNotifications]);
 
   // Cerrar menús al hacer clic fuera
   useEffect(() => {
@@ -132,6 +190,29 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     }
   }, []);
 
+  useEffect(() => {
+    setShowNotifications(false);
+  }, [location.pathname]);
+
+  const cargarNotificacionesRecientes = async () => {
+    try {
+      setNotificacionesLoading(true);
+      setNotificacionesError(null);
+      const response = await notificacionesService.obtenerMisNotificaciones(5);
+      if (response.success && Array.isArray(response.data)) {
+        setNotificacionesRecientes(response.data);
+      } else {
+        setNotificacionesRecientes([]);
+      }
+    } catch (error) {
+      console.error('Error cargando notificaciones recientes:', error);
+      setNotificacionesError('No se pudo cargar el listado de notificaciones');
+      setNotificacionesRecientes([]);
+    } finally {
+      setNotificacionesLoading(false);
+    }
+  };
+
   const cargarNotificacionesNoLeidas = async () => {
     try {
       const response = await notificacionesService.contarNoLeidas();
@@ -141,6 +222,37 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     } catch (error) {
       console.error('Error cargando notificaciones:', error);
     }
+  };
+
+  const handleToggleNotifications = () => {
+    const nextValue = !showNotifications;
+    setShowNotifications(nextValue);
+    if (nextValue) {
+      setShowUserMenu(false);
+      cargarNotificacionesRecientes();
+      cargarNotificacionesNoLeidas();
+    }
+  };
+
+  const handleNotificationClick = async (notificacion: Notification) => {
+    setShowNotifications(false);
+    const navigateTo = '/notificaciones';
+
+    if (!notificacion.leida) {
+      try {
+        await notificacionesService.marcarComoLeida(notificacion.id_notificacion);
+        setNotificacionesRecientes((prev) =>
+          prev.map((n) =>
+            n.id_notificacion === notificacion.id_notificacion ? { ...n, leida: true } : n
+          )
+        );
+        setNotificacionesNoLeidas((prev) => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error('Error marcando notificación como leída:', error);
+      }
+    }
+
+    navigate(navigateTo);
   };
 
   const handleLogout = async () => {
@@ -229,6 +341,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <Link 
                 className={`nav-link ${location.pathname === '/' ? 'active fw-bold' : ''}`} 
                 to="/"
+                style={navLinkStyle}
+                onMouseEnter={handleNavLinkMouseEnter}
+                onMouseLeave={handleNavLinkMouseLeave}
                 onClick={(e) => {
                   if (location.pathname === '/') {
                     e.preventDefault();
@@ -246,6 +361,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <Link 
                 className={`nav-link ${location.pathname.startsWith('/productos') && !location.pathname.startsWith('/productor/productos') ? 'active fw-bold' : ''}`} 
                 to="/productos"
+                style={navLinkStyle}
+                onMouseEnter={handleNavLinkMouseEnter}
+                onMouseLeave={handleNavLinkMouseLeave}
               >
                 <BiPackage className="me-1" />
                 Productos
@@ -258,7 +376,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <button
                   className="nav-link border-0 bg-transparent text-white"
                   onClick={() => handleScrollToSection('categorias-section')}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <BiCategory className="me-1" />
                   Categorías
@@ -272,7 +392,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <button
                   className="nav-link border-0 bg-transparent text-white"
                   onClick={() => handleScrollToSection('productos-destacados')}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: 'pointer', backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <BiStar className="me-1" />
                   Destacados
@@ -286,6 +408,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <Link 
                   className={`nav-link ${location.pathname.startsWith('/productor/productos') ? 'active fw-bold' : ''}`} 
                   to="/productor/productos"
+                  style={{ backgroundColor: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <BiPackage className="me-1" />
                   Mis Productos
@@ -299,45 +424,90 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           <ul className="navbar-nav ms-auto align-items-center">
             {/* Lista de deseos - Siempre visible */}
             <li className="nav-item">
-              <Link 
-                className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
-                to={isAuthenticated && user?.rol === 'consumidor' ? '/consumidor/lista-deseos' : '/lista-deseos'}
-                title="Lista de Deseos"
-              >
-                <BiHeart className="fs-5" />
-                {listaDeseosCount > 0 && (
-                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                    {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                  </span>
-                )}
-              </Link>
+              {isAuthenticated && user?.rol === 'consumidor' ? (
+                <Link 
+                  className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
+                  to="/consumidor/lista-deseos"
+                  title="Lista de Deseos"
+                  style={navLinkStyle}
+                  onMouseEnter={handleNavLinkMouseEnter}
+                  onMouseLeave={handleNavLinkMouseLeave}
+                >
+                  <BiHeart className="fs-5" />
+                  {listaDeseosCount > 0 && (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                      {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <span
+                  className="nav-link position-relative"
+                  style={{ ...navLinkStyle, cursor: 'pointer' }}
+                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                  title="Inicia sesión para ver tu lista de deseos"
+                  onMouseEnter={handleNavLinkMouseEnter}
+                  onMouseLeave={handleNavLinkMouseLeave}
+                >
+                  <BiHeart className="fs-5" />
+                  {listaDeseosCount > 0 && (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                      {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                    </span>
+                  )}
+                </span>
+              )}
             </li>
 
             {/* Carrito - Siempre visible */}
             <li className="nav-item">
-              <Link 
-                className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
-                to={isAuthenticated && user?.rol === 'consumidor' ? '/consumidor/carrito' : '/carrito'}
-                title="Carrito de Compras"
-              >
-                <BiCart className="fs-5" />
-                {carritoCount > 0 && (
-                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                    {carritoCount > 9 ? '9+' : carritoCount}
-                  </span>
-                )}
-              </Link>
+              {isAuthenticated && user?.rol === 'consumidor' ? (
+                <Link 
+                  className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
+                  to="/consumidor/carrito"
+                  title="Carrito de Compras"
+                  style={navLinkStyle}
+                  onMouseEnter={handleNavLinkMouseEnter}
+                  onMouseLeave={handleNavLinkMouseLeave}
+                >
+                  <BiCart className="fs-5" />
+                  {carritoCount > 0 && (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                      {carritoCount > 9 ? '9+' : carritoCount}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <span
+                  className="nav-link position-relative"
+                  style={{ ...navLinkStyle, cursor: 'pointer' }}
+                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                  title="Inicia sesión para ver tu carrito"
+                  onMouseEnter={handleNavLinkMouseEnter}
+                  onMouseLeave={handleNavLinkMouseLeave}
+                >
+                  <BiCart className="fs-5" />
+                  {carritoCount > 0 && (
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                      {carritoCount > 9 ? '9+' : carritoCount}
+                    </span>
+                  )}
+                </span>
+              )}
             </li>
 
             {isAuthenticated && user ? (
               <>
 
                 {/* Notificaciones */}
-                <li className="nav-item dropdown">
+                <li className="nav-item dropdown" style={{ position: 'relative' }}>
                   <button
                     className="nav-link position-relative btn btn-link text-white border-0 p-2"
-                    onClick={() => setShowNotifications(!showNotifications)}
+                    onClick={handleToggleNotifications}
                     type="button"
+                    style={{ backgroundColor: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <BiBell className="fs-5" />
                     {notificacionesNoLeidas > 0 && (
@@ -346,14 +516,86 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                       </span>
                     )}
                   </button>
+                  {showNotifications && (
+                    <div
+                      className="dropdown-menu dropdown-menu-end show"
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        zIndex: 1050,
+                        minWidth: '320px',
+                        maxWidth: '360px',
+                        marginTop: '0.5rem',
+                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+                        borderRadius: '0.75rem',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                        <strong>Notificaciones</strong>
+                        <button
+                          className="btn btn-link btn-sm p-0 text-decoration-none"
+                          onClick={() => {
+                            setShowNotifications(false);
+                            navigate('/notificaciones');
+                          }}
+                        >
+                          Ver todas
+                        </button>
+                      </div>
+                      <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                        {notificacionesLoading ? (
+                          <div className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                              <span className="visually-hidden">Cargando...</span>
+                            </div>
+                          </div>
+                        ) : notificacionesError ? (
+                          <div className="text-center text-muted small py-3 px-3">
+                            {notificacionesError}
+                          </div>
+                        ) : notificacionesRecientes.length === 0 ? (
+                          <div className="text-center text-muted small py-3 px-3">
+                            No tienes notificaciones recientes
+                          </div>
+                        ) : (
+                          notificacionesRecientes.map((notificacion) => (
+                            <button
+                              key={notificacion.id_notificacion}
+                              className={`dropdown-item text-wrap ${notificacion.leida ? '' : 'fw-semibold'}`}
+                              style={{ whiteSpace: 'normal' }}
+                              onClick={() => handleNotificationClick(notificacion)}
+                            >
+                              <div className="d-flex justify-content-between">
+                                <span>{notificacion.titulo}</span>
+                                <small className="text-muted">
+                                  {new Date(notificacion.fecha_creacion).toLocaleDateString('es-CO', {
+                                    day: '2-digit',
+                                    month: 'short'
+                                  })}
+                                </small>
+                              </div>
+                              <small className="text-muted d-block">
+                                {notificacion.mensaje}
+                              </small>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </li>
 
                 {/* Menú de usuario */}
-                <li className="nav-item dropdown">
+                <li className="nav-item dropdown" style={{ position: 'relative' }}>
                   <button
                     className="nav-link dropdown-toggle d-flex align-items-center text-white border-0 bg-transparent"
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     type="button"
+                    style={{ backgroundColor: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     {user.foto_perfil ? (
                       <div className="position-relative me-2" style={{ width: '32px', height: '32px' }}>
@@ -399,7 +641,18 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     <span className="d-none d-md-inline">{user.nombre}</span>
                   </button>
                   {showUserMenu && (
-                    <ul className="dropdown-menu dropdown-menu-end show" style={{ position: 'absolute', zIndex: 1000, minWidth: '200px' }}>
+                    <ul 
+                      className="dropdown-menu dropdown-menu-end show" 
+                      style={{ 
+                        position: 'absolute', 
+                        top: '100%', 
+                        right: 0,
+                        zIndex: 1050, 
+                        minWidth: '200px',
+                        marginTop: '0.5rem',
+                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)'
+                      }}
+                    >
                       <li>
                         <h6 className="dropdown-header">
                           {user?.nombre || 'Usuario'}

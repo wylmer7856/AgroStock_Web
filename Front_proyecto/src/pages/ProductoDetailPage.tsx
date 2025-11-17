@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { productosService, historialPreciosService, listaDeseosService, carritoService, productoresService } from '../services';
+import { productosService, historialPreciosService, listaDeseosService, carritoService, productoresService, mensajesService } from '../services';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -36,6 +37,11 @@ const ProductoDetailPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [cantidad, setCantidad] = useState(1);
+  const [showMensajeModal, setShowMensajeModal] = useState(false);
+  const [mensajeForm, setMensajeForm] = useState({
+    asunto: '',
+    mensaje: ''
+  });
 
   // Query para producto
   const { data: producto, isLoading } = useQuery({
@@ -202,6 +208,65 @@ const ProductoDetailPage: React.FC = () => {
     toggleListaDeseosMutation.mutate();
   };
 
+  // Mutation para enviar mensaje al productor
+  const enviarMensajeMutation = useMutation({
+    mutationFn: async (data: { asunto: string; mensaje: string }) => {
+      if (!producto?.id_usuario || !id) {
+        throw new Error('Información del producto o productor no disponible');
+      }
+      return await mensajesService.enviarMensaje({
+        id_destinatario: producto.id_usuario,
+        id_producto: parseInt(id),
+        asunto: data.asunto,
+        mensaje: data.mensaje,
+        tipo_mensaje: 'consulta'
+      });
+    },
+    onSuccess: () => {
+      toast.success('✅ Mensaje enviado correctamente al productor');
+      setShowMensajeModal(false);
+      setMensajeForm({ asunto: '', mensaje: '' });
+      queryClient.invalidateQueries({ queryKey: ['mensajes'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Error al enviar el mensaje');
+    },
+  });
+
+  const handleAbrirMensajeModal = () => {
+    if (!isAuthenticated || user?.rol !== 'consumidor') {
+      toast.warning('Debes iniciar sesión como consumidor para enviar mensajes');
+      navigate('/login', { state: { from: `/productos/${id}` } });
+      return;
+    }
+    // Inicializar el asunto con el nombre del producto
+    setMensajeForm({
+      asunto: producto ? `Consulta sobre: ${producto.nombre}` : '',
+      mensaje: ''
+    });
+    setShowMensajeModal(true);
+  };
+
+  const handleEnviarMensaje = () => {
+    if (!mensajeForm.asunto.trim() || !mensajeForm.mensaje.trim()) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
+    enviarMensajeMutation.mutate(mensajeForm);
+  };
+
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (showMensajeModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+    return;
+  }, [showMensajeModal]);
+
   if (isLoading) {
     return (
       <div className="container py-5">
@@ -228,7 +293,135 @@ const ProductoDetailPage: React.FC = () => {
     );
   }
 
+  const mensajeModalPortal = showMensajeModal
+    ? createPortal(
+        <div 
+          style={{ 
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            zIndex: 1055,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowMensajeModal(false);
+            }
+          }}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '600px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h5 className="modal-title">
+                <BiMessageSquare className="me-2" />
+                Enviar Mensaje al Productor
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setShowMensajeModal(false)}
+                disabled={enviarMensajeMutation.isPending}
+              ></button>
+            </div>
+            <div className="modal-body">
+              {producto && (
+                <div className="mb-3 p-3 bg-light rounded">
+                  <small className="text-muted d-block mb-1">Producto:</small>
+                  <strong>{producto.nombre}</strong>
+                  {producto.nombre_productor && (
+                    <>
+                      <small className="text-muted d-block mt-1 mb-1">Productor:</small>
+                      <strong>{producto.nombre_productor}</strong>
+                    </>
+                  )}
+                </div>
+              )}
+              <div className="mb-3">
+                <label htmlFor="asunto-mensaje" className="form-label fw-bold">
+                  Asunto <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="asunto-mensaje"
+                  className="form-control"
+                  value={mensajeForm.asunto}
+                  onChange={(e) => setMensajeForm({ ...mensajeForm, asunto: e.target.value })}
+                  placeholder="Ej: Consulta sobre disponibilidad"
+                  disabled={enviarMensajeMutation.isPending}
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <label htmlFor="mensaje-texto" className="form-label fw-bold">
+                  Mensaje <span className="text-danger">*</span>
+                </label>
+                <textarea
+                  id="mensaje-texto"
+                  className="form-control"
+                  rows={6}
+                  value={mensajeForm.mensaje}
+                  onChange={(e) => setMensajeForm({ ...mensajeForm, mensaje: e.target.value })}
+                  placeholder="Escribe tu mensaje aquí..."
+                  disabled={enviarMensajeMutation.isPending}
+                  required
+                />
+                <small className="text-muted">
+                  El mensaje será enviado al productor junto con la referencia del producto.
+                </small>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowMensajeModal(false);
+                  setMensajeForm({ asunto: '', mensaje: '' });
+                }}
+                disabled={enviarMensajeMutation.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleEnviarMensaje}
+                disabled={enviarMensajeMutation.isPending || !mensajeForm.asunto.trim() || !mensajeForm.mensaje.trim()}
+              >
+                {enviarMensajeMutation.isPending ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <BiMessageSquare className="me-2" />
+                    Enviar Mensaje
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
+    <>
     <div className="container py-4 product-detail-page">
       <nav aria-label="breadcrumb" className="mb-4">
         <ol className="breadcrumb">
@@ -521,25 +714,36 @@ const ProductoDetailPage: React.FC = () => {
                       onClick={handleToggleListaDeseos}
                       disabled={toggleListaDeseosMutation.isPending}
                       title={estaEnLista ? 'Eliminar de favoritos' : 'Agregar a favoritos'}
-                      style={{ minWidth: '60px' }}
+                      style={{ 
+                        minWidth: '60px',
+                        backgroundColor: estaEnLista ? undefined : 'rgba(255, 255, 255, 0.95)',
+                        borderColor: estaEnLista ? undefined : 'rgba(0, 0, 0, 0.1)'
+                      }}
                     >
                       {toggleListaDeseosMutation.isPending ? (
                         <span className="spinner-border spinner-border-sm" />
                       ) : (
-                        <BiHeart style={{ fontSize: '1.5rem' }} />
+                        <BiHeart 
+                          className={estaEnLista ? 'heart-filled' : 'heart-outline'}
+                          style={{ 
+                            fontSize: '1.5rem',
+                            color: '#dc3545',
+                            transition: 'all 0.3s ease'
+                          }} 
+                        />
                       )}
                     </button>
                   </div>
 
                   {/* Botón para contactar productor */}
                   {producto.id_usuario && (
-                    <Link
-                      to={`/consumidor/mensajes?productor=${producto.id_usuario}&producto=${producto.id_producto}`}
+                    <button
                       className="btn btn-outline-info btn-lg w-100"
+                      onClick={handleAbrirMensajeModal}
                     >
                       <BiMessageSquare className="me-2" />
-                      Contactar al Productor
-                    </Link>
+                      Enviar Mensaje al Productor
+                    </button>
                   )}
                   
                   {producto.stock > 0 && producto.stock < 10 && (
@@ -726,15 +930,15 @@ const ProductoDetailPage: React.FC = () => {
                             </div>
                           </div>
                         )}
-                        {producto.id_usuario && isAuthenticated && (
+                        {producto.id_usuario && isAuthenticated && user?.rol === 'consumidor' && (
                           <div className="col-12 mt-3">
-                            <Link
-                              to={`/consumidor/mensajes?productor=${producto.id_usuario}&producto=${producto.id_producto}`}
+                            <button
                               className="btn btn-success"
+                              onClick={handleAbrirMensajeModal}
                             >
                               <BiMessageSquare className="me-2" />
-                              Contactar al Productor
-                            </Link>
+                              Enviar Mensaje al Productor
+                            </button>
                           </div>
                         )}
                       </div>
@@ -744,14 +948,14 @@ const ProductoDetailPage: React.FC = () => {
                   <div className="text-center py-4">
                     <BiUser className="fs-1 text-muted mb-3" />
                     <h5>{producto.nombre_productor || 'Productor'}</h5>
-                    {producto.id_usuario && isAuthenticated && (
-                      <Link
-                        to={`/consumidor/mensajes?productor=${producto.id_usuario}&producto=${producto.id_producto}`}
+                    {producto.id_usuario && isAuthenticated && user?.rol === 'consumidor' && (
+                      <button
                         className="btn btn-success mt-3"
+                        onClick={handleAbrirMensajeModal}
                       >
                         <BiMessageSquare className="me-2" />
-                        Contactar al Productor
-                      </Link>
+                        Enviar Mensaje al Productor
+                      </button>
                     )}
                   </div>
                 )}
@@ -760,6 +964,9 @@ const ProductoDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal para enviar mensaje al productor */}
+      {mensajeModalPortal}
 
       {/* Historial de Precios */}
       {historial.length > 0 && (
@@ -814,6 +1021,8 @@ const ProductoDetailPage: React.FC = () => {
         </div>
       )}
     </div>
+    {mensajeModalPortal}
+    </>
   );
 };
 

@@ -351,6 +351,32 @@
   fill: #dc3545;
 }
 
+/* Estilos para el corazón de lista de deseos */
+.heart-filled {
+  fill: #ffffff !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+.heart-filled svg,
+.heart-filled path {
+  fill: #ffffff !important;
+  stroke: none !important;
+}
+
+.heart-outline {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
+}
+
+.heart-outline svg,
+.heart-outline path {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
+}
+
 .product-producer {
   font-size: 0.75rem;
   color: #64748B;
@@ -1084,6 +1110,32 @@
 
 .product-favorite-btn .text-danger.fill {
   fill: #dc3545;
+}
+
+/* Estilos para el corazón de lista de deseos */
+.heart-filled {
+  fill: #ffffff !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+.heart-filled svg,
+.heart-filled path {
+  fill: #ffffff !important;
+  stroke: none !important;
+}
+
+.heart-outline {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
+}
+
+.heart-outline svg,
+.heart-outline path {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
 }
 
 .product-producer {

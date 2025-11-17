@@ -1,440 +1,598 @@
-// 👥 PANTALLA DE GESTIÓN DE USUARIOS - ADMIN
+// 👥 GESTIÓN DE USUARIOS - ADMIN - SIMPLIFICADO
 
-import React, { useState, useEffect } from 'react';
-import { usePagination, useDebounce } from '../../hooks';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useDebounce } from '../../hooks';
 import adminService from '../../services/admin';
-import { ubicacionesService } from '../../services';
-import { Card, Button, Input, Modal, Loading, Badge, Avatar, Toast } from '../../components/ReusableComponents';
-import type { UsuarioAdmin, FiltrosUsuarios, Ciudad } from '../../types';
-import ConfirmModal from '../../components/ConfirmModal';
+import ubicacionesService from '../../services/ubicaciones';
+import imagenesService from '../../services/imagenes';
+import { Card, Button, Input, Modal, Loading, Badge } from '../../components/ReusableComponents';
+import type { UsuarioAdmin, Ciudad } from '../../types';
+import Swal from 'sweetalert2';
+import { 
+  BarChart, 
+  Bar, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
 import './AdminScreens.css';
 
-// ===== FUNCIONES HELPER =====
+interface UsuariosScreenProps {
+  onNavigate: (view: string) => void;
+}
+
+// Funciones helper
 const formatearFecha = (fecha: string | null | undefined): string => {
   if (!fecha) return 'N/A';
-  
   try {
     const date = new Date(fecha);
-    // Verificar que la fecha sea válida
-    if (isNaN(date.getTime())) {
-      return 'Fecha inválida';
-    }
-    // Formato: DD/MM/YYYY
+    if (isNaN(date.getTime())) return 'Fecha inválida';
     return date.toLocaleDateString('es-CO', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
-  } catch (error) {
+  } catch {
     return 'Fecha inválida';
   }
 };
 
 const formatearTelefono = (telefono: string | null | undefined): string => {
   if (!telefono) return 'N/A';
-  
-  // Remover espacios y caracteres especiales
   const numero = telefono.replace(/\D/g, '');
-  
-  // Formato colombiano: +57 300 123 4567 o 300 123 4567
   if (numero.length === 10) {
     return `${numero.substring(0, 3)} ${numero.substring(3, 6)} ${numero.substring(6)}`;
   } else if (numero.length === 12 && numero.startsWith('57')) {
     return `+57 ${numero.substring(2, 5)} ${numero.substring(5, 8)} ${numero.substring(8)}`;
   }
-  
   return telefono;
 };
 
-interface UsuariosScreenProps {
-  onNavigate: (view: string) => void;
-}
-
 export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) => {
-  // ===== ESTADOS =====
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const [filtros, setFiltros] = useState<FiltrosUsuarios>({});
+  const [filtroRol, setFiltroRol] = useState<string>('todos');
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<UsuarioAdmin | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState<{ show: boolean; id?: number }>({ show: false });
 
-  // ===== FUNCIONES =====
+  const busquedaDebounced = useDebounce(busqueda, 300);
+
+  // Actualización automática cada 30 segundos
+  useEffect(() => {
+    cargarUsuarios();
+    
+    const interval = setInterval(() => {
+      cargarUsuarios();
+    }, 30000); // Actualizar cada 30 segundos
+    
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroRol, filtroEstado]);
+
   const cargarUsuarios = async () => {
     try {
       setLoading(true);
-      setError(null);
       
-      const filtrosCompletos = {
-        ...filtros,
-        ...(busquedaDebounced && { busqueda: busquedaDebounced })
-      };
+      const filtros: any = {};
+      if (filtroRol !== 'todos') filtros.rol = filtroRol;
+      if (filtroEstado !== 'todos') filtros.activo = filtroEstado === 'activos';
       
-      console.log('[UsuariosScreen] Cargando usuarios con filtros:', filtrosCompletos);
-      const response = await adminService.getUsuarios(filtrosCompletos);
-      console.log('[UsuariosScreen] Respuesta recibida:', response);
+      const response = await adminService.getUsuarios(filtros);
       
-      if (response.success && response.data) {
+      if (response.success && Array.isArray(response.data)) {
         setUsuarios(response.data);
-        console.log('[UsuariosScreen] Usuarios cargados:', response.data.length);
       } else {
-        const errorMsg = response.message || 'Error cargando usuarios';
-        console.error('[UsuariosScreen] Error:', errorMsg);
-        setError(errorMsg);
+        setError('Error cargando usuarios');
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
-      console.error('[UsuariosScreen] Excepción:', errorMsg);
-      setError(errorMsg);
+      setError('Error cargando usuarios');
+      console.error('Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ===== PAGINACIÓN =====
-  const pagination = usePagination({
-    initialPage: 1,
-    initialLimit: 20,
-    total: usuarios.length
+  const usuariosFiltrados = usuarios.filter(usuario => {
+    if (!busquedaDebounced) return true;
+    const busquedaLower = busquedaDebounced.toLowerCase();
+    return (
+      usuario.nombre?.toLowerCase().includes(busquedaLower) ||
+      usuario.email?.toLowerCase().includes(busquedaLower) ||
+      usuario.telefono?.includes(busquedaDebounced)
+    );
   });
 
-  // ===== DEBOUNCE PARA BÚSQUEDA =====
-  const busquedaDebounced = useDebounce(busqueda, 300);
-
-  // ===== EFECTOS =====
-  useEffect(() => {
-    cargarUsuarios();
-  }, [filtros, busquedaDebounced]);
-
-  useEffect(() => {
-    console.log('[UsuariosScreen] showCreateModal cambió a:', showCreateModal);
-  }, [showCreateModal]);
-
-  useEffect(() => {
-    console.log('[UsuariosScreen] showEditModal cambió a:', showEditModal);
-  }, [showEditModal]);
-
-  useEffect(() => {
-    console.log('[UsuariosScreen] showDeleteModal cambió a:', showDeleteModal);
-  }, [showDeleteModal]);
-
-  const handleEliminarUsuario = (id: number) => {
-    console.log('[UsuariosScreen] Eliminando usuario ID:', id);
-    setShowDeleteModal({ show: true, id });
-    console.log('[UsuariosScreen] showDeleteModal debería ser true ahora');
-  };
-
-  const confirmEliminarUsuario = async () => {
-    if (showDeleteModal.id === undefined) {
-      console.error('[UsuariosScreen] No hay ID para eliminar');
-      return;
-    }
-
-    console.log('[UsuariosScreen] Confirmando eliminación de usuario ID:', showDeleteModal.id);
-
+  const handleDesactivar = async (usuario: UsuarioAdmin) => {
+    const nuevoEstado = !usuario.activo;
+    const accion = nuevoEstado ? 'activar' : 'desactivar';
+    
     try {
-      const response = await adminService.eliminarUsuario(showDeleteModal.id);
-      console.log('[UsuariosScreen] Respuesta de eliminación:', response);
+      console.log(`[handleDesactivar] ${accion} usuario ${usuario.id_usuario}, estado actual: ${usuario.activo}, nuevo estado: ${nuevoEstado}`);
+      
+      // Obtener datos actuales del usuario para enviarlos al backend
+      const usuarioActual = usuarios.find(u => u.id_usuario === usuario.id_usuario);
+      if (!usuarioActual) {
+        throw new Error('Usuario no encontrado');
+      }
+
+      const response = await adminService.editarUsuario(usuario.id_usuario, {
+        nombre: usuarioActual.nombre,
+        email: usuarioActual.email,
+        telefono: usuarioActual.telefono || '',
+        direccion: usuarioActual.direccion || '',
+        id_ciudad: usuarioActual.id_ciudad || undefined,
+        rol: usuarioActual.rol,
+        activo: nuevoEstado
+      });
+      
+      console.log(`[handleDesactivar] Respuesta del servidor:`, response);
       
       if (response.success) {
-        setUsuarios(prev => prev.filter(u => u.id_usuario !== showDeleteModal.id));
-        mostrarToast('Usuario eliminado exitosamente', 'success');
-        setShowDeleteModal({ show: false });
+        // Recargar la lista de usuarios para obtener datos actualizados
+        await cargarUsuarios();
+        
+        Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: `Usuario ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
+          timer: 2000,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
       } else {
-        const errorMsg = response.message || 'Error eliminando usuario';
-        console.error('[UsuariosScreen] Error en respuesta:', errorMsg);
-        mostrarToast(errorMsg, 'error');
+        console.error(`[handleDesactivar] Error en respuesta:`, response);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: response.message || response.error || 'Error cambiando estado del usuario',
+          confirmButtonColor: '#2d5016'
+        });
       }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
-      console.error('[UsuariosScreen] Excepción al eliminar:', errorMsg, error);
-      mostrarToast(`Error eliminando usuario: ${errorMsg}`, 'error');
+    } catch (err: any) {
+      console.error(`[handleDesactivar] Error al ${accion} usuario:`, err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.message || `Error al ${accion} el usuario`,
+        confirmButtonColor: '#2d5016'
+      });
     }
   };
 
-  const handleCambiarEstadoUsuario = async (id: number, activo: boolean) => {
+  const handleEliminar = async (usuario: UsuarioAdmin) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">¿Eliminar al usuario <strong>${usuario.nombre}</strong>?</p>
+          <p style="color: #dc2626; margin-bottom: 0.5rem;">⚠️ Esta acción no se puede deshacer.</p>
+          <p style="color: #6b7280; font-size: 0.9rem;">Se eliminarán todos los datos relacionados:</p>
+          <ul style="color: #6b7280; font-size: 0.85rem; margin-top: 0.5rem; padding-left: 1.5rem;">
+            <li>Productos y sus imágenes</li>
+            <li>Pedidos y detalles de pedidos</li>
+            <li>Mensajes y notificaciones</li>
+            <li>Carrito y lista de deseos</li>
+            <li>Reseñas y estadísticas</li>
+          </ul>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: true,
+      customClass: {
+        popup: 'swal2-popup-custom',
+        confirmButton: 'swal2-confirm-custom',
+        cancelButton: 'swal2-cancel-custom'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
+    // Mostrar loading
+    Swal.fire({
+      title: 'Eliminando...',
+      text: 'Por favor espera mientras se elimina el usuario y todos sus datos',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
-      const response = await adminService.editarUsuario(id, { activo });
+      console.log(`[handleEliminar] Eliminando usuario ${usuario.id_usuario} (${usuario.nombre})`);
+      
+      const response = await adminService.eliminarUsuario(usuario.id_usuario);
+      
+      console.log(`[handleEliminar] Respuesta del servidor:`, response);
       
       if (response.success) {
-        setUsuarios(prev =>
-          prev.map(u => u.id_usuario === id ? { ...u, activo } : u)
-        );
-        mostrarToast(`Usuario ${activo ? 'activado' : 'desactivado'} exitosamente`, 'success');
+        // Recargar la lista completa de usuarios
+        await cargarUsuarios();
+        
+        // Construir HTML con detalles
+        let detallesHTML = '<div style="text-align: left; margin-top: 1rem;">';
+        if (response.detalles) {
+          const detalles = response.detalles;
+          const items: Array<{ label: string; value: number }> = [];
+          
+          // Productos y relacionados
+          if (detalles.productos > 0) items.push({ label: 'Productos', value: detalles.productos });
+          if (detalles.historial_precios > 0) items.push({ label: 'Registros de historial de precios', value: detalles.historial_precios });
+          if (detalles.alertas > 0) items.push({ label: 'Alertas de stock', value: detalles.alertas });
+          
+          // Pedidos
+          const totalPedidos = (detalles.pedidos_consumidor || 0) + (detalles.pedidos_productor || 0);
+          if (totalPedidos > 0) {
+            items.push({ label: 'Pedidos', value: totalPedidos });
+            if (detalles.detalle_pedidos > 0) items.push({ label: 'Detalles de pedidos', value: detalles.detalle_pedidos });
+          }
+          
+          // Mensajes
+          const totalMensajes = (detalles.mensajes_remitente || 0) + (detalles.mensajes_destinatario || 0);
+          if (totalMensajes > 0) items.push({ label: 'Mensajes', value: totalMensajes });
+          
+          // Otros datos
+          if (detalles.carrito > 0) items.push({ label: 'Items del carrito', value: detalles.carrito });
+          if (detalles.lista_deseos > 0) items.push({ label: 'Items de lista de deseos', value: detalles.lista_deseos });
+          if (detalles.notificaciones > 0) items.push({ label: 'Notificaciones', value: detalles.notificaciones });
+          
+          // Reseñas
+          const totalReseñas = (detalles.reseñas_consumidor || 0) + (detalles.reseñas_productor || 0);
+          if (totalReseñas > 0) items.push({ label: 'Reseñas', value: totalReseñas });
+          
+          // Estadísticas
+          if (detalles.estadisticas > 0) items.push({ label: 'Registros de estadísticas', value: detalles.estadisticas });
+          
+          if (items.length > 0) {
+            detallesHTML += '<p style="font-weight: 600; margin-bottom: 0.5rem; color: #059669;">✅ También se eliminaron:</p>';
+            detallesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: #6b7280;">';
+            items.forEach(item => {
+              detallesHTML += `<li><strong>${item.value}</strong> ${item.label}</li>`;
+            });
+            detallesHTML += '</ul>';
+          }
+        }
+        detallesHTML += '</div>';
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Usuario eliminado!',
+          html: `
+            <div style="text-align: left;">
+              <p style="font-size: 1.1rem; margin-bottom: 1rem;">El usuario <strong>${usuario.nombre}</strong> ha sido eliminado exitosamente.</p>
+              <p style="color: #059669; font-weight: 600; margin-bottom: 0.5rem;">✅ Se eliminaron todos los registros relacionados en todas las tablas de la base de datos.</p>
+              ${detallesHTML}
+            </div>
+          `,
+          confirmButtonColor: '#2d5016',
+          confirmButtonText: 'Entendido',
+          width: '600px'
+        });
       } else {
-        mostrarToast(response.message || 'Error cambiando estado', 'error');
+        console.error(`[handleEliminar] Error en respuesta:`, response);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: response.message || response.error || 'Error eliminando usuario',
+          confirmButtonColor: '#2d5016'
+        });
       }
-    } catch {
-      mostrarToast('Error cambiando estado', 'error');
+    } catch (err: any) {
+      console.error(`[handleEliminar] Error al eliminar usuario:`, err);
+      let mensajeError = 'Error eliminando usuario';
+      if (err?.response?.data?.message) {
+        mensajeError = err.response.data.message;
+      } else if (err?.message) {
+        mensajeError = err.message;
+      }
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: mensajeError,
+        confirmButtonColor: '#2d5016'
+      });
     }
   };
 
-  const handleEditarUsuario = (usuario: UsuarioAdmin) => {
-    console.log('[UsuariosScreen] Editando usuario:', usuario);
-    setUsuarioSeleccionado(usuario);
-    setShowEditModal(true);
-    console.log('[UsuariosScreen] showEditModal debería ser true ahora');
+  const getRolBadge = (rol: string) => {
+    const roles: Record<string, { variant: 'success' | 'warning' | 'error' | 'info', icon: string }> = {
+      'admin': { variant: 'error', icon: '👨‍💼' },
+      'productor': { variant: 'warning', icon: '🌱' },
+      'consumidor': { variant: 'info', icon: '🛒' }
+    };
+    return roles[rol] || { variant: 'info' as const, icon: '👤' };
   };
 
-  const mostrarToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
-  };
+  // Estadísticas para gráficas
+  const estadisticas = useMemo(() => {
+    const total = usuariosFiltrados.length;
+    const activos = usuariosFiltrados.filter(u => u.activo).length;
+    const inactivos = total - activos;
+    
+    const porRol = usuariosFiltrados.reduce((acc, usuario) => {
+      const rol = usuario.rol || 'consumidor';
+      acc[rol] = (acc[rol] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
-  // Filtrar usuarios localmente
-  const usuariosFiltrados = usuarios.filter(usuario =>
-    !busquedaDebounced || 
-    usuario.nombre?.toLowerCase().includes(busquedaDebounced.toLowerCase()) ||
-    usuario.email?.toLowerCase().includes(busquedaDebounced.toLowerCase()) ||
-    usuario.telefono?.toLowerCase().includes(busquedaDebounced.toLowerCase())
-  );
+    const datosRol = [
+      { name: 'Admin', value: porRol.admin || 0, color: '#dc3545' },
+      { name: 'Productor', value: porRol.productor || 0, color: '#ffc107' },
+      { name: 'Consumidor', value: porRol.consumidor || 0, color: '#17a2b8' }
+    ];
+
+    const datosEstado = [
+      { name: 'Activos', value: activos, color: '#28a745' },
+      { name: 'Inactivos', value: inactivos, color: '#dc3545' }
+    ];
+
+    const datosBarra = [
+      { name: 'Admin', cantidad: porRol.admin || 0 },
+      { name: 'Productor', cantidad: porRol.productor || 0 },
+      { name: 'Consumidor', cantidad: porRol.consumidor || 0 }
+    ];
+
+    return {
+      total,
+      activos,
+      inactivos,
+      datosRol,
+      datosEstado,
+      datosBarra
+    };
+  }, [usuariosFiltrados]);
 
   return (
     <div className="screen-container">
       <div className="screen-header">
         <div className="header-content">
-          <h1>Gestión de Usuarios</h1>
+          <h1>
+            <i className="bi bi-people-fill me-2"></i>
+            Gestión de Usuarios
+          </h1>
           <p>Administra todos los usuarios del sistema</p>
         </div>
         <div className="header-actions">
-          <Button
-            variant="primary"
-            onClick={() => {
-              console.log('[UsuariosScreen] Click en Nuevo Usuario, abriendo modal...');
+          <Button 
+            variant="primary" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Botón Nuevo Usuario clickeado, showCreateModal actual:', showCreateModal);
               setShowCreateModal(true);
-              console.log('[UsuariosScreen] showCreateModal debería ser true ahora');
+              console.log('showCreateModal después de setState:', true);
+              // Forzar re-render
+              setTimeout(() => {
+                console.log('Estado después de timeout:', showCreateModal);
+              }, 100);
             }}
+            className="btn-nuevo-usuario"
+            type="button"
           >
+            <i className="bi bi-person-plus-fill me-2"></i>
             Nuevo Usuario
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={cargarUsuarios}
-            loading={loading}
-          >
-            Actualizar
           </Button>
         </div>
       </div>
 
-      {/* Filtros */}
-      <Card title="Filtros y Búsqueda" className="filters-card">
-        <div className="filters-grid">
-          <div className="search-group">
+      {/* Filtros Mejorados */}
+      <Card className="usuarios-filters-card">
+        <div className="usuarios-filters-container">
+          <div className="usuarios-search-wrapper">
+            <div className="search-icon-wrapper">
+              <i className="bi bi-search"></i>
+            </div>
             <Input
-              label="Buscar usuarios"
-              placeholder="Nombre, email o teléfono..."
+              placeholder="Buscar por nombre, email o teléfono..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
+              className="usuarios-search-input"
             />
+            {busqueda && (
+              <button 
+                className="clear-search-btn"
+                onClick={() => setBusqueda('')}
+                title="Limpiar búsqueda"
+              >
+                <i className="bi bi-x-circle"></i>
+              </button>
+            )}
           </div>
-          
-          <div className="filter-group">
-            <label>Rol:</label>
-            <select
-              value={filtros.rol || ''}
-              onChange={(e) => setFiltros(prev => ({ 
-                ...prev, 
-                rol: e.target.value || undefined
-              }))}
-            >
-              <option value="">Todos los roles</option>
-              <option value="admin">Admin</option>
-              <option value="productor">Productor</option>
-              <option value="consumidor">Consumidor</option>
+          <div className="usuarios-filters-row">
+            <div className="usuarios-filter-item">
+              <label className="usuarios-filter-label">
+                <i className="bi bi-person-badge"></i>
+                Rol
+              </label>
+              <select 
+                value={filtroRol} 
+                onChange={(e) => setFiltroRol(e.target.value)}
+                className="usuarios-filter-select"
+              >
+              <option value="todos">Todos los roles</option>
+                <option value="admin">👨‍💼 Admin</option>
+                <option value="productor">🌱 Productor</option>
+                <option value="consumidor">🛒 Consumidor</option>
             </select>
           </div>
-
-          <div className="filter-group">
-            <label>Estado:</label>
-            <select
-              value={filtros.activo === undefined ? '' : filtros.activo.toString()}
-              onChange={(e) => setFiltros(prev => ({ 
-                ...prev, 
-                activo: e.target.value === '' ? undefined : e.target.value === 'true'
-              }))}
-            >
-              <option value="">Todos</option>
-              <option value="true">Activos</option>
-              <option value="false">Inactivos</option>
+            <div className="usuarios-filter-item">
+              <label className="usuarios-filter-label">
+                <i className="bi bi-toggle-on"></i>
+                Estado
+              </label>
+              <select 
+                value={filtroEstado} 
+                onChange={(e) => setFiltroEstado(e.target.value)}
+                className="usuarios-filter-select"
+              >
+              <option value="todos">Todos</option>
+                <option value="activos">✅ Activos</option>
+                <option value="inactivos">❌ Inactivos</option>
             </select>
+            </div>
           </div>
         </div>
       </Card>
 
-      {/* Lista de usuarios en tarjetas */}
-      <Card 
-        title={`Usuarios (${usuariosFiltrados.length})`}
-        className="usuarios-list-card"
-      >
+      {/* Tabla de usuarios */}
+      <Card title={`Usuarios (${usuariosFiltrados.length})`}>
         {loading ? (
           <Loading text="Cargando usuarios..." />
         ) : error ? (
           <div className="error-message">
             <p>{error}</p>
-            <Button variant="primary" onClick={cargarUsuarios}>
-              Reintentar
-            </Button>
+            <Button variant="primary" onClick={cargarUsuarios}>Reintentar</Button>
           </div>
         ) : usuariosFiltrados.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">👥</div>
             <h3>No se encontraron usuarios</h3>
-            <p>Intenta ajustar los filtros o crear un nuevo usuario.</p>
-            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-              Crear Primer Usuario
-            </Button>
+            <p>Intenta ajustar los filtros de búsqueda.</p>
           </div>
         ) : (
-          <div className="usuarios-cards-grid">
-            {usuariosFiltrados.map((usuario) => (
-              <Card key={usuario.id_usuario} className="usuario-card">
-                <div className="usuario-card-header">
-                  <div className="usuario-avatar-section">
-                    <Avatar name={usuario.nombre} size="large" />
-                    <div className="usuario-basic-info">
-                      <h3 className="usuario-nombre">{usuario.nombre}</h3>
-                      <div className="usuario-id">ID: {usuario.id_usuario}</div>
-                    </div>
-                  </div>
-                  <div className="usuario-badges">
-                    <Badge 
-                      variant={
-                        usuario.rol === 'admin' ? 'error' : 
-                        usuario.rol === 'productor' ? 'warning' : 'info'
-                      }
-                      size="medium"
-                    >
-                      {usuario.rol === 'admin' && '👨‍💼'}
-                      {usuario.rol === 'productor' && '🌱'}
-                      {usuario.rol === 'consumidor' && '🛒'}
-                      {' '}{usuario.rol}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="usuario-card-body">
-                  <div className="usuario-contact-info">
-                    <div className="contact-item">
-                      <span className="contact-icon">📧</span>
-                      <span className="contact-value">{usuario.email || 'N/A'}</span>
-                    </div>
-                    <div className="contact-item">
-                      <span className="contact-icon">📱</span>
-                      <span className="contact-value">{formatearTelefono(usuario.telefono)}</span>
-                    </div>
-                  </div>
+          <div className="usuarios-table-wrapper">
+            <table className="usuarios-table">
+              <thead>
+                <tr>
+                  <th className="th-avatar">Foto</th>
+                  <th className="th-nombre">Nombre</th>
+                  <th className="th-email">Email</th>
+                  <th className="th-telefono">Teléfono</th>
+                  <th className="th-rol">Rol</th>
+                  <th className="th-ubicacion">Ubicación</th>
+                  <th className="th-estado">Estado</th>
+                  <th className="th-registro">Registro</th>
+                  <th className="th-acciones">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usuariosFiltrados.map((usuario) => {
+                  const rolInfo = getRolBadge(usuario.rol || 'consumidor');
+                  const iniciales = usuario.nombre
+                    ?.split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .substring(0, 2) || 'U';
+                  const fotoUrl = usuario.foto_perfil ? imagenesService.construirUrlImagen(usuario.foto_perfil) : null;
                   
-                  <div className="usuario-meta-info">
-                    <div className="meta-item">
-                      <span className="meta-label">Estado:</span>
-                      <Badge 
-                        variant={usuario.activo ? 'success' : 'error'}
-                        size="small"
-                      >
-                        {usuario.activo ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-label">Registro:</span>
-                      <span className="meta-value">{formatearFecha(usuario.fecha_registro)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="usuario-card-body">
-                  <div className="usuario-contact-info">
-                    <div className="contact-item">
-                      <span className="contact-icon">📧</span>
-                      <span className="contact-value">{usuario.email}</span>
-                      {usuario.email_verificado && (
-                        <Badge variant="success" size="small">✓</Badge>
-                      )}
-                    </div>
-                    <div className="contact-item">
-                      <span className="contact-icon">📞</span>
-                      <span className="contact-value">{usuario.telefono || 'N/A'}</span>
-                      {usuario.telefono_verificado && (
-                        <Badge variant="success" size="small">✓</Badge>
-                      )}
-                    </div>
-                    {usuario.ubicacion && (
-                      <div className="contact-item">
-                        <span className="contact-icon">📍</span>
-                        <span className="contact-value">
-                          {usuario.ubicacion.ciudad}, {usuario.ubicacion.departamento}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="usuario-meta-info">
-                    <div className="meta-item">
-                      <span className="meta-label">Registro:</span>
-                      <span className="meta-value">
-                        {new Date(usuario.fecha_registro).toLocaleDateString()}
-                      </span>
-                    </div>
-                    {usuario.ultimo_acceso && (
-                      <div className="meta-item">
-                        <span className="meta-label">Último acceso:</span>
-                        <span className="meta-value">
-                          {new Date(usuario.ultimo_acceso).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="usuario-card-footer">
-                  <div className="usuario-actions">
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      onClick={() => handleEditarUsuario(usuario)}
-                    >
-                      Editar
-                    </Button>
-                    {usuario.rol === 'productor' && (
-                      <Button
-                        size="small"
-                        variant="info"
-                        onClick={() => onNavigate('productor')}
-                      >
-                        Panel Productor
-                      </Button>
-                    )}
-                    {usuario.rol === 'consumidor' && (
-                      <Button
-                        size="small"
-                        variant="info"
-                        onClick={() => onNavigate('consumidor')}
-                      >
-                        Panel Consumidor
-                      </Button>
-                    )}
-                    <Button
-                      size="small"
-                      variant={usuario.activo ? 'warning' : 'success'}
-                      onClick={() => handleCambiarEstadoUsuario(usuario.id_usuario, !usuario.activo)}
-                    >
-                      {usuario.activo ? 'Desactivar' : 'Activar'}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="danger"
-                      onClick={() => handleEliminarUsuario(usuario.id_usuario)}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                  return (
+                    <tr key={usuario.id_usuario} className="usuarios-table-row">
+                      <td className="td-avatar">
+                        <div className="usuario-avatar-cell">
+                          {fotoUrl ? (
+                            <img
+                              src={fotoUrl}
+                              alt={usuario.nombre || 'Usuario'}
+                              className="usuario-avatar-img"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                                const parent = img.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<span class="usuario-avatar-iniciales">${iniciales}</span>`;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="usuario-avatar-iniciales">{iniciales}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="td-nombre">
+                        <div className="usuario-nombre-cell">
+                          <strong className="usuario-nombre-text">{usuario.nombre}</strong>
+                          <small className="usuario-id-text">ID: {usuario.id_usuario}</small>
+                        </div>
+                      </td>
+                      <td className="td-email">
+                        <div className="usuario-email-cell">
+                          <span className="usuario-email-text">{usuario.email || 'N/A'}</span>
+                          {usuario.email_verificado && (
+                            <Badge variant="success" size="small" className="verificado-badge">✓</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="td-telefono">
+                        <div className="usuario-telefono-cell">
+                          <span className="usuario-telefono-text">{formatearTelefono(usuario.telefono)}</span>
+                          {usuario.telefono_verificado && (
+                            <Badge variant="success" size="small" className="verificado-badge">✓</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="td-rol">
+                        <Badge variant={rolInfo.variant} size="small" className="rol-badge">
+                          {rolInfo.icon} {usuario.rol}
+                        </Badge>
+                      </td>
+                      <td className="td-ubicacion">
+                        {usuario.ubicacion ? (
+                          <span className="usuario-ubicacion-text">
+                            {usuario.ubicacion.ciudad}, {usuario.ubicacion.departamento}
+                          </span>
+                        ) : (
+                          <span className="text-muted">N/A</span>
+                        )}
+                      </td>
+                      <td className="td-estado">
+                        <Badge 
+                          variant={usuario.activo ? 'success' : 'error'} 
+                          size="small"
+                          className={`estado-badge ${usuario.activo ? 'estado-activo' : 'estado-inactivo'}`}
+                        >
+                          {usuario.activo ? '✓ Activo' : '✗ Inactivo'}
+                        </Badge>
+                      </td>
+                      <td className="td-registro">
+                        <span className="usuario-fecha-text">{formatearFecha(usuario.fecha_registro)}</span>
+                      </td>
+                      <td className="td-acciones">
+                        <div className="usuarios-acciones-buttons">
+                          <Button
+                            size="small"
+                            variant={usuario.activo ? 'warning' : 'success'}
+                            onClick={() => handleDesactivar(usuario)}
+                            title={usuario.activo ? 'Desactivar' : 'Activar'}
+                            className={usuario.activo ? 'btn-accion-toggle btn-warning' : 'btn-accion-toggle btn-success'}
+                          >
+                            {usuario.activo ? (
+                              <i className="bi bi-pause-fill"></i>
+                            ) : (
+                              <i className="bi bi-play-fill"></i>
+                            )}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="danger"
+                            onClick={() => handleEliminar(usuario)}
+                            title="Eliminar"
+                            className="btn-accion-delete"
+                          >
+                            <i className="bi bi-trash-fill"></i>
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
@@ -443,83 +601,172 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
       {usuariosFiltrados.length > 0 && (
         <div className="pagination-container">
           <div className="pagination-info">
-            Mostrando {((pagination.currentPage - 1) * pagination.limit) + 1} - {Math.min(pagination.currentPage * pagination.limit, usuariosFiltrados.length)} de {usuariosFiltrados.length} usuarios
-          </div>
-          <div className="pagination-controls">
-            <Button
-              size="small"
-              variant="secondary"
-              onClick={pagination.prevPage}
-              disabled={!pagination.hasPrevPage}
-            >
-              ← Anterior
-            </Button>
-            <span className="pagination-page">
-              Página {pagination.currentPage} de {pagination.totalPages}
-            </span>
-            <Button
-              size="small"
-              variant="secondary"
-              onClick={pagination.nextPage}
-              disabled={!pagination.hasNextPage}
-            >
-              Siguiente →
-            </Button>
+            Mostrando 1 - {usuariosFiltrados.length} de {usuariosFiltrados.length} usuarios
           </div>
         </div>
       )}
 
-      {/* Toast de notificaciones */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
+      {/* Gráficas Estadísticas */}
+      {usuariosFiltrados.length > 0 && (
+        <div className="usuarios-graficas-container">
+          <div className="graficas-grid">
+            {/* Gráfica de Barras - Usuarios por Rol */}
+            <Card className="grafica-card">
+              <div className="grafica-header">
+                <h3>
+                  <i className="bi bi-bar-chart-fill me-2"></i>
+                  Usuarios por Rol
+                </h3>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={estadisticas.datosBarra}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="cantidad" fill="#2d5016" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Gráfica de Pie - Distribución por Rol */}
+            <Card className="grafica-card">
+              <div className="grafica-header">
+                <h3>
+                  <i className="bi bi-pie-chart-fill me-2"></i>
+                  Distribución por Rol
+                </h3>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={estadisticas.datosRol}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {estadisticas.datosRol.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Gráfica de Pie - Estado de Usuarios */}
+            <Card className="grafica-card">
+              <div className="grafica-header">
+                <h3>
+                  <i className="bi bi-pie-chart-fill me-2"></i>
+                  Estado de Usuarios
+                </h3>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={estadisticas.datosEstado}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {estadisticas.datosEstado.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+
+            {/* Tarjetas de Resumen - Ocupa todo el ancho */}
+            <Card className="grafica-card estadisticas-resumen-full">
+              <div className="grafica-header">
+                <h3>
+                  <i className="bi bi-info-circle-fill me-2"></i>
+                  Resumen Estadístico
+                </h3>
+              </div>
+              <div className="resumen-stats">
+                <div className="stat-item">
+                  <div className="stat-icon total">
+                    <i className="bi bi-people-fill"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{estadisticas.total}</div>
+                    <div className="stat-label">Total Usuarios</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon activos">
+                    <i className="bi bi-check-circle-fill"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{estadisticas.activos}</div>
+                    <div className="stat-label">Usuarios Activos</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon inactivos">
+                    <i className="bi bi-x-circle-fill"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{estadisticas.inactivos}</div>
+                    <div className="stat-label">Usuarios Inactivos</div>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon porcentaje">
+                    <i className="bi bi-percent"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">
+                      {estadisticas.total > 0 
+                        ? ((estadisticas.activos / estadisticas.total) * 100).toFixed(1)
+                        : 0}%
+                    </div>
+                    <div className="stat-label">Tasa de Activos</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       )}
 
-      {/* Modal de confirmación de eliminación */}
-      <ConfirmModal
-        show={showDeleteModal.show}
-        onClose={() => setShowDeleteModal({ show: false })}
-        onConfirm={confirmEliminarUsuario}
-        title="Eliminar Usuario"
-        message="¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        variant="danger"
-      />
-
-      {/* Modal para crear usuario */}
+      {/* Modal de Crear Usuario */}
       <CreateUserModal
         isOpen={showCreateModal}
         onClose={() => {
-          console.log('[UsuariosScreen] Cerrando modal de crear usuario');
+          console.log('[UsuariosScreen] Cerrando modal desde onClose');
           setShowCreateModal(false);
         }}
         onSuccess={() => {
           console.log('[UsuariosScreen] Usuario creado exitosamente');
           setShowCreateModal(false);
+          Swal.fire({
+            icon: 'success',
+            title: '¡Usuario creado!',
+            text: 'El usuario ha sido creado exitosamente',
+            timer: 2000,
+            showConfirmButton: false,
+            toast: true,
+            position: 'top-end'
+          });
           cargarUsuarios();
         }}
       />
-
-      {/* Modal para editar usuario */}
-      {usuarioSeleccionado && (
-        <EditUserModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setUsuarioSeleccionado(null);
-          }}
-          usuario={usuarioSeleccionado}
-          onSuccess={() => {
-            setShowEditModal(false);
-            setUsuarioSeleccionado(null);
-            cargarUsuarios();
-          }}
-        />
-      )}
     </div>
   );
 };
@@ -531,11 +778,7 @@ interface CreateUserModalProps {
   onSuccess: () => void;
 }
 
-const CreateUserModal: React.FC<CreateUserModalProps> = ({
-  isOpen,
-  onClose,
-  onSuccess
-}) => {
+const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     email: '',
@@ -546,45 +789,98 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     rol: 'consumidor' as 'admin' | 'consumidor' | 'productor'
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [loadingCiudades, setLoadingCiudades] = useState(false);
 
-  // Cargar ciudades al abrir el modal
   useEffect(() => {
+    console.log('[CreateUserModal] isOpen cambió a:', isOpen);
     if (isOpen) {
-      const cargarCiudades = async () => {
-        try {
-          setLoadingCiudades(true);
-          const response = await ubicacionesService.listarCiudades();
-          if (response.success && response.data) {
-            setCiudades(response.data);
-          }
-        } catch (error) {
-          console.error('Error cargando ciudades:', error);
-        } finally {
-          setLoadingCiudades(false);
-        }
-      };
+      console.log('[CreateUserModal] Modal abierto, cargando ciudades...');
       cargarCiudades();
+    } else {
+      console.log('[CreateUserModal] Modal cerrado, limpiando formulario...');
+      // Limpiar formulario cuando se cierra
+      setFormData({
+        nombre: '',
+        email: '',
+        password: '',
+        telefono: '',
+        direccion: '',
+        id_ciudad: '',
+        rol: 'consumidor'
+      });
     }
   }, [isOpen]);
+  
+  // Log adicional para verificar el render
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[CreateUserModal] Modal debería estar visible ahora');
+    }
+  }, [isOpen]);
+
+  const cargarCiudades = async () => {
+    try {
+      setLoadingCiudades(true);
+      const response = await ubicacionesService.listarCiudades();
+      if (response.success && response.data) {
+        setCiudades(response.data);
+      }
+    } catch (err) {
+      console.error('Error cargando ciudades:', err);
+    } finally {
+      setLoadingCiudades(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validación
+    if (!formData.nombre || !formData.email || !formData.password || !formData.telefono || !formData.direccion || !formData.id_ciudad) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos incompletos',
+        text: 'Por favor completa todos los campos requeridos',
+        confirmButtonColor: '#2d5016'
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Contraseña inválida',
+        text: 'La contraseña debe tener al menos 6 caracteres',
+        confirmButtonColor: '#2d5016'
+      });
+      return;
+    }
+
+    if (!formData.email.includes('@')) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Email inválido',
+        text: 'Por favor ingresa un email válido',
+        confirmButtonColor: '#2d5016'
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      setError(null);
       
       const response = await adminService.crearUsuario({
-        ...formData,
-        id_ciudad: Number(formData.id_ciudad)
+        nombre: formData.nombre.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        telefono: formData.telefono.trim(),
+        direccion: formData.direccion.trim(),
+        id_ciudad: Number(formData.id_ciudad),
+        rol: formData.rol
       });
       
       if (response.success) {
-        onSuccess();
-        // Resetear formulario
         setFormData({
           nombre: '',
           email: '',
@@ -594,272 +890,167 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           id_ciudad: '',
           rol: 'consumidor'
         });
-      } else {
-        setError(response.message || 'Error creando usuario');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(null);
-  };
-
-  console.log('[CreateUserModal] Renderizando, isOpen:', isOpen, 'ciudades:', ciudades.length);
-  
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Crear Nuevo Usuario"
-      size="large"
-    >
-      <form onSubmit={handleSubmit} className="user-form">
-        <div className="form-grid">
-          <div className="form-group">
-            <Input
-              label="Nombre completo"
-              value={formData.nombre}
-              onChange={(e) => handleInputChange('nombre', e.target.value)}
-              required
-              placeholder="Ej: Juan Pérez"
-            />
-          </div>
-          
-          <div className="form-group">
-            <Input
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              required
-              placeholder="usuario@ejemplo.com"
-            />
-          </div>
-          
-          <div className="form-group">
-            <Input
-              label="Contraseña"
-              type="password"
-              value={formData.password}
-              onChange={(e) => handleInputChange('password', e.target.value)}
-              required
-              placeholder="Mínimo 6 caracteres"
-            />
-          </div>
-          
-          <div className="form-group">
-            <Input
-              label="Teléfono"
-              value={formData.telefono}
-              onChange={(e) => handleInputChange('telefono', e.target.value)}
-              required
-              placeholder="+57 300 123 4567"
-            />
-          </div>
-          
-          <div className="form-group">
-            <Input
-              label="Dirección"
-              value={formData.direccion}
-              onChange={(e) => handleInputChange('direccion', e.target.value)}
-              required
-              placeholder="Dirección completa"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Ciudad:</label>
-            <select
-              value={formData.id_ciudad}
-              onChange={(e) => handleInputChange('id_ciudad', e.target.value)}
-              required
-              disabled={loadingCiudades}
-            >
-              <option value="">{loadingCiudades ? 'Cargando ciudades...' : 'Selecciona una ciudad'}</option>
-              {ciudades.map((ciudad) => (
-                <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
-                  {ciudad.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label>Rol del usuario:</label>
-            <select
-              value={formData.rol}
-              onChange={(e) => handleInputChange('rol', e.target.value)}
-            >
-              <option value="consumidor">🛒 Consumidor</option>
-              <option value="productor">🌱 Productor</option>
-              <option value="admin">👨‍💼 Administrador</option>
-            </select>
-          </div>
-        </div>
-        
-        {error && (
-          <div className="form-error">
-            <span className="error-icon">❌</span>
-            <span>{error}</span>
-          </div>
-        )}
-        
-        <div className="form-actions">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            icon="➕"
-          >
-            Crear Usuario
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
-// ===== MODAL PARA EDITAR USUARIO =====
-interface EditUserModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  usuario: UsuarioAdmin;
-  onSuccess: () => void;
-}
-
-const EditUserModal: React.FC<EditUserModalProps> = ({
-  isOpen,
-  onClose,
-  usuario,
-  onSuccess
-}) => {
-  const [formData, setFormData] = useState({
-    nombre: usuario.nombre,
-    email: usuario.email,
-    telefono: usuario.telefono,
-    direccion: usuario.direccion,
-    id_ciudad: usuario.id_ciudad?.toString() || '',
-    rol: usuario.rol,
-    activo: usuario.activo
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ciudades, setCiudades] = useState<Ciudad[]>([]);
-  const [loadingCiudades, setLoadingCiudades] = useState(false);
-
-  // Cargar ciudades al abrir el modal
-  useEffect(() => {
-    if (isOpen) {
-      const cargarCiudades = async () => {
-        try {
-          setLoadingCiudades(true);
-          const response = await ubicacionesService.listarCiudades();
-          if (response.success && response.data) {
-            setCiudades(response.data);
-          }
-        } catch (error) {
-          console.error('Error cargando ciudades:', error);
-        } finally {
-          setLoadingCiudades(false);
-        }
-      };
-      cargarCiudades();
-    }
-  }, [isOpen]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await adminService.editarUsuario(usuario.id_usuario, {
-        ...formData,
-        id_ciudad: formData.id_ciudad ? Number(formData.id_ciudad) : undefined
-      });
-      
-      if (response.success) {
         onSuccess();
       } else {
-        setError(response.message || 'Error actualizando usuario');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: response.message || 'Error creando usuario',
+          confirmButtonColor: '#2d5016'
+        });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err?.message || 'Error desconocido al crear usuario',
+        confirmButtonColor: '#2d5016'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(null);
-  };
+  console.log('[CreateUserModal] Renderizando modal, isOpen:', isOpen);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Editar Usuario: ${usuario.nombre}`}
+    <Modal 
+      isOpen={isOpen} 
+      onClose={() => {
+        console.log('[CreateUserModal] Cerrando modal');
+        onClose();
+      }} 
+      title={
+        <span style={{ display: 'flex', alignItems: 'center' }}>
+          <i className="bi bi-person-plus-fill me-2"></i>
+          Crear Nuevo Usuario
+        </span>
+      }
       size="large"
     >
-      <form onSubmit={handleSubmit} className="user-form">
-        <div className="form-grid">
-          <div className="form-group">
-            <Input
-              label="Nombre completo"
+      <form onSubmit={handleSubmit} className="needs-validation" noValidate>
+        <div className="row g-3">
+          <div className="col-md-6">
+            <label htmlFor="nombre" className="form-label">
+              <i className="bi bi-person-fill me-2 text-primary"></i>
+              Nombre completo <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-person-fill text-primary"></i>
+              </span>
+              <input
+                type="text"
+                className="form-control"
+                id="nombre"
               value={formData.nombre}
-              onChange={(e) => handleInputChange('nombre', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              placeholder="Ej: Juan Pérez"
               required
             />
+            </div>
           </div>
-          
-          <div className="form-group">
-            <Input
-              label="Email"
+
+          <div className="col-md-6">
+            <label htmlFor="email" className="form-label">
+              <i className="bi bi-envelope-fill me-2 text-primary"></i>
+              Email <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-envelope-fill text-primary"></i>
+              </span>
+              <input
               type="email"
+                className="form-control"
+                id="email"
               value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="usuario@ejemplo.com"
               required
             />
+            </div>
           </div>
-          
-          <div className="form-group">
-            <Input
-              label="Teléfono"
+
+          <div className="col-md-6">
+            <label htmlFor="password" className="form-label">
+              <i className="bi bi-lock-fill me-2 text-primary"></i>
+              Contraseña <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-lock-fill text-primary"></i>
+              </span>
+              <input
+              type="password"
+                className="form-control"
+                id="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Mínimo 6 caracteres"
+              required
+                minLength={6}
+            />
+            </div>
+            <div className="form-text">La contraseña debe tener al menos 6 caracteres</div>
+          </div>
+
+          <div className="col-md-6">
+            <label htmlFor="telefono" className="form-label">
+              <i className="bi bi-telephone-fill me-2 text-primary"></i>
+              Teléfono <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-telephone-fill text-primary"></i>
+              </span>
+              <input
+                type="tel"
+                className="form-control"
+                id="telefono"
               value={formData.telefono}
-              onChange={(e) => handleInputChange('telefono', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+              placeholder="+57 300 123 4567"
               required
             />
+            </div>
           </div>
-          
-          <div className="form-group">
-            <Input
-              label="Dirección"
+
+          <div className="col-12">
+            <label htmlFor="direccion" className="form-label">
+              <i className="bi bi-geo-alt-fill me-2 text-primary"></i>
+              Dirección <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-geo-alt-fill text-primary"></i>
+              </span>
+              <input
+                type="text"
+                className="form-control"
+                id="direccion"
               value={formData.direccion}
-              onChange={(e) => handleInputChange('direccion', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+              placeholder="Dirección completa"
               required
             />
+            </div>
           </div>
-          
-          <div className="form-group">
-            <label>Ciudad:</label>
+
+          <div className="col-md-6">
+            <label htmlFor="ciudad" className="form-label">
+              <i className="bi bi-geo-fill me-2 text-primary"></i>
+              Ciudad <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-geo-fill text-primary"></i>
+              </span>
             <select
+                className="form-select"
+                id="ciudad"
               value={formData.id_ciudad}
-              onChange={(e) => handleInputChange('id_ciudad', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, id_ciudad: e.target.value })}
               required
               disabled={loadingCiudades}
             >
@@ -870,56 +1061,60 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
                 </option>
               ))}
             </select>
+            </div>
           </div>
-          
-          <div className="form-group">
-            <label>Rol del usuario:</label>
+
+          <div className="col-md-6">
+            <label htmlFor="rol" className="form-label">
+              <i className="bi bi-person-badge-fill me-2 text-primary"></i>
+              Rol <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-person-badge-fill text-primary"></i>
+              </span>
             <select
+                className="form-select"
+                id="rol"
               value={formData.rol}
-              onChange={(e) => handleInputChange('rol', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, rol: e.target.value as any })}
+              required
             >
               <option value="consumidor">🛒 Consumidor</option>
               <option value="productor">🌱 Productor</option>
               <option value="admin">👨‍💼 Administrador</option>
             </select>
           </div>
-
-          <div className="form-group">
-            <label>Estado del usuario:</label>
-            <select
-              value={formData.activo.toString()}
-              onChange={(e) => handleInputChange('activo', e.target.value === 'true')}
-            >
-              <option value="true">✅ Activo</option>
-              <option value="false">❌ Inactivo</option>
-            </select>
-          </div>
         </div>
-        
-        {error && (
-          <div className="form-error">
-            <span className="error-icon">❌</span>
-            <span>{error}</span>
-          </div>
-        )}
-        
-        <div className="form-actions">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
+        </div>
+
+        <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button 
+            type="button" 
+            className="btn btn-secondary"
+            onClick={onClose} 
             disabled={loading}
           >
+            <i className="bi bi-x-circle-fill me-2"></i>
             Cancelar
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            loading={loading}
-            icon="💾"
+          </button>
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={loading}
           >
-            Guardar Cambios
-          </Button>
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Creando...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check-circle-fill me-2"></i>
+                Crear Usuario
+              </>
+            )}
+          </button>
         </div>
       </form>
     </Modal>

@@ -64,42 +64,95 @@ class AdminService {
   // Crear usuario manualmente
   async crearUsuario(userData: Partial<UsuarioAdmin>): Promise<ApiResponse<UsuarioAdmin>> {
     try {
+      console.log('[AdminService] Creando usuario con datos:', userData);
+      
+      // Validar que todos los campos requeridos estén presentes
+      if (!userData.nombre || !userData.email || !userData.password || !userData.telefono || !userData.direccion || !userData.id_ciudad || !userData.rol) {
+        throw new Error('Faltan campos requeridos para crear el usuario');
+      }
+
       // ✅ Endpoint correcto del backend - AdminRouter
       const response = await apiService.post<UsuarioAdmin>(
         `/admin/usuarios/crear`,
-        userData
+        {
+          nombre: userData.nombre,
+          email: userData.email,
+          password: userData.password,
+          telefono: userData.telefono,
+          direccion: userData.direccion,
+          id_ciudad: userData.id_ciudad,
+          rol: userData.rol
+        }
       );
+      
+      console.log('[AdminService] Respuesta del servidor:', response);
+      
+      if (!response.success) {
+        throw new Error(response.message || response.error || 'Error creando usuario');
+      }
+      
       return response;
-    } catch (error) {
-      console.error('Error creando usuario:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[AdminService] Error creando usuario:', error);
+      // Si el error ya es un Error con mensaje, relanzarlo
+      if (error instanceof Error) {
+        throw error;
+      }
+      // Si es un objeto de error del servidor, extraer el mensaje
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          error?.error || 
+                          'Error desconocido al crear usuario';
+      throw new Error(errorMessage);
     }
   }
 
   // Editar usuario
   async editarUsuario(id: number, userData: Partial<UsuarioAdmin>): Promise<ApiResponse> {
     try {
+      console.log('[AdminService] Editando usuario:', id, userData);
       const response = await apiService.put(
         `/admin/usuario/${id}`,
         userData
       );
+      console.log('[AdminService] Respuesta editar usuario:', response);
       return response;
-    } catch (error) {
-      console.error('Error editando usuario:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[AdminService] Error editando usuario:', error);
+      // Si el error ya es un Error con mensaje, relanzarlo
+      if (error instanceof Error) {
+        throw error;
+      }
+      // Si es un objeto de error del servidor, extraer el mensaje
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          error?.error || 
+                          'Error desconocido al editar usuario';
+      throw new Error(errorMessage);
     }
   }
 
   // Eliminar usuario
-  async eliminarUsuario(id: number): Promise<ApiResponse> {
+  async eliminarUsuario(id: number): Promise<ApiResponse & { detalles?: Record<string, number> }> {
     try {
-      const response = await apiService.delete(
+      console.log('[AdminService] Eliminando usuario:', id);
+      const response = await apiService.delete<{ detalles?: Record<string, number> }>(
         `/admin/usuario/${id}`
       );
+      console.log('[AdminService] Respuesta eliminar usuario:', response);
       return response;
-    } catch (error) {
-      console.error('Error eliminando usuario:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[AdminService] Error eliminando usuario:', error);
+      // Si el error ya es un Error con mensaje, relanzarlo
+      if (error instanceof Error) {
+        throw error;
+      }
+      // Si es un objeto de error del servidor, extraer el mensaje
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          error?.error || 
+                          'Error desconocido al eliminar usuario';
+      throw new Error(errorMessage);
     }
   }
 
@@ -226,120 +279,6 @@ class AdminService {
     }
   }
 
-  // ===== GESTIÓN DE PEDIDOS =====
-  
-  // Obtener todos los pedidos
-  async getPedidos(): Promise<ApiResponse<any[]>> {
-    try {
-      const response = await apiService.get<any[]>(
-        `/pedidos`
-      );
-      
-      // Normalizar respuesta
-      let pedidosData: any[] = [];
-      if (response.success) {
-        if (Array.isArray(response.data)) {
-          pedidosData = response.data;
-        } else if ((response as any).pedidos && Array.isArray((response as any).pedidos)) {
-          pedidosData = (response as any).pedidos;
-        }
-      }
-      
-      return {
-        success: response.success,
-        data: pedidosData,
-        message: response.message || `${pedidosData.length} pedidos encontrados`
-      };
-    } catch (error) {
-      console.error('Error obteniendo pedidos:', error);
-      throw error;
-    }
-  }
-
-  // Actualizar estado de pedido
-  async actualizarEstadoPedido(id: number, estado: string): Promise<ApiResponse> {
-    try {
-      const response = await apiService.put(
-        `/pedidos/${id}`,
-        { estado }
-      );
-      return response;
-    } catch (error) {
-      console.error('Error actualizando estado del pedido:', error);
-      throw error;
-    }
-  }
-
-  // ===== GESTIÓN DE CATEGORÍAS =====
-  
-  // Obtener todas las categorías (admin)
-  async getCategorias(): Promise<ApiResponse<any[]>> {
-    try {
-      const response = await apiService.get<any[]>(
-        `/categorias/admin/todas`
-      );
-      
-      // Normalizar respuesta
-      let categoriasData: any[] = [];
-      if (response.success) {
-        if (Array.isArray(response.data)) {
-          categoriasData = response.data;
-        } else if ((response as any).categorias && Array.isArray((response as any).categorias)) {
-          categoriasData = (response as any).categorias;
-        }
-      }
-      
-      return {
-        success: response.success,
-        data: categoriasData,
-        message: response.message || `${categoriasData.length} categorías encontradas`
-      };
-    } catch (error) {
-      console.error('Error obteniendo categorías:', error);
-      throw error;
-    }
-  }
-
-  // Crear categoría
-  async crearCategoria(categoriaData: { nombre: string; descripcion?: string; activa?: boolean }): Promise<ApiResponse> {
-    try {
-      const response = await apiService.post(
-        `/categorias/admin/crear`,
-        categoriaData
-      );
-      return response;
-    } catch (error) {
-      console.error('Error creando categoría:', error);
-      throw error;
-    }
-  }
-
-  // Editar categoría
-  async editarCategoria(id: number, categoriaData: { nombre?: string; descripcion?: string; activa?: boolean }): Promise<ApiResponse> {
-    try {
-      const response = await apiService.put(
-        `/categorias/${id}`,
-        categoriaData
-      );
-      return response;
-    } catch (error) {
-      console.error('Error editando categoría:', error);
-      throw error;
-    }
-  }
-
-  // Eliminar categoría
-  async eliminarCategoria(id: number): Promise<ApiResponse> {
-    try {
-      const response = await apiService.delete(
-        `/categorias/${id}`
-      );
-      return response;
-    } catch (error) {
-      console.error('Error eliminando categoría:', error);
-      throw error;
-    }
-  }
 
   // ===== GESTIÓN DE AUDITORÍA =====
   
@@ -379,19 +318,11 @@ class AdminService {
   // Obtener configuración del sistema
   async getSystemConfig(): Promise<ApiResponse<any>> {
     try {
-      // Por ahora retornamos configuración por defecto
-      // En el futuro esto puede venir de una tabla de configuración
+      const response = await apiService.get<any>('/admin/configuracion');
       return {
-        success: true,
-        data: {
-          nombre_sistema: 'AgroStock',
-          version: '1.0.0',
-          mantenimiento: false,
-          limite_usuarios: 1000,
-          limite_productos: 10000,
-          dias_expiracion_reportes: 30
-        },
-        message: 'Configuración obtenida correctamente'
+        success: response.success,
+        data: response.data,
+        message: response.message || 'Configuración obtenida correctamente'
       };
     } catch (error) {
       console.error('Error obteniendo configuración:', error);
@@ -402,12 +333,11 @@ class AdminService {
   // Actualizar configuración del sistema
   async updateSystemConfig(config: any): Promise<ApiResponse> {
     try {
-      // Por ahora solo retornamos éxito
-      // En el futuro esto puede guardarse en una tabla de configuración
+      const response = await apiService.put<any>('/admin/configuracion', config);
       return {
-        success: true,
-        data: config,
-        message: 'Configuración actualizada correctamente'
+        success: response.success,
+        data: response.data,
+        message: response.message || 'Configuración actualizada correctamente'
       };
     } catch (error) {
       console.error('Error actualizando configuración:', error);
@@ -422,22 +352,27 @@ class AdminService {
     try {
       const queryString = periodo ? `?periodo=${periodo}` : '';
       // ✅ Endpoint correcto del backend - AdminRouter
-      const response = await apiService.get<EstadisticasGenerales>(
+      const response = await apiService.get<any>(
         `/admin/estadisticas${queryString}`
       );
       
+      console.log('📊 Respuesta completa del backend:', response);
+      
+      // El backend puede devolver data o estadisticas
+      const datos = response.data || response.estadisticas;
+      
       // Adaptar respuesta según estructura del backend
-      if (response.success && response.data) {
+      if (response.success && datos) {
         return {
           success: response.success,
-          data: response.data as EstadisticasGenerales,
+          data: datos as EstadisticasGenerales,
           message: response.message,
         };
       }
       
       return {
         success: response.success,
-        data: response.data as EstadisticasGenerales,
+        data: datos as EstadisticasGenerales,
         message: response.message,
       };
     } catch (error) {
@@ -544,7 +479,7 @@ class AdminService {
   async exportarDatos(tipo: 'usuarios' | 'productos' | 'reportes'): Promise<Blob> {
     try {
       const response = await fetch(
-        `${APP_CONFIG.API_BASE_URL}/admin/export/${tipo}`,
+        `/api/admin/export/${tipo}`,
         {
           method: 'GET',
           headers: {
@@ -566,6 +501,126 @@ class AdminService {
       console.error('Error exportando datos:', error);
       throw error;
     }
+  }
+
+  // ===== GESTIÓN DE PEDIDOS =====
+  async getPedidos(estado?: string): Promise<ApiResponse<any[]>> {
+    const queryString = estado ? `?estado=${estado}` : '';
+    return apiService.get(`/admin/pedidos${queryString}`);
+  }
+
+  async cambiarEstadoPedido(id_pedido: number, estado: string): Promise<ApiResponse<any>> {
+    return apiService.put(`/admin/pedido/${id_pedido}/estado`, { estado });
+  }
+
+  async eliminarPedido(id_pedido: number): Promise<ApiResponse<any>> {
+    try {
+      console.log('[AdminService] Eliminando pedido:', id_pedido);
+      const response = await apiService.delete(`/admin/pedido/${id_pedido}`);
+      console.log('[AdminService] Respuesta eliminar pedido:', response);
+      return response;
+    } catch (error: any) {
+      console.error('[AdminService] Error eliminando pedido:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          error?.error || 
+                          'Error desconocido al eliminar pedido';
+      throw new Error(errorMessage);
+    }
+  }
+
+  // ===== GESTIÓN DE CATEGORÍAS =====
+  async getCategorias(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/categorias');
+  }
+
+  async crearCategoria(data: any): Promise<ApiResponse<any>> {
+    return apiService.post('/admin/categorias', data);
+  }
+
+  async actualizarCategoria(id_categoria: number, data: any): Promise<ApiResponse<any>> {
+    return apiService.put(`/admin/categoria/${id_categoria}`, data);
+  }
+
+  async editarCategoria(id_categoria: number, data: any): Promise<ApiResponse<any>> {
+    return this.actualizarCategoria(id_categoria, data);
+  }
+
+  async eliminarCategoria(id_categoria: number): Promise<ApiResponse<any>> {
+    return apiService.delete(`/admin/categoria/${id_categoria}`);
+  }
+
+  // ===== GESTIÓN DE MENSAJES =====
+  async getMensajes(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/mensajes');
+  }
+
+  async eliminarMensaje(id_mensaje: number): Promise<ApiResponse<any>> {
+    return apiService.delete(`/admin/mensaje/${id_mensaje}`);
+  }
+
+  // ===== GESTIÓN DE RESEÑAS =====
+  async getResenas(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/resenas');
+  }
+
+  async eliminarResena(id_resena: number): Promise<ApiResponse<any>> {
+    return apiService.delete(`/admin/resena/${id_resena}`);
+  }
+
+  // ===== GESTIÓN DE NOTIFICACIONES =====
+  async getNotificaciones(tipo?: string): Promise<ApiResponse<any[]>> {
+    const queryString = tipo ? `?tipo=${tipo}` : '';
+    return apiService.get(`/admin/notificaciones${queryString}`);
+  }
+
+  async crearNotificacion(data: any): Promise<ApiResponse<any>> {
+    return apiService.post('/admin/notificaciones', data);
+  }
+
+  async crearNotificacionMasiva(data: { titulo: string; mensaje: string; tipo: string }): Promise<ApiResponse<any>> {
+    return apiService.post('/admin/notificaciones/masiva', data);
+  }
+
+  async editarNotificacion(id_notificacion: number, data: any): Promise<ApiResponse<any>> {
+    return apiService.put(`/admin/notificacion/${id_notificacion}`, data);
+  }
+
+  async eliminarNotificacion(id_notificacion: number): Promise<ApiResponse<any>> {
+    return apiService.delete(`/admin/notificacion/${id_notificacion}`);
+  }
+
+  // ===== GESTIÓN DE UBICACIONES =====
+  async getRegiones(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/regiones');
+  }
+
+  async getDepartamentos(id_region?: number): Promise<ApiResponse<any[]>> {
+    const queryString = id_region ? `?id_region=${id_region}` : '';
+    return apiService.get(`/admin/departamentos${queryString}`);
+  }
+
+  async getCiudades(id_departamento?: number): Promise<ApiResponse<any[]>> {
+    const queryString = id_departamento ? `?id_departamento=${id_departamento}` : '';
+    return apiService.get(`/admin/ciudades${queryString}`);
+  }
+
+  // ===== HISTORIAL DE PRECIOS =====
+  async getHistorialPrecios(id_producto?: number): Promise<ApiResponse<any[]>> {
+    const queryString = id_producto ? `?id_producto=${id_producto}` : '';
+    return apiService.get(`/admin/historial-precios${queryString}`);
+  }
+
+  // ===== CARRITOS Y LISTAS =====
+  async getCarritos(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/carritos');
+  }
+
+  async getListasDeseos(): Promise<ApiResponse<any[]>> {
+    return apiService.get('/admin/listas-deseos');
   }
 }
 

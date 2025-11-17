@@ -20,6 +20,8 @@ interface PushNotificationData {
 export class NotificationService {
   private fcmServerKey: string | null = null;
   private isConfigured: boolean = false;
+  private fcmColumnChecked = false;
+  private hasFcmColumn = false;
 
   constructor() {
     this.loadConfig();
@@ -353,12 +355,9 @@ export class NotificationService {
         id_usuario: id_destinatario,
         titulo: "💬 Nuevo Mensaje",
         mensaje: `${nombreRemitente} te envió un mensaje: ${asunto}`,
-        tipo: 'info',
-        datos_extra: {
-          id_remitente: id_remitente,
-          asunto: asunto,
-          action: 'view_messages'
-        }
+        tipo: 'mensaje',
+        id_referencia: id_remitente,
+        tipo_referencia: 'usuario'
       });
 
       const userToken = await this.getUserFCMToken(id_destinatario);
@@ -384,6 +383,10 @@ export class NotificationService {
    */
   private async getUserFCMToken(id_usuario: number): Promise<string | null> {
     try {
+      if (!(await this.ensureFcmColumn())) {
+        return null;
+      }
+
       const result = await conexion.query(
         "SELECT fcm_token FROM usuarios WHERE id_usuario = ? AND fcm_token IS NOT NULL",
         [id_usuario]
@@ -401,6 +404,14 @@ export class NotificationService {
    */
   async updateUserFCMToken(id_usuario: number, fcm_token: string): Promise<{ success: boolean; message: string }> {
     try {
+      if (!(await this.ensureFcmColumn())) {
+        console.warn("No existe la columna fcm_token en la tabla usuarios. Se omite la actualización del token.");
+        return {
+          success: true,
+          message: "Token FCM no se guardó porque la columna no existe en la base de datos"
+        };
+      }
+
       await conexion.execute(
         "UPDATE usuarios SET fcm_token = ? WHERE id_usuario = ?",
         [fcm_token, id_usuario]
@@ -441,6 +452,22 @@ export class NotificationService {
         deleted: 0
       };
     }
+  }
+
+  private async ensureFcmColumn(): Promise<boolean> {
+    if (!this.fcmColumnChecked) {
+      try {
+        const result = await conexion.query("SHOW COLUMNS FROM usuarios LIKE 'fcm_token'");
+        this.hasFcmColumn = Array.isArray(result) && result.length > 0;
+      } catch (error) {
+        console.error("Error verificando columna fcm_token:", error);
+        this.hasFcmColumn = false;
+      } finally {
+        this.fcmColumnChecked = true;
+      }
+    }
+
+    return this.hasFcmColumn;
   }
 }
 

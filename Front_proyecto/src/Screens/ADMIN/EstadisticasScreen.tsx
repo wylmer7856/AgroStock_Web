@@ -1,10 +1,11 @@
 // 📊 PANTALLA DE ESTADÍSTICAS - ADMIN
 
-import React, { useState, useEffect } from 'react';
-import { useApi } from '../../hooks';
+import React, { useState, useEffect, useMemo } from 'react';
 import adminService from '../../services/admin';
 import { Card, Button, Loading, Badge, Toast } from '../../components/ReusableComponents';
 import type { EstadisticasGenerales, ActividadReciente } from '../../types';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import * as XLSX from 'xlsx';
 import './AdminScreens.css';
 
 interface EstadisticasScreenProps {
@@ -35,12 +36,20 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
       // ✅ Pasar el período como parámetro al servicio
       const response = await adminService.getEstadisticasGenerales(periodoSeleccionado);
       
-      if (response.success && response.data) {
-        setEstadisticas(response.data);
+      console.log('📊 Respuesta de estadísticas:', response);
+      
+      // El backend puede devolver data o estadisticas
+      const datos = response.data || response.estadisticas;
+      
+      if (response.success && datos) {
+        console.log('✅ Datos de estadísticas recibidos:', datos);
+        setEstadisticas(datos);
       } else {
+        console.error('❌ Error en respuesta:', response);
         setError(response.message || 'Error cargando estadísticas');
       }
     } catch (err) {
+      console.error('❌ Error cargando estadísticas:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setLoading(false);
@@ -93,8 +102,90 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
     return 'info';
   };
 
+  // Función para exportar a Excel
+  const exportarAExcel = () => {
+    if (!estadisticas) {
+      mostrarToast('No hay datos para exportar', 'error');
+      return;
+    }
+
+    try {
+      // Crear workbook
+      const wb = XLSX.utils.book_new();
+
+      // Hoja 1: Resumen General
+      const resumenData = [
+        ['Métrica', 'Valor'],
+        ['Total Usuarios', estadisticas.total_usuarios],
+        ['Total Productos', estadisticas.total_productos],
+        ['Total Pedidos', estadisticas.total_pedidos],
+        ['Ingresos Totales', estadisticas.ingresos_totales],
+        ['Pedidos Completados', estadisticas.pedidos_completados || 0],
+        ['Pedidos Pendientes', estadisticas.pedidos_pendientes || 0],
+        ['Pedidos Cancelados', estadisticas.pedidos_cancelados || 0],
+        ['Tasa de Conversión', estadisticas.tasa_conversion ? `${estadisticas.tasa_conversion.toFixed(2)}%` : 'N/A'],
+        ['Ticket Promedio', estadisticas.ticket_promedio || 0],
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(resumenData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Resumen General');
+
+      // Hoja 2: Usuarios por Rol
+      const usuariosRolData = [
+        ['Rol', 'Cantidad'],
+        ['Administradores', estadisticas.usuarios_por_rol?.admin || 0],
+        ['Productores', estadisticas.usuarios_por_rol?.productor || 0],
+        ['Consumidores', estadisticas.usuarios_por_rol?.consumidor || 0],
+      ];
+      const ws2 = XLSX.utils.aoa_to_sheet(usuariosRolData);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Usuarios por Rol');
+
+      // Hoja 3: Productos por Categoría
+      const productosCategoriaData = [
+        ['Categoría', 'Cantidad'],
+        ...(estadisticas.productos_por_categoria?.map(cat => [cat.nombre || cat.categoria, cat.total || cat.cantidad]) || [])
+      ];
+      const ws3 = XLSX.utils.aoa_to_sheet(productosCategoriaData);
+      XLSX.utils.book_append_sheet(wb, ws3, 'Productos por Categoría');
+
+      // Generar nombre de archivo con fecha
+      const fecha = new Date().toISOString().split('T')[0];
+      const nombreArchivo = `Estadisticas_AgroStock_${fecha}.xlsx`;
+
+      // Descargar archivo
+      XLSX.writeFile(wb, nombreArchivo);
+      mostrarToast('Archivo Excel exportado correctamente', 'success');
+    } catch (error) {
+      console.error('Error exportando a Excel:', error);
+      mostrarToast('Error al exportar a Excel', 'error');
+    }
+  };
+
+  // Datos para gráficas
+  const datosGraficas = useMemo(() => {
+    if (!estadisticas) return null;
+
+    return {
+      usuariosPorRol: [
+        { name: 'Admin', value: estadisticas.usuarios_por_rol?.admin || 0 },
+        { name: 'Productores', value: estadisticas.usuarios_por_rol?.productor || 0 },
+        { name: 'Consumidores', value: estadisticas.usuarios_por_rol?.consumidor || 0 },
+      ],
+      productosPorCategoria: estadisticas.productos_por_categoria?.map(cat => ({
+        name: cat.nombre || cat.categoria,
+        cantidad: cat.total || cat.cantidad
+      })) || [],
+      pedidosPorEstado: [
+        { name: 'Completados', value: estadisticas.pedidos_completados || 0 },
+        { name: 'Pendientes', value: estadisticas.pedidos_pendientes || 0 },
+        { name: 'Cancelados', value: estadisticas.pedidos_cancelados || 0 },
+      ]
+    };
+  }, [estadisticas]);
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
   return (
-    <div className="estadisticas-screen">
+    <div className="screen-container estadisticas-screen">
       {/* Header */}
       <div className="screen-header">
         <div className="header-content">
@@ -102,6 +193,9 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
           <p>Métricas y análisis de la plataforma</p>
         </div>
         <div className="header-actions">
+          <Button variant="secondary" onClick={() => onNavigate('overview')}>
+            ← Dashboard
+          </Button>
           <div className="periodo-selector">
             <label>Período:</label>
             <select
@@ -125,13 +219,23 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
           >
             Actualizar
           </Button>
+          <Button
+            variant="primary"
+            icon="📥"
+            onClick={exportarAExcel}
+            disabled={!estadisticas}
+          >
+            Exportar a Excel
+          </Button>
         </div>
       </div>
 
       {loading ? (
-        <Loading text="Cargando estadísticas..." />
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <Loading text="Cargando estadísticas..." />
+        </div>
       ) : error ? (
-        <div className="error-message">
+        <div className="error-message" style={{ padding: '2rem', textAlign: 'center' }}>
           <p>❌ {error}</p>
           <Button variant="primary" onClick={cargarEstadisticas}>
             Reintentar
@@ -350,6 +454,75 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
             </Card>
           </div>
 
+          {/* Gráficas */}
+          {datosGraficas && (
+            <div className="estadisticas-graficas-container">
+              {/* Gráfica de Usuarios por Rol */}
+              <Card title="Distribución de Usuarios por Rol" className="grafica-card">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={datosGraficas.usuariosPorRol}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {datosGraficas.usuariosPorRol.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+
+              {/* Gráfica de Productos por Categoría */}
+              {datosGraficas.productosPorCategoria.length > 0 && (
+                <Card title="Productos por Categoría" className="grafica-card">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={datosGraficas.productosPorCategoria}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="cantidad" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+              )}
+
+              {/* Gráfica de Pedidos por Estado */}
+              <Card title="Pedidos por Estado" className="grafica-card">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={datosGraficas.pedidosPorEstado}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {datosGraficas.pedidosPorEstado.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            </div>
+          )}
+
           {/* Actividad reciente */}
           <Card title="Actividad Reciente" className="activity-card">
             <div className="activity-list">
@@ -388,7 +561,14 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
             </div>
           </Card>
         </>
-      ) : null}
+      ) : (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <p>No hay datos de estadísticas disponibles</p>
+          <Button variant="primary" onClick={cargarEstadisticas}>
+            Cargar Estadísticas
+          </Button>
+        </div>
+      )}
 
       {/* Toast de notificaciones */}
       {toast && (

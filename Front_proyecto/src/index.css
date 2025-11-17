@@ -1,6 +1,21 @@
 /* 🌾 AGROSTOCK - DISEÑO PROFESIONAL CON BOOTSTRAP 5.3 */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* ELIMINAR FONDO BLANCO EN NAVBAR AL HACER HOVER - ESTILO GLOBAL */
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .nav-link:active,
+.navbar .nav-link.active,
+.navbar button.nav-link:hover,
+.navbar button.nav-link:focus,
+.navbar button.nav-link:active,
+.navbar span.nav-link:hover,
+.navbar span.nav-link:focus,
+.navbar span.nav-link:active {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
 /* Bootstrap Custom Variables */
 :root {
   --bs-primary: #2D5016;

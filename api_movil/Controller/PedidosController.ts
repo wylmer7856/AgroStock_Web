@@ -3,6 +3,23 @@ import { z } from "../Dependencies/dependencias.ts";
 import { PedidosModel } from "../Models/PedidosModel.ts";
 import { conexion } from "../Models/Conexion.ts";
 
+// Tipo para pedidos obtenidos de la base de datos
+interface PedidoDB {
+  id_pedido: number;
+  id_consumidor: number;
+  id_productor: number;
+  total: number;
+  estado: "pendiente" | "confirmado" | "en_preparacion" | "en_camino" | "entregado" | "cancelado";
+  direccion_entrega: string;
+  id_ciudad_entrega?: number | null;
+  metodo_pago: "efectivo" | "transferencia" | "nequi" | "daviplata" | "pse" | "tarjeta";
+  estado_pago?: "pendiente" | "pagado" | "reembolsado";
+  notas?: string | null;
+  fecha_pedido?: string | null;
+  fecha_entrega?: string | null;
+  [key: string]: unknown; // Para campos adicionales de JOINs
+}
+
 const pedidoSchemaBase = z.object({
   id_consumidor: z.number().int().positive(),
   id_productor: z.number().int().positive(),
@@ -94,16 +111,16 @@ export const getPedidoPorId = async (ctx: RouterContext<"/pedidos/:id">) => {
     const objPedido = new PedidosModel();
     
     // Obtener el pedido con información completa
-    let pedido: any = null;
+    let pedido: PedidoDB | undefined = undefined;
     if (user.rol === 'productor') {
-      const pedidos = await objPedido.ObtenerPedidosPorProductor(user.id);
-      pedido = pedidos.find((p: any) => p.id_pedido === id_pedido);
+      const pedidos = await objPedido.ObtenerPedidosPorProductor(user.id) as PedidoDB[];
+      pedido = pedidos.find((p: PedidoDB) => p.id_pedido === id_pedido);
     } else if (user.rol === 'consumidor') {
-      const pedidos = await objPedido.ObtenerPedidosPorConsumidor(user.id);
-      pedido = pedidos.find((p: any) => p.id_pedido === id_pedido);
+      const pedidos = await objPedido.ObtenerPedidosPorConsumidor(user.id) as PedidoDB[];
+      pedido = pedidos.find((p: PedidoDB) => p.id_pedido === id_pedido);
     } else if (user.rol === 'admin') {
-      const pedidos = await objPedido.ListarPedidos();
-      pedido = pedidos.find((p: any) => p.id_pedido === id_pedido);
+      const pedidos = await objPedido.ListarPedidos() as PedidoDB[];
+      pedido = pedidos.find((p: PedidoDB) => p.id_pedido === id_pedido);
     }
 
     if (!pedido) {
@@ -175,6 +192,16 @@ export const postPedido = async (ctx: Context) => {
     const { direccionEntrega, direccion_entrega, fecha, fecha_entrega_estimada, productos, ...restValidated } = validated;
     const direccionFinal = direccion_entrega || direccionEntrega;
     
+    // Validar que existe una dirección (aunque el schema ya lo valida, TypeScript necesita esta verificación)
+    if (!direccionFinal) {
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "Debe proporcionar una dirección de entrega.",
+      };
+      return;
+    }
+    
     // Si hay productos, calcular el total y crear pedido con detalles
     if (productos && productos.length > 0) {
       const total = productos.reduce((sum, p) => sum + (p.precio_unitario * p.cantidad), 0);
@@ -196,7 +223,7 @@ export const postPedido = async (ctx: Context) => {
           ]
         );
 
-        const id_pedido = (pedidoResult as any).insertId;
+        const id_pedido = (pedidoResult as { insertId: number }).insertId;
 
         // Crear detalles del pedido y actualizar stock
         for (const producto of productos) {
@@ -257,6 +284,8 @@ export const postPedido = async (ctx: Context) => {
     const pedidoData = {
       id_pedido: null,
       ...restValidated,
+      total: restValidated.total ?? 0, // Asegurar que total sea number, no undefined
+      estado: restValidated.estado ?? 'pendiente', // Asegurar que estado sea un valor válido, no undefined
       direccion_entrega: direccionFinal,
       fecha_pedido: fecha ? fecha.toISOString() : null,
       fecha_entrega: fecha_entrega_estimada ? fecha_entrega_estimada.toISOString() : null,
@@ -304,8 +333,8 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
 
     // ✅ Validar que el usuario tenga acceso al pedido
     const objPedido = new PedidosModel();
-    const pedidos = await objPedido.ListarPedidos();
-    const pedido = pedidos.find((p: any) => p.id_pedido === id_pedido);
+    const pedidos = await objPedido.ListarPedidos() as PedidoDB[];
+    const pedido = pedidos.find((p: PedidoDB) => p.id_pedido === id_pedido);
 
     if (!pedido) {
       ctx.response.status = 404;
@@ -401,7 +430,7 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
       
       // Si es una actualización parcial, actualizar solo los campos proporcionados
       const camposActualizar: string[] = [];
-      const valores: any[] = [];
+      const valores: (string | number | null)[] = [];
       
       if (validatedParcial.direccion_entrega !== undefined) {
         camposActualizar.push('direccion_entrega = ?');
@@ -452,7 +481,7 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
     const validated = pedidoSchemaUpdate.parse(body);
 
     const { direccionEntrega, fecha, fecha_entrega_estimada, ...restValidated } = validated;
-    const pedidoData = {
+    const _pedidoData = {
       ...restValidated,
       direccion_entrega: direccionEntrega, // Mapear direccionEntrega a direccion_entrega
       fecha_pedido: fecha ? fecha.toISOString() : null, // Mapear fecha a fecha_pedido
@@ -499,8 +528,8 @@ export const deletePedido = async (ctx: RouterContext<"/pedidos/:id">) => {
 
     // ✅ Validar que el usuario tenga acceso al pedido
     const objPedido = new PedidosModel();
-    const pedidos = await objPedido.ListarPedidos();
-    const pedido = pedidos.find((p: any) => p.id_pedido === id_pedido);
+    const pedidos = await objPedido.ListarPedidos() as PedidoDB[];
+    const pedido = pedidos.find((p: PedidoDB) => p.id_pedido === id_pedido);
 
     if (!pedido) {
       ctx.response.status = 404;
@@ -563,14 +592,14 @@ export const getMisPedidos = async (ctx: Context) => {
     }
 
     const objPedido = new PedidosModel();
-    let pedidos: Record<string, unknown>[] = [];
+    let pedidos: PedidoDB[] = [];
 
     if (user.rol === 'productor') {
       // Obtener pedidos donde el usuario es el productor
-      pedidos = await objPedido.ObtenerPedidosPorProductor(user.id) as unknown as Record<string, unknown>[];
+      pedidos = await objPedido.ObtenerPedidosPorProductor(user.id) as PedidoDB[];
     } else if (user.rol === 'consumidor') {
       // Obtener pedidos donde el usuario es el consumidor
-      pedidos = await objPedido.ObtenerPedidosPorConsumidor(user.id) as unknown as Record<string, unknown>[];
+      pedidos = await objPedido.ObtenerPedidosPorConsumidor(user.id) as PedidoDB[];
     } else {
       ctx.response.status = 403;
       ctx.response.body = {
@@ -582,7 +611,7 @@ export const getMisPedidos = async (ctx: Context) => {
 
     // Obtener detalles para cada pedido
     const pedidosConDetalles = await Promise.all(
-      pedidos.map(async (pedido: any) => {
+      pedidos.map(async (pedido: PedidoDB) => {
         try {
           const detalles = await objPedido.ObtenerDetallesPedido(pedido.id_pedido);
           return {

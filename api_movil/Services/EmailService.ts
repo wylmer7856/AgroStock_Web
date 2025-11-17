@@ -162,8 +162,28 @@ export class EmailService {
   /**
    * Envía notificación de nuevo pedido - VERSIÓN PROFESIONAL
    */
-  async sendOrderNotification(email: string, nombre: string, pedidoId: number, productos: Array<{ nombre: string; cantidad: number; unidadMedida?: string; precio_unitario: number }>, total: number): Promise<{ success: boolean; message: string }> {
-    const totalProductos = productos.reduce((sum, p) => sum + (p.precio_unitario * p.cantidad), 0);
+  async sendOrderNotification(
+    email: string,
+    nombre: string,
+    pedidoId: number,
+    productosRaw: Array<{ nombre?: string; cantidad?: number; unidadMedida?: string; unidad_medida?: string; precio_unitario?: number; precioUnitario?: number; precio?: number }>,
+    total?: number
+  ): Promise<{ success: boolean; message: string }> {
+    const productos = productosRaw.map((p) => {
+      const cantidad = Number(p.cantidad ?? 0) || 0;
+      const precioUnitario = Number(p.precio_unitario ?? p.precioUnitario ?? p.precio ?? 0) || 0;
+      const unidadMedida = p.unidadMedida ?? p.unidad_medida ?? 'unidades';
+
+      return {
+        nombre: p.nombre || 'Producto',
+        cantidad,
+        unidadMedida,
+        precioUnitario,
+      };
+    });
+
+    const totalProductos = productos.reduce((sum, p) => sum + (p.precioUnitario * p.cantidad), 0);
+    const totalPedido = typeof total === 'number' && !Number.isNaN(total) ? total : totalProductos;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -216,18 +236,18 @@ export class EmailService {
                   <div class="product-name">${p.nombre}</div>
                   <div class="product-details">
                     Cantidad: ${p.cantidad} ${p.unidadMedida || 'unidades'} • 
-                    Precio unitario: $${p.precio_unitario.toLocaleString()}
+                    Precio unitario: $${p.precioUnitario.toLocaleString()}
                   </div>
                 </div>
                 <div class="product-price">
-                  $${(p.precio_unitario * p.cantidad).toLocaleString()}
+                  $${(p.precioUnitario * p.cantidad).toLocaleString()}
                 </div>
               </div>
             `).join('')}
             
             <div class="total">
               <div class="total-label">Total del Pedido</div>
-              <div class="total-amount">$${total.toLocaleString()} COP</div>
+              <div class="total-amount">$${totalPedido.toLocaleString()} COP</div>
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
@@ -254,7 +274,7 @@ export class EmailService {
       to: email,
       subject: `🛒 Nuevo Pedido #${pedidoId} - AgroStock`,
       html: html,
-      text: `Nuevo pedido #${pedidoId} recibido en AgroStock.\n\nProductos:\n${productos.map(p => `- ${p.nombre} (${p.cantidad} ${p.unidadMedida || 'unidades'}) - $${(p.precio_unitario * p.cantidad).toLocaleString()}`).join('\n')}\n\nTotal: $${total.toLocaleString()} COP\n\nVer pedido: ${Deno.env.get("FRONTEND_URL") || "http://localhost:5173"}/pedidos/${pedidoId}`
+      text: `Nuevo pedido #${pedidoId} recibido en AgroStock.\n\nProductos:\n${productos.map(p => `- ${p.nombre} (${p.cantidad} ${p.unidadMedida || 'unidades'}) - $${(p.precioUnitario * p.cantidad).toLocaleString()}`).join('\n')}\n\nTotal: $${totalPedido.toLocaleString()} COP\n\nVer pedido: ${Deno.env.get("FRONTEND_URL") || "http://localhost:5173"}/pedidos/${pedidoId}`
     });
   }
 

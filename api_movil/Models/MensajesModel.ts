@@ -1,5 +1,24 @@
 import { conexion } from "./Conexion.ts";
 
+// Tipo para filas de mensajes de la base de datos
+interface MensajeRow {
+  id_mensaje: number;
+  id_remitente: number;
+  id_destinatario: number;
+  id_producto?: number | null;
+  asunto: string;
+  mensaje: string;
+  fecha_envio: Date | string;
+  leido: number | boolean;
+  tipo_mensaje: 'consulta' | 'pedido' | 'general';
+  nombre_remitente?: string;
+  email_remitente?: string;
+  nombre_destinatario?: string;
+  email_destinatario?: string;
+  nombre_producto?: string;
+  [key: string]: unknown; // Para campos adicionales
+}
+
 export interface MensajeData {
   id_mensaje: number;
   id_remitente: number;
@@ -73,23 +92,26 @@ export class MensajesModel {
       const result = await conexion.execute(insertQuery, insertParams);
       console.log('✅ [MensajesModel.CrearMensaje] Resultado del INSERT:', {
         affectedRows: result?.affectedRows,
-        insertId: result?.insertId,
         result: result
       });
 
       if (result && result.affectedRows && result.affectedRows > 0) {
-        const insertId = result.insertId || null;
+        // Obtener el ID del mensaje insertado consultando la BD
+        const mensajesRecientes = await conexion.query(
+          "SELECT id_mensaje FROM mensajes ORDER BY id_mensaje DESC LIMIT 1"
+        ) as MensajeRow[];
+        const insertId = mensajesRecientes.length > 0 ? mensajesRecientes[0].id_mensaje : null;
         console.log('🔍 [MensajesModel.CrearMensaje] Mensaje insertado con ID:', insertId);
         
         // Obtener el mensaje recién creado usando el insertId si está disponible
-        let nuevoMensaje: any;
+        let nuevoMensaje: MensajeRow | undefined;
         if (insertId) {
-          const mensajes = await conexion.query("SELECT * FROM mensajes WHERE id_mensaje = ?", [insertId]);
+          const mensajes = await conexion.query("SELECT * FROM mensajes WHERE id_mensaje = ?", [insertId]) as MensajeRow[];
           nuevoMensaje = mensajes[0];
           console.log('📬 [MensajesModel.CrearMensaje] Mensaje obtenido por insertId:', nuevoMensaje);
         } else {
           // Fallback: obtener el último mensaje
-          const mensajes = await conexion.query("SELECT * FROM mensajes ORDER BY id_mensaje DESC LIMIT 1");
+          const mensajes = await conexion.query("SELECT * FROM mensajes ORDER BY id_mensaje DESC LIMIT 1") as MensajeRow[];
           nuevoMensaje = mensajes[0];
           console.log('📬 [MensajesModel.CrearMensaje] Mensaje obtenido (último):', nuevoMensaje);
         }
@@ -194,8 +216,8 @@ export class MensajesModel {
       console.log('🔍 [MensajesModel.ObtenerMensajesEnviados] Buscando mensajes enviados por usuario:', userId, 'tipo:', typeof userId);
       
       // Primero, verificar todos los mensajes en la BD para debug
-      const todosMensajes = await conexion.query("SELECT id_mensaje, id_remitente, id_destinatario, asunto, fecha_envio FROM mensajes ORDER BY fecha_envio DESC LIMIT 20");
-      console.log('🔍 [MensajesModel.ObtenerMensajesEnviados] Últimos 20 mensajes en BD:', todosMensajes.map((m: any) => ({
+      const todosMensajes = await conexion.query("SELECT id_mensaje, id_remitente, id_destinatario, asunto, fecha_envio FROM mensajes ORDER BY fecha_envio DESC LIMIT 20") as MensajeRow[];
+      console.log('🔍 [MensajesModel.ObtenerMensajesEnviados] Últimos 20 mensajes en BD:', todosMensajes.map((m: MensajeRow) => ({
         id_mensaje: m.id_mensaje,
         id_remitente: m.id_remitente,
         id_remitente_tipo: typeof m.id_remitente,
@@ -224,7 +246,7 @@ export class MensajesModel {
       
       console.log('✅ [MensajesModel.ObtenerMensajesEnviados] Resultado de la query:', {
         total: result.length,
-        mensajes: result.map((m: any) => ({
+        mensajes: (result as MensajeRow[]).map((m: MensajeRow) => ({
           id_mensaje: m.id_mensaje,
           id_remitente: m.id_remitente,
           id_remitente_tipo: typeof m.id_remitente,
@@ -244,7 +266,7 @@ export class MensajesModel {
       if (mensajesSimples.length > 0 && result.length === 0) {
         console.error('⚠️ [MensajesModel.ObtenerMensajesEnviados] PROBLEMA: La consulta simple encontró mensajes pero la compleja no!');
         // Retornar usando la consulta simple y agregar los datos faltantes después
-        const mensajesConDatos = await Promise.all(mensajesSimples.map(async (msg: any) => {
+        const mensajesConDatos = await Promise.all((mensajesSimples as MensajeRow[]).map(async (msg: MensajeRow) => {
           const [destinatario] = await conexion.query("SELECT nombre, email FROM usuarios WHERE id_usuario = ?", [msg.id_destinatario]);
           const [producto] = msg.id_producto ? await conexion.query("SELECT nombre FROM productos WHERE id_producto = ?", [msg.id_producto]) : [null];
           return {

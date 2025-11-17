@@ -372,13 +372,20 @@ export class CartService {
       for (const [id_productor, items] of productosPorProductor) {
         const total = items.reduce((sum, item) => sum + item.precio_total, 0);
 
-        const pedidoResult = await conexion.execute(
+        await conexion.execute(
           `INSERT INTO pedidos (id_consumidor, id_productor, total, estado, direccion_entrega, metodo_pago, estado_pago, notas)
            VALUES (?, ?, ?, 'pendiente', ?, ?, 'pendiente', ?)`,
           [id_usuario, id_productor, total, direccionEntrega, metodo_pago, notas || null]
         );
 
-        const id_pedido = (pedidoResult as any).insertId;
+        // Obtener el ID del pedido insertado usando LAST_INSERT_ID()
+        const idResult = await conexion.query("SELECT LAST_INSERT_ID() as id_pedido") as { id_pedido: number }[];
+        const id_pedido = idResult[0]?.id_pedido;
+        
+        if (!id_pedido) {
+          throw new Error("No se pudo obtener el ID del pedido creado");
+        }
+        
         pedidosCreados.push(id_pedido);
 
         // Crear detalles del pedido

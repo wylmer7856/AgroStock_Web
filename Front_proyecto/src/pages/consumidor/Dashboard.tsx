@@ -66,7 +66,16 @@ const ConsumidorDashboard: React.FC = () => {
     },
   });
 
-  const pedidosList = (pedidos || []) as any[];
+  // Ordenar pedidos: más recientes primero
+  const pedidosList = React.useMemo(() => {
+    const lista = (pedidos || []) as any[];
+    return [...lista].sort((a, b) => {
+      const fechaA = a.fecha_pedido ? new Date(a.fecha_pedido).getTime() : 0;
+      const fechaB = b.fecha_pedido ? new Date(b.fecha_pedido).getTime() : 0;
+      return fechaB - fechaA; // Orden descendente (más recientes primero)
+    });
+  }, [pedidos]);
+  
   const pedidosPendientes = pedidosList.filter((p: any) => 
     ['pendiente', 'confirmado', 'en_preparacion', 'en_camino'].includes(p.estado)
   ).length;

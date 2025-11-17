@@ -33,7 +33,7 @@ interface CardProps {
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
   size?: 'small' | 'medium' | 'large';
   showCloseButton?: boolean;
@@ -172,14 +172,19 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'medium',
   showCloseButton = true
 }) => {
-  const [mounted, setMounted] = React.useState(false);
-
   React.useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+    if (isOpen) {
+      // Prevenir scroll del body cuando el modal está abierto
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
-  if (!isOpen || !mounted) return null;
+  if (!isOpen) return null;
 
   const modalClasses = ['modal', `modal-${size}`].join(' ');
 
@@ -191,11 +196,50 @@ export const Modal: React.FC<ModalProps> = ({
 
   // Renderizar el modal directamente en el body usando portal
   const modalContent = (
-    <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className={modalClasses} onClick={(e) => e.stopPropagation()}>
+    <div 
+      className="modal-overlay" 
+      onClick={handleOverlayClick}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+        opacity: 1,
+        visibility: 'visible'
+      }}
+    >
+      <div 
+        className={modalClasses} 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          position: 'relative',
+          zIndex: 100000,
+          opacity: 1,
+          visibility: 'visible',
+          display: 'block',
+          margin: 'auto'
+        }}
+      >
         {(title || showCloseButton) && (
           <div className="modal-header">
-            {title && <h2 className="modal-title">{title}</h2>}
+            {title && (
+              <h2 className="modal-title">
+                {typeof title === 'string' ? title : title}
+              </h2>
+            )}
             {showCloseButton && (
               <button className="modal-close" onClick={onClose}>
                 ×
@@ -210,12 +254,17 @@ export const Modal: React.FC<ModalProps> = ({
 
   // Usar createPortal para renderizar el modal directamente en el body
   // Esto evita problemas con overflow y z-index de contenedores padres
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && document.body) {
     console.log('[Modal] Renderizando modal con portal, isOpen:', isOpen, 'title:', title);
-    return createPortal(modalContent, document.body);
+    try {
+      return createPortal(modalContent, document.body);
+    } catch (error) {
+      console.error('[Modal] Error al crear portal:', error);
+      return modalContent;
+    }
   }
 
-  console.log('[Modal] Renderizando modal sin portal (SSR)');
+  console.log('[Modal] Renderizando modal sin portal (SSR o document.body no disponible)');
   return modalContent;
 };
 
@@ -258,11 +307,19 @@ export const Toast: React.FC<ToastProps> = ({
   }, [duration, onClose]);
 
   const toastClasses = ['toast', `toast-${type}`].join(' ');
+  
+  const icons: Record<string, string> = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
 
   return (
     <div className={toastClasses}>
+      <div className="toast-icon">{icons[type] || 'ℹ️'}</div>
       <span className="toast-message">{message}</span>
-      <button className="toast-close" onClick={onClose}>
+      <button className="toast-close" onClick={onClose} aria-label="Cerrar">
         ×
       </button>
     </div>

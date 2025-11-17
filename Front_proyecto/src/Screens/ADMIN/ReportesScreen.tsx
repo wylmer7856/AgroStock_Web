@@ -150,6 +150,9 @@ export const ReportesScreen: React.FC<ReportesScreenProps> = ({ onNavigate }) =>
           <p>Administra reportes y moderación de contenido</p>
         </div>
         <div className="header-actions">
+          <Button variant="secondary" onClick={() => onNavigate('overview')}>
+            ← Dashboard
+          </Button>
           <Button
             variant="secondary"
             icon="🔄"

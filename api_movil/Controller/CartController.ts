@@ -375,7 +375,8 @@ export class CartController {
             pedido[0].email_productor,
             pedido[0].nombre_productor,
             result.pedido_id!,
-            productos
+            productos,
+            Number(pedido[0].total ?? 0)
           );
         }
 
