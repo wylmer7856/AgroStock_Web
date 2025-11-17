@@ -80,7 +80,7 @@ const CarritoPage: React.FC = () => {
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ['carrito'] });
       }
-      toast.success('Carrito actualizado');
+      // No mostrar toast para actualizaciones de cantidad - el usuario ya ve el cambio en el input
     },
     onError: (error: any) => {
       toast.error(error.message || 'Error al actualizar carrito');

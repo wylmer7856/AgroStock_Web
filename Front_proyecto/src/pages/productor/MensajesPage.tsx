@@ -53,7 +53,7 @@ const ProductorMensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchInterval: 5000, // refrescar cada 5s
   });
 
   // Obtener mensajes enviados
@@ -86,7 +86,7 @@ const ProductorMensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchInterval: 5000, // refrescar cada 5s
   });
 
   // Mutation para enviar mensaje (respuesta a consumidor)
@@ -356,7 +356,7 @@ const ProductorMensajesPage: React.FC = () => {
       }
     },
     enabled: !!selectedConversation && !!user?.id_usuario,
-    refetchInterval: 5000, // Actualizar cada 5 segundos para chat en tiempo real
+    refetchInterval: 3000, // Actualizar cada 3 segundos para acercarnos a tiempo real
   });
   
   // Usar la conversación completa si está disponible, sino usar la agrupada

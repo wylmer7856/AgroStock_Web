@@ -52,6 +52,16 @@ const PedidosPage: React.FC = () => {
     return badges[estado] || badges.pendiente;
   };
 
+  // Ordenar pedidos: más recientes primero (debe estar antes de cualquier return)
+  const pedidosList = React.useMemo(() => {
+    const lista = (pedidos || []) as Pedido[];
+    return [...lista].sort((a, b) => {
+      const fechaA = a.fecha_pedido ? new Date(a.fecha_pedido).getTime() : 0;
+      const fechaB = b.fecha_pedido ? new Date(b.fecha_pedido).getTime() : 0;
+      return fechaB - fechaA; // Orden descendente (más recientes primero)
+    });
+  }, [pedidos]);
+
   if (isLoading) {
     return (
       <div className="text-center py-5">
@@ -61,8 +71,6 @@ const PedidosPage: React.FC = () => {
       </div>
     );
   }
-
-  const pedidosList = (pedidos || []) as Pedido[];
 
   if (pedidosList.length === 0) {
     return (

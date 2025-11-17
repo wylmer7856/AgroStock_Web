@@ -134,11 +134,23 @@ export class ListaDeseosModel {
    */
   public async EliminarDeListaDeseos(id_lista: number, id_usuario: number): Promise<{ success: boolean; message: string }> {
     try {
+      // Validar que los IDs sean números válidos
+      const idListaNum = Number(id_lista);
+      const idUsuarioNum = Number(id_usuario);
+      
+      if (isNaN(idListaNum) || idListaNum <= 0) {
+        throw new Error('ID de lista inválido');
+      }
+      
+      if (isNaN(idUsuarioNum) || idUsuarioNum <= 0) {
+        throw new Error('ID de usuario inválido');
+      }
+
       await conexion.execute('START TRANSACTION');
 
       const result = await conexion.execute(
         'DELETE FROM lista_deseos WHERE id_lista = ? AND id_usuario = ?',
-        [id_lista, id_usuario]
+        [idListaNum, idUsuarioNum]
       );
 
       if (result && result.affectedRows && result.affectedRows > 0) {
@@ -169,11 +181,23 @@ export class ListaDeseosModel {
    */
   public async EliminarProductoDeListaDeseos(id_producto: number, id_usuario: number): Promise<{ success: boolean; message: string }> {
     try {
+      // Validar que los IDs sean números válidos
+      const idProductoNum = Number(id_producto);
+      const idUsuarioNum = Number(id_usuario);
+      
+      if (isNaN(idProductoNum) || idProductoNum <= 0) {
+        throw new Error('ID de producto inválido');
+      }
+      
+      if (isNaN(idUsuarioNum) || idUsuarioNum <= 0) {
+        throw new Error('ID de usuario inválido');
+      }
+
       await conexion.execute('START TRANSACTION');
 
       const result = await conexion.execute(
         'DELETE FROM lista_deseos WHERE id_producto = ? AND id_usuario = ?',
-        [id_producto, id_usuario]
+        [idProductoNum, idUsuarioNum]
       );
 
       if (result && result.affectedRows && result.affectedRows > 0) {
@@ -204,14 +228,25 @@ export class ListaDeseosModel {
    */
   public async LimpiarListaDeseos(id_usuario: number): Promise<{ success: boolean; message: string; eliminados: number }> {
     try {
+      // Validar que id_usuario sea un número válido
+      const idUsuarioNum = Number(id_usuario);
+      console.log('🔍 [ListaDeseosModel.LimpiarListaDeseos] ID recibido:', id_usuario, 'Convertido:', idUsuarioNum);
+      
+      if (isNaN(idUsuarioNum) || idUsuarioNum <= 0) {
+        console.error('❌ [ListaDeseosModel.LimpiarListaDeseos] ID inválido:', id_usuario);
+        throw new Error('ID de usuario inválido');
+      }
+
       await conexion.execute('START TRANSACTION');
 
+      console.log('🗑️ [ListaDeseosModel.LimpiarListaDeseos] Ejecutando DELETE para usuario:', idUsuarioNum);
       const result = await conexion.execute(
         'DELETE FROM lista_deseos WHERE id_usuario = ?',
-        [id_usuario]
+        [idUsuarioNum]
       );
 
       const eliminados = result.affectedRows || 0;
+      console.log('✅ [ListaDeseosModel.LimpiarListaDeseos] Eliminados:', eliminados);
 
       await conexion.execute('COMMIT');
 
@@ -222,7 +257,7 @@ export class ListaDeseosModel {
       };
     } catch (error) {
       await conexion.execute('ROLLBACK');
-      console.error('Error al limpiar lista de deseos:', error);
+      console.error('❌ [ListaDeseosModel.LimpiarListaDeseos] Error:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Error al limpiar lista de deseos.',

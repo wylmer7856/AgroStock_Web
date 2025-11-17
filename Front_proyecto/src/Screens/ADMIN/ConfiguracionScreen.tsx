@@ -84,7 +84,7 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
     <div className="screen-container">
       <div className="screen-header">
         <div className="header-content">
-          <h1>Configuración del Sistema</h1>
+          <h1><i className="bi bi-gear-fill"></i> Configuración del Sistema</h1>
           <p>Gestiona la configuración general de la plataforma</p>
         </div>
         <div className="header-actions">
@@ -93,105 +93,172 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
             onClick={handleGuardar}
             loading={loading}
           >
-            Guardar Cambios
+            <i className="bi bi-save"></i> Guardar Cambios
           </Button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: '1.5rem' }}>
-        {/* Información General */}
-        <Card title="Información General">
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Nombre del Sistema
-              </label>
-              <Input
-                value={config.nombreSistema}
-                onChange={(e) => setConfig({ ...config, nombreSistema: e.target.value })}
-                placeholder="Nombre del sistema"
-              />
+      {loading && !config.nombreSistema ? (
+        <Loading text="Cargando configuración..." />
+      ) : (
+        <div className="configuracion-grid">
+          {/* Información General */}
+          <Card className="configuracion-card">
+            <div className="card-header">
+              <h3 className="card-title">
+                <i className="bi bi-info-circle"></i> Información General
+              </h3>
             </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Email de Contacto
-              </label>
-              <Input
-                type="email"
-                value={config.emailContacto}
-                onChange={(e) => setConfig({ ...config, emailContacto: e.target.value })}
-                placeholder="email@ejemplo.com"
-              />
+            <div className="card-body">
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-building"></i> Nombre del Sistema
+                  <span className="text-danger">*</span>
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-building"></i></span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={config.nombreSistema}
+                    onChange={(e) => setConfig({ ...config, nombreSistema: e.target.value })}
+                    placeholder="Nombre del sistema"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-envelope"></i> Email de Contacto
+                  <span className="text-danger">*</span>
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={config.emailContacto}
+                    onChange={(e) => setConfig({ ...config, emailContacto: e.target.value })}
+                    placeholder="email@ejemplo.com"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-telephone"></i> Teléfono de Contacto
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-telephone"></i></span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={config.telefonoContacto}
+                    onChange={(e) => setConfig({ ...config, telefonoContacto: e.target.value })}
+                    placeholder="+57 300 000 0000"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-geo-alt"></i> Dirección
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-geo-alt"></i></span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={config.direccion}
+                    onChange={(e) => setConfig({ ...config, direccion: e.target.value })}
+                    placeholder="Dirección"
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Teléfono de Contacto
-              </label>
-              <Input
-                value={config.telefonoContacto}
-                onChange={(e) => setConfig({ ...config, telefonoContacto: e.target.value })}
-                placeholder="+57 300 000 0000"
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Dirección
-              </label>
-              <Input
-                value={config.direccion}
-                onChange={(e) => setConfig({ ...config, direccion: e.target.value })}
-                placeholder="Dirección"
-              />
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Configuración de Límites */}
-        <Card title="Límites del Sistema">
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Máximo de Productos por Usuario
-              </label>
-              <Input
-                type="number"
-                value={config.maxProductosUsuario}
-                onChange={(e) => setConfig({ ...config, maxProductosUsuario: parseInt(e.target.value) || 0 })}
-                min="1"
-              />
+          {/* Configuración de Límites */}
+          <Card className="configuracion-card">
+            <div className="card-header">
+              <h3 className="card-title">
+                <i className="bi bi-sliders"></i> Límites del Sistema
+              </h3>
             </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Días de Expiración de Reportes
-              </label>
-              <Input
-                type="number"
-                value={config.diasExpiracionReportes}
-                onChange={(e) => setConfig({ ...config, diasExpiracionReportes: parseInt(e.target.value) || 0 })}
-                min="1"
-              />
+            <div className="card-body">
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-box-seam"></i> Máximo de Productos por Usuario
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-box-seam"></i></span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={config.maxProductosUsuario}
+                    onChange={(e) => setConfig({ ...config, maxProductosUsuario: parseInt(e.target.value) || 0 })}
+                    min="1"
+                  />
+                </div>
+                <small className="form-text text-muted">Límite máximo de productos que puede crear un usuario</small>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">
+                  <i className="bi bi-calendar-x"></i> Días de Expiración de Reportes
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-calendar-x"></i></span>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={config.diasExpiracionReportes}
+                    onChange={(e) => setConfig({ ...config, diasExpiracionReportes: parseInt(e.target.value) || 0 })}
+                    min="1"
+                  />
+                </div>
+                <small className="form-text text-muted">Número de días antes de que los reportes expiren automáticamente</small>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Estado del Sistema */}
-        <Card title="Estado del Sistema">
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                checked={config.mantenimiento}
-                onChange={(e) => setConfig({ ...config, mantenimiento: e.target.checked })}
-              />
-              <span>Modo Mantenimiento (el sistema estará inaccesible para usuarios)</span>
-            </label>
-          </div>
-        </Card>
-      </div>
+          {/* Estado del Sistema */}
+          <Card className="configuracion-card">
+            <div className="card-header">
+              <h3 className="card-title">
+                <i className="bi bi-shield-check"></i> Estado del Sistema
+              </h3>
+            </div>
+            <div className="card-body">
+              <div className="form-group">
+                <div className="form-check form-switch">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="modoMantenimiento"
+                    checked={config.mantenimiento}
+                    onChange={(e) => setConfig({ ...config, mantenimiento: e.target.checked })}
+                  />
+                  <label className="form-check-label" htmlFor="modoMantenimiento">
+                    <i className="bi bi-tools"></i> Modo Mantenimiento
+                  </label>
+                </div>
+                <small className="form-text text-muted d-block mt-2">
+                  {config.mantenimiento ? (
+                    <span className="text-warning">
+                      <i className="bi bi-exclamation-triangle"></i> El sistema está en mantenimiento. Los usuarios no podrán acceder.
+                    </span>
+                  ) : (
+                    <span className="text-success">
+                      <i className="bi bi-check-circle"></i> El sistema está operativo.
+                    </span>
+                  )}
+                </small>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {toast && (
         <Toast

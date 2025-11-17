@@ -134,7 +134,15 @@ const ProductorPedidosPage: React.FC = () => {
     );
   }
 
-  const pedidosList = (pedidos || []) as Pedido[];
+  // Ordenar pedidos: más recientes primero
+  const pedidosList = React.useMemo(() => {
+    const lista = (pedidos || []) as Pedido[];
+    return [...lista].sort((a, b) => {
+      const fechaA = a.fecha_pedido ? new Date(a.fecha_pedido).getTime() : 0;
+      const fechaB = b.fecha_pedido ? new Date(b.fecha_pedido).getTime() : 0;
+      return fechaB - fechaA; // Orden descendente (más recientes primero)
+    });
+  }, [pedidos]);
 
   // Filtrar pedidos
   const pedidosFiltrados = pedidosList.filter(pedido => {

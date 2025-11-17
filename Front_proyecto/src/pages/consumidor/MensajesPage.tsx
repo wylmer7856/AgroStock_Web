@@ -103,7 +103,7 @@ const MensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 
   // Obtener mensajes enviados
@@ -120,7 +120,7 @@ const MensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 30000,
+    refetchInterval: 5000,
   });
 
   // Buscar productos para selector
@@ -304,7 +304,7 @@ const MensajesPage: React.FC = () => {
       }
     },
     enabled: !!selectedConversation && !!user?.id_usuario,
-    refetchInterval: 5000, // Actualizar cada 5 segundos para chat en tiempo real
+    refetchInterval: 3000, // Actualizar cada 3 segundos para acercarnos a tiempo real
   });
   
   // Usar la conversación completa si está disponible, sino usar la agrupada

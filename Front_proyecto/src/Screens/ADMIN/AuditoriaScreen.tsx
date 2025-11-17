@@ -114,6 +114,9 @@ export const AuditoriaScreen: React.FC<AuditoriaScreenProps> = ({ onNavigate }) 
           <p>Registro de todas las acciones realizadas en el sistema</p>
         </div>
         <div className="header-actions">
+          <Button variant="secondary" onClick={() => onNavigate('overview')}>
+            ← Dashboard
+          </Button>
           <Button
             variant="primary"
             onClick={cargarAcciones}

@@ -1,5 +1,6 @@
 import { Context, RouterContext } from "../Dependencies/dependencias.ts";
 import { MensajesModel, MensajeCreateData } from "../Models/MensajesModel.ts";
+import { notificationService } from "../Services/NotificationService.ts";
 
 export class MensajesController {
   
@@ -62,6 +63,16 @@ export class MensajesController {
       console.log('📬 [EnviarMensaje] Resultado de CrearMensaje:', JSON.stringify(result, null, 2));
 
       if (result.success) {
+        try {
+          await notificationService.notifyNewMessage(
+            mensajeData.id_destinatario,
+            mensajeData.id_remitente,
+            mensajeData.asunto
+          );
+        } catch (notifyError) {
+          console.error("⚠️ [EnviarMensaje] Error al notificar nuevo mensaje:", notifyError);
+        }
+
         ctx.response.status = 201;
         ctx.response.body = {
           success: true,

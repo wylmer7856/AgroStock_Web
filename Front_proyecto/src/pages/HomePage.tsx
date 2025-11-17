@@ -105,7 +105,7 @@ const HomePage: React.FC = () => {
     },
   });
 
-  // Mutation para lista de deseos
+  // Mutation para lista de deseos con actualización optimista
   const toggleListaDeseosMutation = useMutation({
     mutationFn: async ({ idProducto, agregar }: { idProducto: number; agregar: boolean }) => {
       if (agregar) {
@@ -114,11 +114,37 @@ const HomePage: React.FC = () => {
         return await listaDeseosService.eliminarProductoDeListaDeseos(idProducto);
       }
     },
+    onMutate: async ({ idProducto, agregar }) => {
+      // Cancelar queries en curso
+      await queryClient.cancelQueries({ queryKey: ['lista-deseos'] });
+      
+      // Snapshot del valor anterior
+      const previousListaDeseos = queryClient.getQueryData(['lista-deseos']);
+      
+      // Actualización optimista
+      queryClient.setQueryData(['lista-deseos'], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        if (agregar) {
+          // Agregar producto a la lista (simulado)
+          return [...old, { id_producto: idProducto }];
+        } else {
+          // Eliminar producto de la lista
+          return old.filter((item: any) => item.id_producto !== idProducto);
+        }
+      });
+      
+      return { previousListaDeseos };
+    },
     onSuccess: (_, variables) => {
       toast.success(variables.agregar ? 'Agregado a favoritos' : 'Eliminado de favoritos');
+      // Invalidar queries para sincronizar con el servidor (sin refetch inmediato)
       queryClient.invalidateQueries({ queryKey: ['lista-deseos'] });
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context) => {
+      // Revertir en caso de error
+      if (context?.previousListaDeseos) {
+        queryClient.setQueryData(['lista-deseos'], context.previousListaDeseos);
+      }
       toast.error(error.message || 'Error al actualizar favoritos');
     },
   });
@@ -326,10 +352,20 @@ const HomePage: React.FC = () => {
                                 className="product-favorite-btn"
                                 onClick={(e) => handleToggleListaDeseos(e, producto.id_producto, estaEnLista)}
                                 title={estaEnLista ? 'Eliminar de favoritos' : 'Agregar a favoritos'}
+                                style={{
+                                  background: estaEnLista ? 'rgba(220, 53, 69, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                                  border: estaEnLista ? 'none' : '1px solid rgba(0,0,0,0.1)',
+                                  transition: 'all 0.3s ease'
+                                }}
                               >
                                 <BiHeart 
-                                  className={estaEnLista ? 'text-danger fill' : 'text-white'} 
-                                  style={{ fontSize: '1.5rem' }}
+                                  className={estaEnLista ? 'heart-filled' : 'heart-outline'}
+                                  style={{ 
+                                    fontSize: '1.5rem',
+                                    color: estaEnLista ? '#ffffff' : '#dc3545',
+                                    transition: 'all 0.3s ease',
+                                    display: 'block'
+                                  }}
                                 />
                               </button>
                             )}

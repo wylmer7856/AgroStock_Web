@@ -205,7 +205,7 @@ export const getMiPerfil = async (ctx: Context) => {
     }
 
     // No devolver la contraseña
-    const { password, ...usuarioSinPassword } = usuario;
+    const { password: _password, ...usuarioSinPassword } = usuario;
 
     ctx.response.status = 200;
     ctx.response.body = {
@@ -332,7 +332,7 @@ export const putMiPerfil = async (ctx: Context) => {
       rol: usuarioActual.rol, // No se puede cambiar
       activo: validated.activo !== undefined ? validated.activo : usuarioActual.activo, // Permitir cambiar estado
       email_verificado: usuarioActual.email_verificado, // No se puede cambiar
-      password: undefined // No se actualiza la contraseña desde aquí
+      password: usuarioActual.password // Mantener la contraseña actual (no se actualiza desde aquí)
     };
 
     console.log('💾 [putMiPerfil] Datos para actualizar:', {
@@ -356,7 +356,7 @@ export const putMiPerfil = async (ctx: Context) => {
     if (result.success) {
       // Obtener el usuario actualizado
       const usuarioActualizado = await objUsuario.ObtenerPorId(userIdNum);
-      const { password, ...usuarioSinPassword } = usuarioActualizado!;
+      const { password: _password, ...usuarioSinPassword } = usuarioActualizado!;
 
       ctx.response.status = 200;
       ctx.response.body = {

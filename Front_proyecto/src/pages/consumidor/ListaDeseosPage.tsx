@@ -8,11 +8,13 @@ import { toast } from 'react-toastify';
 import { BiHeart, BiTrash, BiCart, BiPackage, BiLogIn } from 'react-icons/bi';
 import type { ListaDeseo } from '../../types';
 import ConfirmModal from '../../components/ConfirmModal';
+import imagenesService from '../../services/imagenes';
 
 const ListaDeseosPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
   const [listaLocal, setListaLocal] = useState(listaDeseosLocalService.obtenerListaDeseos());
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // Sincronizar lista local cuando el usuario inicia sesión
   useEffect(() => {
@@ -118,7 +120,26 @@ const ListaDeseosPage: React.FC = () => {
   if (listaActual.length === 0) {
     return (
       <div className="text-center py-5">
-        <BiHeart className="display-1 text-muted mb-3" />
+        <div 
+          className="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+          style={{
+            width: '120px',
+            height: '120px',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <BiHeart 
+            style={{
+              fontSize: '4rem',
+              color: '#dc3545',
+              fill: 'none',
+              stroke: '#dc3545',
+              strokeWidth: '2',
+            }}
+          />
+        </div>
         <h3 className="text-muted">Tu lista de deseos está vacía</h3>
         <p className="text-muted mb-4">Agrega productos que te gusten a tu lista de deseos</p>
         <Link to="/productos" className="btn btn-primary btn-lg">
@@ -169,18 +190,37 @@ const ListaDeseosPage: React.FC = () => {
           <div key={item.id_lista || `local-${item.id_producto}-${index}`} className="col-md-6 col-lg-4">
             <div className="card h-100 border-0 shadow-sm">
               <Link to={`/productos/${item.id_producto}`} className="text-decoration-none">
-                {item.imagen_principal ? (
-                  <img
-                    src={item.imagen_principal}
-                    className="card-img-top"
-                    alt={item.nombre_producto}
-                    style={{ height: '250px', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div className="card-img-top bg-light d-flex align-items-center justify-content-center" style={{ height: '250px' }}>
-                    <BiPackage className="display-4 text-muted" />
-                  </div>
-                )}
+                {(() => {
+                  const imagenUrl = item.imagen_principal 
+                    ? (item.imagen_principal.startsWith('http') 
+                        ? item.imagen_principal 
+                        : imagenesService.construirUrlImagen(item.imagen_principal))
+                    : null;
+                  
+                  const imageKey = `${item.id_producto}-${item.imagen_principal || 'no-image'}`;
+                  const hasError = imageErrors.has(imageKey);
+                  
+                  if (!imagenUrl || hasError) {
+                    return (
+                      <div className="card-img-top bg-light d-flex align-items-center justify-content-center" style={{ height: '250px' }}>
+                        <BiPackage className="display-4 text-muted" />
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <img
+                      src={imagenUrl}
+                      className="card-img-top"
+                      alt={item.nombre_producto || 'Producto'}
+                      style={{ height: '250px', objectFit: 'cover' }}
+                      onError={() => {
+                        console.error('Error cargando imagen:', imagenUrl);
+                        setImageErrors(prev => new Set(prev).add(imageKey));
+                      }}
+                    />
+                  );
+                })()}
               </Link>
 
               <div className="card-body d-flex flex-column">

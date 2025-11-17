@@ -226,11 +226,18 @@ export class ReportesController {
         return;
       }
 
+      // Validar y mapear el tipo de reporte
+      const tiposPermitidos: Array<'producto_inapropiado' | 'usuario_inapropiado' | 'contenido_ofensivo' | 'spam' | 'fraude' | 'otro'> = 
+        ['producto_inapropiado', 'usuario_inapropiado', 'contenido_ofensivo', 'spam', 'fraude', 'otro'];
+      const tipoReporte = tiposPermitidos.includes(motivo as typeof tiposPermitidos[number]) 
+        ? (motivo as typeof tiposPermitidos[number])
+        : 'usuario_inapropiado';
+
       const reporteData: ReporteCreateData = {
-        id_usuario_reportado,
-        id_usuario_reportador: userId,
-        tipo_reporte: 'usuario',
-        motivo,
+        id_usuario_reportante: userId,
+        tipo_reporte: tipoReporte,
+        id_elemento_reportado: id_usuario_reportado,
+        tipo_elemento: 'usuario',
         descripcion
       };
 
@@ -264,11 +271,18 @@ export class ReportesController {
         return;
       }
 
+      // Validar y mapear el tipo de reporte
+      const tiposPermitidos: Array<'producto_inapropiado' | 'usuario_inapropiado' | 'contenido_ofensivo' | 'spam' | 'fraude' | 'otro'> = 
+        ['producto_inapropiado', 'usuario_inapropiado', 'contenido_ofensivo', 'spam', 'fraude', 'otro'];
+      const tipoReporte = tiposPermitidos.includes(motivo as typeof tiposPermitidos[number]) 
+        ? (motivo as typeof tiposPermitidos[number])
+        : 'producto_inapropiado';
+
       const reporteData: ReporteCreateData = {
-        id_producto_reportado,
-        id_usuario_reportador: userId,
-        tipo_reporte: 'producto',
-        motivo,
+        id_usuario_reportante: userId,
+        tipo_reporte: tipoReporte,
+        id_elemento_reportado: id_producto_reportado,
+        tipo_elemento: 'producto',
         descripcion
       };
 

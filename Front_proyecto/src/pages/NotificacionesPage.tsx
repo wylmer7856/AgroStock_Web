@@ -23,7 +23,7 @@ const NotificacionesPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
-    refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchInterval: 5000, // refrescar cada 5 segundos para simular tiempo real
   });
 
   // Mutation para marcar como leída
@@ -257,5 +257,6 @@ const NotificacionesPage: React.FC = () => {
 };
 
 export default NotificacionesPage;
+
 
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { pedidosService } from '../../services';
+import { pedidosService, imagenesService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
@@ -426,35 +426,63 @@ const PedidoDetailPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pedido.detalles.map((detalle) => (
-                    <tr key={detalle.id_detalle}>
-                      <td>
-                        <div className="d-flex align-items-center gap-3">
-                          {detalle.producto_imagen && (
-                            <img
-                              src={detalle.producto_imagen}
-                              alt={detalle.producto_nombre || 'Producto'}
-                              style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
-                            />
-                          )}
-                          <div>
-                            <strong>{detalle.producto_nombre || `Producto #${detalle.id_producto}`}</strong>
-                            {detalle.unidad_medida && (
-                              <small className="text-muted d-block">{detalle.unidad_medida}</small>
-                            )}
-                            {detalle.producto_descripcion && (
-                              <small className="text-muted d-block">{detalle.producto_descripcion}</small>
-                            )}
+                  {pedido.detalles.map((detalle) => {
+                    const imagenProducto = detalle.producto_imagen
+                      ? imagenesService.construirUrlImagen(detalle.producto_imagen)
+                      : null;
+
+                    return (
+                      <tr key={detalle.id_detalle}>
+                        <td>
+                          <div className="d-flex align-items-center gap-3">
+                            <div
+                              style={{
+                                width: '60px',
+                                height: '60px',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                backgroundColor: '#f8f9fa',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              {imagenProducto ? (
+                                <img
+                                  src={imagenProducto}
+                                  alt={detalle.producto_nombre || 'Producto'}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  onError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-muted">
+                                  <BiPackage className="fs-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <strong>{detalle.producto_nombre || `Producto #${detalle.id_producto}`}</strong>
+                              {detalle.unidad_medida && (
+                                <small className="text-muted d-block">{detalle.unidad_medida}</small>
+                              )}
+                              {detalle.producto_descripcion && (
+                                <small className="text-muted d-block">{detalle.producto_descripcion}</small>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
                       <td>{detalle.cantidad}</td>
                       <td>${detalle.precio_unitario.toLocaleString()}</td>
                       <td className="text-end">
                         <strong>${detalle.subtotal.toLocaleString()}</strong>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>

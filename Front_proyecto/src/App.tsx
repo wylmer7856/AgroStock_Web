@@ -7,6 +7,8 @@ import PublicLayout from './components/layout/PublicLayout';
 import PrivateLayout from './components/layout/PrivateLayout';
 import ConsumerLayout from './components/layout/ConsumerLayout';
 import LoadingScreen from './components/LoadingScreen';
+import MantenimientoScreen from './components/MantenimientoScreen';
+import { useMantenimiento } from './hooks/useMantenimiento';
 
 // Páginas públicas
 import HomePage from './pages/HomePage';
@@ -80,6 +82,7 @@ const PublicRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 // Componente interno que usa el contexto
 const AppRoutes: React.FC = () => {
   const { isAuthenticated, user, isLoading } = useAuth();
+  const { isMantenimiento, loading: mantenimientoLoading } = useMantenimiento();
   const [showLoading, setShowLoading] = React.useState(true);
   
   // Log para debug
@@ -101,6 +104,12 @@ const AppRoutes: React.FC = () => {
     }
   }, [isLoading]);
 
+  // Si el sistema está en mantenimiento, mostrar pantalla de mantenimiento
+  // Excepto para admins que necesitan acceder a la configuración
+  if (!mantenimientoLoading && isMantenimiento && user?.rol !== 'admin') {
+    return <MantenimientoScreen />;
+  }
+
   // NO bloquear el renderizado - mostrar siempre algo
   if (isLoading && showLoading) {
     console.log('⏳ Mostrando LoadingScreen brevemente...');
@@ -114,7 +123,10 @@ const AppRoutes: React.FC = () => {
       <Routes>
         {/* Rutas públicas - Con PublicLayout (Navbar + Footer) */}
         <Route element={<PublicLayout />}>
-          {/* Rutas que requieren NO estar autenticado (login, register, home) */}
+          {/* Home - Accesible para todos, especialmente consumidores */}
+          <Route path="/" element={<HomePage />} />
+          
+          {/* Rutas que requieren NO estar autenticado (login, register) */}
           <Route 
             path="/login" 
             element={
@@ -131,8 +143,6 @@ const AppRoutes: React.FC = () => {
               </PublicRouteGuard>
             } 
           />
-          {/* Home - Accesible para todos, especialmente consumidores */}
-          <Route path="/" element={<HomePage />} />
           
           {/* Rutas públicas accesibles para todos (incluso autenticados) */}
           <Route path="/productos" element={<ProductosPage />} />
@@ -206,28 +216,27 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
-
-        {/* Rutas de admin - Todas usan el mismo panel AdminDashboard */}
-        <Route
-          path="/admin/*"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Routes>
-                <Route path="dashboard" element={<AdminDashboard />} />
-                <Route path="usuarios" element={<AdminDashboard />} />
-                <Route path="productos" element={<AdminDashboard />} />
-                <Route path="pedidos" element={<AdminDashboard />} />
-                <Route path="reportes" element={<AdminDashboard />} />
-                <Route path="estadisticas" element={<AdminDashboard />} />
-                <Route path="categorias" element={<AdminDashboard />} />
-                <Route path="auditoria" element={<AdminDashboard />} />
-                <Route path="configuracion" element={<AdminDashboard />} />
-                <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
-              </Routes>
-            </ProtectedRoute>
-          }
-        />
       </Route>
+
+      {/* Rutas de admin - SIN PrivateLayout, usa su propio layout interno */}
+      <Route
+        path="/admin/*"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Routes>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="usuarios" element={<AdminDashboard />} />
+              <Route path="productos" element={<AdminDashboard />} />
+              <Route path="pedidos" element={<AdminDashboard />} />
+              <Route path="categorias" element={<AdminDashboard />} />
+              <Route path="resenas" element={<AdminDashboard />} />
+              <Route path="notificaciones" element={<AdminDashboard />} />
+              <Route path="configuracion" element={<AdminDashboard />} />
+              <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+            </Routes>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Rutas protegidas con MainLayout (con navbar) - Otras páginas */}
       <Route element={<MainLayout />}>

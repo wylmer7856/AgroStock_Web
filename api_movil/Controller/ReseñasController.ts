@@ -79,8 +79,24 @@ export const putResena = async (ctx: RouterContext<"/resenas/:id">) => {
   try {
     const body = await ctx.request.body.json();
     const validated = resenaSchemaUpdate.parse(body);
+    
+    // Obtener el ID de la URL si no viene en el body
+    const id_resena = validated.id_resena || Number(ctx.params.id);
+    
+    // Crear objeto parcial con solo los campos necesarios para edición
+    // El método EditarResena solo necesita id_resena, calificacion y comentario
+    const resenaData = {
+      id_resena: id_resena,
+      id_pedido: 0, // No se usa en EditarResena, pero requerido por el tipo
+      id_producto: 0, // No se usa en EditarResena, pero requerido por el tipo
+      id_consumidor: 0, // No se usa en EditarResena, pero requerido por el tipo
+      id_productor: 0, // No se usa en EditarResena, pero requerido por el tipo
+      calificacion: validated.calificacion ?? 0, // Valor por defecto si no se proporciona
+      comentario: validated.comentario ?? null,
+      fecha_resena: null, // No se usa en EditarResena
+    };
 
-    const objResena = new Resena(validated);
+    const objResena = new Resena(resenaData);
     const result = await objResena.EditarResena();
 
     ctx.response.status = result.success ? 200 : 400;

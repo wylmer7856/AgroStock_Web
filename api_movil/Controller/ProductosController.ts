@@ -64,7 +64,13 @@ const filtrosSchema = z.object({
   precio_max: z.string().transform((val: string) => val ? Number(val) : undefined).optional(),
   stock_min: z.string().transform((val: string) => val ? Number(val) : undefined).optional(),
   id_usuario: z.string().transform((val: string) => val ? Number(val) : undefined).optional(),
-  id_categoria: z.string().transform((val: string) => val ? Number(val) : undefined).optional(),
+  id_categoria: z.string().transform((val: string) => {
+    if (!val || val === '' || val === 'null' || val === 'undefined') {
+      return undefined;
+    }
+    const num = Number(val);
+    return isNaN(num) ? undefined : num;
+  }).optional(),
   id_ciudad_origen: z.string().transform((val: string) => val ? Number(val) : undefined).optional(),
   unidad_medida: z.string().optional(),
   disponible: z.string().transform((val: string) => val === 'true' ? true : val === 'false' ? false : undefined).optional(),
@@ -192,9 +198,12 @@ function paginarResultados(productos: ProductoData[], pagina: number, limite: nu
 export const getProductos = async (ctx: Context) => {
   try {
     const queryParams = Object.fromEntries(ctx.request.url.searchParams.entries());
-    console.log('📦 Query params recibidos:', queryParams);
+    console.log('📦 Query params recibidos (raw):', queryParams);
+    console.log('📦 URL completa:', ctx.request.url.toString());
+    
     const filtros = filtrosSchema.parse(queryParams);
     console.log('🔍 Filtros parseados:', filtros);
+    console.log('🔍 id_categoria en filtros:', filtros.id_categoria, 'tipo:', typeof filtros.id_categoria);
 
     const objProductos = new ProductosModel();
     
@@ -202,15 +211,70 @@ export const getProductos = async (ctx: Context) => {
     let lista: ProductoData[];
     if (filtros.id_categoria !== undefined && filtros.id_categoria !== null) {
       const categoriaId = Number(filtros.id_categoria);
-      console.log(`🔍 Aplicando filtro de categoría ${categoriaId} directamente en SQL`);
-      const { conexion } = await import("../Models/Conexion.ts");
-      const result = await conexion.query(
-        "SELECT * FROM productos WHERE id_categoria = ? ORDER BY id_producto DESC",
-        [categoriaId]
-      );
-      lista = result as ProductoData[];
-      console.log(`📋 Productos obtenidos de BD con categoría ${categoriaId}: ${lista.length}`);
+      console.log(`🔍 Intentando filtrar por categoría. Valor recibido: ${filtros.id_categoria}, convertido a número: ${categoriaId}`);
+      
+      if (isNaN(categoriaId) || categoriaId <= 0) {
+        console.log(`⚠️ ID de categoría inválido: ${filtros.id_categoria}, obteniendo todos los productos`);
+        lista = await objProductos.ListarProductos();
+      } else {
+        console.log(`🔍 Aplicando filtro de categoría ${categoriaId} directamente en SQL`);
+        console.log(`🔍 Tipo de categoriaId: ${typeof categoriaId}, valor: ${categoriaId}`);
+        const { conexion } = await import("../Models/Conexion.ts");
+        
+        // Asegurar que categoriaId sea un número entero
+        const categoriaIdInt = parseInt(String(categoriaId), 10);
+        if (isNaN(categoriaIdInt) || categoriaIdInt <= 0) {
+          console.error(`❌ ID de categoría inválido después de conversión: ${categoriaIdInt}`);
+          lista = await objProductos.ListarProductos();
+        } else {
+          // Primero verificar cuántos productos hay con esa categoría
+          const countResult = await conexion.query(
+            "SELECT COUNT(*) as total FROM productos WHERE id_categoria = ? AND disponible = 1",
+            [categoriaIdInt]
+          );
+          const totalConCategoria = (countResult[0] as { total: number }).total;
+          console.log(`📊 Total de productos en BD con categoría ${categoriaIdInt}: ${totalConCategoria}`);
+          
+          const result = await conexion.query(
+            "SELECT * FROM productos WHERE id_categoria = ? AND disponible = 1 ORDER BY id_producto DESC",
+            [categoriaIdInt]
+          );
+          lista = result as ProductoData[];
+          console.log(`📋 Productos obtenidos de BD con categoría ${categoriaIdInt}: ${lista.length}`);
+          
+          // Verificar que los productos realmente tienen la categoría correcta
+          if (lista.length > 0) {
+            const categoriasEncontradas = [...new Set(lista.map(p => p.id_categoria))];
+            console.log(`📋 Categorías encontradas en los productos:`, categoriasEncontradas);
+            
+            // Mostrar algunos productos para verificar
+            lista.slice(0, 3).forEach((p, idx) => {
+              console.log(`  Producto ${idx + 1}: "${p.nombre}" - Categoría: ${p.id_categoria} (tipo: ${typeof p.id_categoria})`);
+            });
+            
+            // FILTRAR PRODUCTOS INCORRECTOS - Esto es crítico
+            const productosCorrectos = lista.filter(p => {
+              const catId = p.id_categoria ? Number(p.id_categoria) : null;
+              const esCorrecto = catId === categoriaIdInt;
+              if (!esCorrecto) {
+                console.error(`❌ Producto incorrecto filtrado: "${p.nombre}" tiene categoría ${p.id_categoria} (tipo: ${typeof p.id_categoria}) pero se esperaba ${categoriaIdInt}`);
+              }
+              return esCorrecto;
+            });
+            
+            if (productosCorrectos.length !== lista.length) {
+              console.error(`⚠️ Se filtraron ${lista.length - productosCorrectos.length} productos con categoría incorrecta`);
+            }
+            
+            lista = productosCorrectos;
+            console.log(`✅ Productos correctos después de filtrar: ${lista.length}`);
+          } else {
+            console.log(`⚠️ No se encontraron productos con categoría ${categoriaIdInt}`);
+          }
+        }
+      }
     } else {
+      console.log('📋 No hay filtro de categoría, obteniendo todos los productos');
       lista = await objProductos.ListarProductos();
       console.log(`📋 Total productos antes de filtrar: ${lista.length}`);
     }

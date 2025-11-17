@@ -108,7 +108,7 @@ const routers = [
   ReportesRouter,            // Sistema de reportes
   EstadisticasRouter,        // Estadísticas
   AuditoriaRouter,           // Auditoría y trazabilidad
-  AdminRouter,               // Panel de administración
+  AdminRouter,               // Panel de administración (DEBE IR ANTES de NotificacionesRouter)
   UsuariosRouter,            // Gestión de usuarios
   RegionesRouter,            // Regiones
   DepartamentosRouter,       // Departamentos
@@ -117,7 +117,7 @@ const routers = [
   DetallePedidosRouter,      // Detalle de pedidos
   pedidosRouter,             // Pedidos
   HistorialPreciosRouter,    // Historial de precios
-  NotificacionesRouter,      // Notificaciones push
+  NotificacionesRouter,      // Notificaciones push (rutas generales)
   ListaDeseosRouter          // Lista de deseos
 ];
 

@@ -4,15 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   BiHome,
   BiPackage,
-  BiCart,
-  BiHeart,
   BiReceipt,
   BiMessageSquare,
   BiBarChart,
   BiUser,
   BiCog,
-  BiStore,
-  BiShield,
   BiFile,
   BiX
 } from 'react-icons/bi';
@@ -59,8 +55,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       case 'consumidor':
         return [
           { path: '/', label: 'Inicio', icon: <BiHome /> },
-          { path: '/consumidor/carrito', label: 'Carrito', icon: <BiCart /> },
-          { path: '/consumidor/lista-deseos', label: 'Lista de Deseos', icon: <BiHeart /> },
           { path: '/consumidor/pedidos', label: 'Mis Pedidos', icon: <BiReceipt /> },
           { path: '/consumidor/mensajes', label: 'Mensajes', icon: <BiMessageSquare /> },
           { path: '/consumidor/perfil', label: 'Mi Perfil', icon: <BiUser /> },
@@ -84,12 +78,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <aside
-        className={`bg-primary shadow-lg position-fixed top-0 start-0 h-100 overflow-auto ${
+        className={`bg-primary shadow-lg position-fixed start-0 overflow-auto ${
           isOpen ? 'show' : ''
         }`}
         style={{
           width: '280px',
-          zIndex: 1030,
+          zIndex: 1010, // Menor que el navbar (1020) para que no lo cubra
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.3s ease-in-out',
           top: '56px', // Debajo del navbar
