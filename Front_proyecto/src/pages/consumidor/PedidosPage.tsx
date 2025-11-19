@@ -1,15 +1,27 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
-import { pedidosService, carritoService } from '../../services';
+import { Link } from 'react-router-dom';
+import { pedidosService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
-import { BiReceipt, BiPackage, BiCheckCircle, BiXCircle, BiTime, BiPlus, BiCart } from 'react-icons/bi';
+import { es } from 'date-fns/locale';
+import { 
+  BiReceipt, 
+  BiPackage, 
+  BiCheckCircle, 
+  BiXCircle, 
+  BiTime, 
+  BiMapPin,
+  BiCreditCard,
+  BiCalendar,
+  BiFile,
+  BiRightArrowAlt
+} from 'react-icons/bi';
 import type { Pedido } from '../../types';
+import './PedidosPage.css';
 
 const PedidosPage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const { data: pedidos, isLoading } = useQuery({
     queryKey: ['pedidos', 'consumidor'],
@@ -21,33 +33,38 @@ const PedidosPage: React.FC = () => {
     enabled: !!user?.id_usuario,
   });
 
-  // Query para verificar si hay items en el carrito
-  const { data: carrito } = useQuery({
-    queryKey: ['carrito'],
-    queryFn: async () => {
-      const response = await carritoService.obtenerCarrito();
-      return response.data || null;
-    },
-  });
-
-  const handleNuevoPedido = () => {
-    // Si hay items en el carrito, ir al carrito para completar el pedido
-    if (carrito?.items && carrito.items.length > 0) {
-      navigate('/consumidor/carrito');
-    } else {
-      // Si el carrito está vacío, ir a productos para agregar items
-      navigate('/productos');
-    }
-  };
-
   const getEstadoBadge = (estado: string) => {
-    const badges: Record<string, { class: string; icon: JSX.Element }> = {
-      pendiente: { class: 'bg-warning', icon: <BiTime /> },
-      confirmado: { class: 'bg-info', icon: <BiCheckCircle /> },
-      en_preparacion: { class: 'bg-primary', icon: <BiPackage /> },
-      en_camino: { class: 'bg-primary', icon: <BiPackage /> },
-      entregado: { class: 'bg-success', icon: <BiCheckCircle /> },
-      cancelado: { class: 'bg-danger', icon: <BiXCircle /> },
+    const badges: Record<string, { class: string; icon: JSX.Element; label: string }> = {
+      pendiente: { 
+        class: 'badge-estado-pendiente', 
+        icon: <BiTime />, 
+        label: 'Pendiente' 
+      },
+      confirmado: { 
+        class: 'badge-estado-confirmado', 
+        icon: <BiCheckCircle />, 
+        label: 'Confirmado' 
+      },
+      en_preparacion: { 
+        class: 'badge-estado-preparacion', 
+        icon: <BiPackage />, 
+        label: 'En Preparación' 
+      },
+      en_camino: { 
+        class: 'badge-estado-camino', 
+        icon: <BiPackage />, 
+        label: 'En Camino' 
+      },
+      entregado: { 
+        class: 'badge-estado-entregado', 
+        icon: <BiCheckCircle />, 
+        label: 'Entregado' 
+      },
+      cancelado: { 
+        class: 'badge-estado-cancelado', 
+        icon: <BiXCircle />, 
+        label: 'Cancelado' 
+      },
     };
     return badges[estado] || badges.pendiente;
   };
@@ -64,9 +81,14 @@ const PedidosPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Cargando pedidos...</span>
+      <div className="pedidos-page-wrapper">
+        <div className="pedidos-container">
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+              <span className="visually-hidden">Cargando pedidos...</span>
+            </div>
+            <p className="mt-3 text-muted">Cargando tus pedidos...</p>
+          </div>
         </div>
       </div>
     );
@@ -74,118 +96,142 @@ const PedidosPage: React.FC = () => {
 
   if (pedidosList.length === 0) {
     return (
-      <div className="text-center py-5">
-        <BiReceipt className="display-1 text-muted mb-3" />
-        <h3 className="text-muted">No tienes pedidos aún</h3>
-        <p className="text-muted mb-4">Realiza tu primer pedido para comenzar</p>
-        <Link to="/productos" className="btn btn-primary btn-lg">
-          <BiPackage className="me-2" />
-          Ver Productos
-        </Link>
+      <div className="pedidos-page-wrapper">
+        <div className="pedidos-container">
+          <div className="pedidos-empty-state">
+            <div className="empty-state-icon">
+              <BiReceipt />
+            </div>
+            <h2 className="empty-state-title">No tienes pedidos aún</h2>
+            <p className="empty-state-description">
+              Realiza tu primer pedido para comenzar a disfrutar de productos frescos y de calidad
+            </p>
+            <Link to="/productos" className="btn btn-primary btn-lg empty-state-button">
+              <BiPackage className="me-2" />
+              Explorar Productos
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold mb-0">
-          <BiReceipt className="me-2" />
-          Mis Pedidos
-        </h2>
-        <button 
-          onClick={handleNuevoPedido}
-          className="btn btn-primary"
-        >
-          {carrito?.items && carrito.items.length > 0 ? (
-            <>
-              <BiCart className="me-2" />
-              Completar Pedido ({carrito.items.length})
-            </>
-          ) : (
-            <>
-              <BiPlus className="me-2" />
-              Nuevo Pedido
-            </>
-          )}
-        </button>
-      </div>
+    <div className="pedidos-page-wrapper">
+      <div className="pedidos-container">
+        {/* Header Section */}
+        <div className="pedidos-header">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div>
+              <h1 className="pedidos-title">
+                <BiReceipt className="me-2" />
+                Mis Pedidos
+              </h1>
+              <p className="pedidos-subtitle">
+                Gestiona y realiza seguimiento de todos tus pedidos
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="row g-4">
-        {pedidosList.map((pedido) => {
-          const estadoBadge = getEstadoBadge(pedido.estado);
-          return (
-            <div key={pedido.id_pedido} className="col-12">
-              <div className="card border-0 shadow-sm">
-                <div className="card-header bg-white d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5 className="mb-0">Pedido #{pedido.id_pedido}</h5>
-                    <small className="text-muted">
-                      {pedido.fecha_pedido && format(new Date(pedido.fecha_pedido), 'dd MMMM yyyy, HH:mm')}
-                    </small>
+        {/* Pedidos List */}
+        <div className="pedidos-list">
+          {pedidosList.map((pedido) => {
+            const estadoBadge = getEstadoBadge(pedido.estado);
+            return (
+              <div key={pedido.id_pedido} className="pedido-card">
+                <div className="pedido-card-header">
+                  <div className="pedido-header-info">
+                    <div className="pedido-number">
+                      <BiFile className="me-2" />
+                      Pedido #{pedido.id_pedido}
+                    </div>
+                    <div className="pedido-date">
+                      <BiCalendar className="me-1" />
+                      {pedido.fecha_pedido && format(new Date(pedido.fecha_pedido), "EEEE, d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
+                    </div>
                   </div>
-                  <span className={`badge ${estadoBadge.class} fs-6`}>
+                  <span className={`badge ${estadoBadge.class}`}>
                     {estadoBadge.icon}
-                    {' '}
-                    {pedido.estado.replace('_', ' ').toUpperCase()}
+                    <span className="ms-2">{estadoBadge.label}</span>
                   </span>
                 </div>
-                <div className="card-body">
-                  <div className="row">
+                
+                <div className="pedido-card-body">
+                  <div className="row g-4">
+                    {/* Información de Pago */}
                     <div className="col-md-6">
-                      <p className="mb-2">
-                        <strong>Total:</strong>{' '}
-                        <span className="h5 text-primary mb-0">
-                          ${pedido.total.toLocaleString()}
-                        </span>
-                      </p>
-                      <p className="mb-2">
-                        <strong>Método de Pago:</strong>{' '}
-                        <span className="text-capitalize">{pedido.metodo_pago}</span>
-                      </p>
-                      <p className="mb-2">
-                        <strong>Estado de Pago:</strong>{' '}
-                        <span className={`badge ${pedido.estado_pago === 'pagado' ? 'bg-success' : 'bg-warning'}`}>
-                          {pedido.estado_pago?.toUpperCase()}
-                        </span>
-                      </p>
+                      <div className="pedido-info-section">
+                        <h6 className="pedido-section-title">
+                          <BiCreditCard className="me-2" />
+                          Información de Pago
+                        </h6>
+                        <div className="pedido-info-item">
+                          <span className="pedido-info-label">Total:</span>
+                          <span className="pedido-total">
+                            ${pedido.total.toLocaleString('es-CO')}
+                          </span>
+                        </div>
+                        <div className="pedido-info-item">
+                          <span className="pedido-info-label">Método de Pago:</span>
+                          <span className="text-capitalize">{pedido.metodo_pago || 'No especificado'}</span>
+                        </div>
+                        <div className="pedido-info-item">
+                          <span className="pedido-info-label">Estado de Pago:</span>
+                          <span className={`badge ${pedido.estado_pago === 'pagado' ? 'bg-success' : 'bg-warning'}`}>
+                            {pedido.estado_pago?.toUpperCase() || 'PENDIENTE'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Información de Entrega */}
                     <div className="col-md-6">
-                      <p className="mb-2">
-                        <strong>Dirección de Entrega:</strong>
-                      </p>
-                      <p className="text-muted mb-2">{pedido.direccion_entrega}</p>
-                      {pedido.fecha_entrega && (
-                        <p className="mb-0">
-                          <strong>Fecha de Entrega:</strong>{' '}
-                          {format(new Date(pedido.fecha_entrega), 'dd MMMM yyyy')}
-                        </p>
-                      )}
+                      <div className="pedido-info-section">
+                        <h6 className="pedido-section-title">
+                          <BiMapPin className="me-2" />
+                          Información de Entrega
+                        </h6>
+                        <div className="pedido-info-item">
+                          <span className="pedido-info-label">Dirección:</span>
+                          <span className="pedido-address">{pedido.direccion_entrega || 'No especificada'}</span>
+                        </div>
+                        {pedido.fecha_entrega && (
+                          <div className="pedido-info-item">
+                            <span className="pedido-info-label">Fecha de Entrega:</span>
+                            <span>{format(new Date(pedido.fecha_entrega), "d 'de' MMMM 'de' yyyy", { locale: es })}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Notas */}
                   {pedido.notas && (
-                    <div className="mt-3">
-                      <strong>Notas:</strong>
-                      <p className="text-muted mb-0">{pedido.notas}</p>
+                    <div className="pedido-notes">
+                      <h6 className="pedido-section-title">Notas Adicionales</h6>
+                      <p className="pedido-notes-text">{pedido.notas}</p>
                     </div>
                   )}
-                  <div className="mt-3">
+
+                  {/* Botón Ver Detalles */}
+                  <div className="pedido-actions">
                     <Link
                       to={`/consumidor/pedidos/${pedido.id_pedido}`}
-                      className="btn btn-outline-primary btn-sm"
+                      className="btn btn-outline-primary pedido-details-btn"
                     >
-                      Ver Detalles
+                      Ver Detalles Completos
+                      <BiRightArrowAlt className="ms-2" />
                     </Link>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 };
 
 export default PedidosPage;
-

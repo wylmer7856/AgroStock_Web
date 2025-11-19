@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -13,8 +13,12 @@ interface LoginFormData {
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Obtener la ruta de origen desde el state de navegación
+  const from = (location.state as { from?: string })?.from;
   
   const {
     register,
@@ -31,14 +35,19 @@ const LoginPage: React.FC = () => {
       // Obtener el usuario del localStorage después del login
       const currentUser = JSON.parse(localStorage.getItem('agrostock_user') || '{}');
       
-      // Redirigir según el rol
-      if (currentUser.rol === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (currentUser.rol === 'productor') {
-        navigate('/productor/dashboard');
+      // Si hay una ruta guardada (from), redirigir ahí, sino según el rol
+      if (from) {
+        navigate(from, { replace: true });
       } else {
-        // Consumidor siempre va al home
-        navigate('/');
+        // Redirigir según el rol
+        if (currentUser.rol === 'admin') {
+          navigate('/admin/dashboard');
+        } else if (currentUser.rol === 'productor') {
+          navigate('/productor/dashboard');
+        } else {
+          // Consumidor siempre va al home
+          navigate('/');
+        }
       }
     } catch (error: any) {
       toast.error(error.message || 'Error al iniciar sesión');

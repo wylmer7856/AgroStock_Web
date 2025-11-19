@@ -70,7 +70,17 @@ const ConsumerLayout: React.FC = () => {
         </main>
       </div>
       
-      {showFooter && <Footer />}
+      {showFooter && (
+        <div 
+          style={{ 
+            marginLeft: isDesktop && sidebarOpen ? '280px' : '0',
+            transition: 'margin-left 0.3s ease-in-out',
+            width: isDesktop && sidebarOpen ? 'calc(100% - 280px)' : '100%',
+          }}
+        >
+          <Footer />
+        </div>
+      )}
     </div>
   );
 };
