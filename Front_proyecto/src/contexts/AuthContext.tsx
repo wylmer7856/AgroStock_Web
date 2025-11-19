@@ -99,16 +99,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // ===== EFECTOS =====
   
-  // Verificar autenticación al cargar la aplicación - VERSIÓN RÁPIDA Y SIMPLE
+  // Verificar autenticación al cargar la aplicación
   useEffect(() => {
     console.log('🔍 Iniciando verificación de autenticación...');
     
-    // Inmediatamente marcar como no cargando para que se renderice algo
-    // Luego verificar en segundo plano
-    dispatch({ type: 'SET_LOADING', payload: false });
-    dispatch({ type: 'SET_USER', payload: null });
+    // Mantener isLoading en true hasta que termine la verificación
+    dispatch({ type: 'SET_LOADING', payload: true });
     
-    // Verificar en segundo plano (no bloquea renderizado)
+    // Verificar autenticación
     const checkAuth = () => {
       try {
         const user = authService.getCurrentUser();
@@ -119,16 +117,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const view: AppView = user.rol === 'admin' ? 'admin' : 
                                  user.rol === 'productor' ? 'productor' : 'consumidor';
             dispatch({ type: 'SET_VIEW', payload: view });
+            dispatch({ type: 'SET_LOADING', payload: false });
+            return;
           }
         }
+        // Si no hay usuario válido, marcar como no autenticado
+        dispatch({ type: 'SET_USER', payload: null });
+        dispatch({ type: 'SET_LOADING', payload: false });
       } catch (error) {
         console.warn('⚠️ Error verificando autenticación:', error);
-        // No hacer nada, ya está en estado por defecto
+        dispatch({ type: 'SET_USER', payload: null });
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
     
-    // Ejecutar inmediatamente pero no bloquear - timeout más corto
-    setTimeout(checkAuth, 50);
+    // Ejecutar inmediatamente
+    checkAuth();
   }, []);
 
   // ===== FUNCIONES DEL CONTEXTO =====
