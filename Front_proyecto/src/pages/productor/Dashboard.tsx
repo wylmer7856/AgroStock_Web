@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './Dashboard.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService, pedidosService, notificacionesService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
@@ -144,23 +145,41 @@ const ProductorDashboard: React.FC = React.memo(() => {
 
   return (
     <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-      {/* Header con Bienvenida */}
+      {/* Header con Bienvenida mejorado */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="display-5 fw-bold mb-2" style={{ color: '#2c3e50' }}>
-                <BiStore className="me-2" style={{ color: '#28a745' }} />
-                Dashboard del Productor
-              </h1>
-              <p className="text-muted mb-0">
-                Bienvenido, {user?.nombre || 'Productor'} • Gestiona tus productos y pedidos
-              </p>
-            </div>
-            <div className="text-end">
-              <div className="badge bg-success fs-6 px-3 py-2">
-                <BiCheckCircle className="me-1" />
-                Activo
+          <div className="dashboard-header-productor">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+              <div className="d-flex align-items-center gap-3">
+                <div className="header-icon-productor">
+                  <BiStore />
+                </div>
+                <div>
+                  <h1 className="display-5 fw-bold mb-2" style={{ color: '#2c3e50' }}>
+                    Dashboard del Productor
+                  </h1>
+                  <p className="text-muted mb-0">
+                    Bienvenido, <strong>{user?.nombre || 'Productor'}</strong> • Gestiona tus productos y pedidos
+                  </p>
+                </div>
+              </div>
+              <div className="d-flex gap-2 align-items-center">
+                {notificacionesNoLeidas > 0 && (
+                  <Link 
+                    to="/productor/notificaciones" 
+                    className="notification-badge-productor"
+                    title={`${notificacionesNoLeidas} notificaciones sin leer`}
+                  >
+                    <BiBell />
+                    {notificacionesNoLeidas > 0 && (
+                      <span className="badge-count-productor">{notificacionesNoLeidas}</span>
+                    )}
+                  </Link>
+                )}
+                <div className="status-badge-productor">
+                  <BiCheckCircle className="me-1" />
+                  Activo
+                </div>
               </div>
             </div>
           </div>

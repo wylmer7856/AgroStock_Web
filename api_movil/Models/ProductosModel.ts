@@ -401,7 +401,7 @@ export class ProductosModel {
         }
     }
 
-    public async EliminarProducto(id_producto: number): Promise<{ success: boolean; message: string }> {
+    public async EliminarProducto(id_producto: number, id_usuario_eliminador?: number): Promise<{ success: boolean; message: string }> {
         try {
             await conexion.execute("START TRANSACTION");
 
@@ -414,6 +414,10 @@ export class ProductosModel {
                     message: "El producto no existe."
                 };
             }
+
+            // Guardar información del producto para el historial antes de eliminarlo
+            const productoInfo = producto[0];
+            const id_productor = productoInfo.id_usuario || null;
 
             // Eliminar o actualizar registros relacionados que tienen restricciones de clave foránea
             try {
@@ -478,10 +482,38 @@ export class ProductosModel {
             if (result && result.affectedRows && result.affectedRows > 0) {
                 await this.eliminarCarpetaProducto(id_producto);
                 
+                // Registrar la acción en el historial para trazabilidad
+                try {
+                    const { AuditoriaService } = await import("../Services/AuditoriaService.ts");
+                    await AuditoriaService.registrarCambio(
+                        'productos',
+                        id_producto,
+                        'eliminar',
+                        id_usuario_eliminador || id_productor || 0,
+                        {
+                            cambios_completos: {
+                                producto_eliminado: {
+                                    id_producto: id_producto,
+                                    nombre: productoInfo.nombre,
+                                    precio: productoInfo.precio,
+                                    stock: productoInfo.stock,
+                                    id_usuario: id_productor
+                                }
+                            }
+                        },
+                        undefined,
+                        'Producto eliminado permanentemente por el productor'
+                    );
+                    console.log(`📝 Eliminación de producto ${id_producto} registrada en historial`);
+                } catch (auditError) {
+                    console.warn("⚠️ Error registrando eliminación en historial:", auditError);
+                    // No fallar la eliminación si falla el registro en historial
+                }
+                
                 await conexion.execute("COMMIT");
                 return {
                     success: true,
-                    message: "Producto eliminado exitosamente."
+                    message: "El producto ha sido eliminado permanentemente del sistema. Esta acción ha sido registrada en el historial para trazabilidad."
                 };
             } else {
                 await conexion.execute("ROLLBACK");

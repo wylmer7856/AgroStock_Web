@@ -99,36 +99,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // ===== EFECTOS =====
   
-  // Verificar autenticación al cargar la aplicación - VERSIÓN RÁPIDA Y SIMPLE
+  // Verificar autenticación al cargar la aplicación - VERSIÓN MEJORADA
   useEffect(() => {
     console.log('🔍 Iniciando verificación de autenticación...');
     
-    // Inmediatamente marcar como no cargando para que se renderice algo
-    // Luego verificar en segundo plano
-    dispatch({ type: 'SET_LOADING', payload: false });
-    dispatch({ type: 'SET_USER', payload: null });
-    
-    // Verificar en segundo plano (no bloquea renderizado)
-    const checkAuth = () => {
+    // Verificar primero de forma síncrona si hay datos en localStorage
+    // Esto evita redirecciones innecesarias al login al recargar
+    const checkAuthSync = () => {
       try {
         const user = authService.getCurrentUser();
-        if (user && authService.isAuthenticated()) {
-          if (user.rol && (user.rol === 'admin' || user.rol === 'consumidor' || user.rol === 'productor')) {
-            console.log('✅ Usuario válido encontrado, rol:', user.rol);
-            dispatch({ type: 'SET_USER', payload: user });
-            const view: AppView = user.rol === 'admin' ? 'admin' : 
-                                 user.rol === 'productor' ? 'productor' : 'consumidor';
-            dispatch({ type: 'SET_VIEW', payload: view });
-          }
+        const isAuth = authService.isAuthenticated();
+        
+        if (user && isAuth && user.rol && (user.rol === 'admin' || user.rol === 'consumidor' || user.rol === 'productor')) {
+          console.log('✅ Usuario válido encontrado en localStorage, rol:', user.rol);
+          dispatch({ type: 'SET_USER', payload: user });
+          const view: AppView = user.rol === 'admin' ? 'admin' : 
+                               user.rol === 'productor' ? 'productor' : 'consumidor';
+          dispatch({ type: 'SET_VIEW', payload: view });
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return true; // Usuario encontrado
         }
       } catch (error) {
         console.warn('⚠️ Error verificando autenticación:', error);
-        // No hacer nada, ya está en estado por defecto
+      }
+      return false; // No se encontró usuario
+    };
+    
+    // Verificar primero de forma síncrona
+    const userFound = checkAuthSync();
+    
+    // Si no se encontró usuario, marcar como no autenticado
+    if (!userFound) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: 'SET_USER', payload: null });
+    }
+    
+    // Verificar token en segundo plano para asegurar que sigue siendo válido
+    // Esto es útil si el token expiró pero aún está en localStorage
+    const verifyTokenAsync = async () => {
+      try {
+        const isValid = await authService.refreshTokenIfNeeded();
+        if (!isValid) {
+          // Si el token no es válido, limpiar el estado
+          const currentUser = authService.getCurrentUser();
+          if (currentUser) {
+            console.log('⚠️ Token inválido, limpiando sesión');
+            authService.logout();
+            dispatch({ type: 'LOGOUT' });
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Error verificando token:', error);
       }
     };
     
-    // Ejecutar inmediatamente pero no bloquear - timeout más corto
-    setTimeout(checkAuth, 50);
+    // Verificar token en segundo plano (no bloquea)
+    setTimeout(verifyTokenAsync, 100);
   }, []);
 
   // ===== FUNCIONES DEL CONTEXTO =====

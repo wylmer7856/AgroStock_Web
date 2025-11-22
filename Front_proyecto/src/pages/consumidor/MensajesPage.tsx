@@ -90,37 +90,119 @@ const MensajesPage: React.FC = () => {
   }, [selectedConversation]);
 
   // Obtener mensajes recibidos
-  const { data: mensajesRecibidos, isLoading: loadingRecibidos, refetch: refetchRecibidos } = useQuery({
+  const { data: mensajesRecibidos, isLoading: loadingRecibidos, error: errorRecibidos, refetch: refetchRecibidos } = useQuery({
     queryKey: ['mensajes', 'consumidor', 'recibidos', user?.id_usuario],
     queryFn: async () => {
       try {
+        console.log('🔍 [Consumidor] Obteniendo mensajes recibidos para usuario:', user?.id_usuario);
         const response = await mensajesService.obtenerMensajesRecibidos();
-        return response.data || [];
-      } catch (error) {
-        console.error('Error obteniendo mensajes recibidos:', error);
+        console.log('📨 [Consumidor] Respuesta completa mensajes recibidos:', JSON.stringify(response, null, 2));
+        console.log('📨 [Consumidor] response.success:', response?.success);
+        console.log('📨 [Consumidor] response.data:', response?.data);
+        console.log('📨 [Consumidor] response.mensajes:', response?.mensajes);
+        console.log('📨 [Consumidor] Es array response.data?:', Array.isArray(response?.data));
+        console.log('📨 [Consumidor] Es array response.mensajes?:', Array.isArray(response?.mensajes));
+        console.log('📨 [Consumidor] response.data?.length:', response?.data?.length);
+        console.log('📨 [Consumidor] response.mensajes?.length:', response?.mensajes?.length);
+        
+        // El servicio ya normaliza la respuesta (igual que en productor)
+        if (response && response.success !== false && response.data) {
+          const mensajes = Array.isArray(response.data) ? response.data : [];
+          console.log('✅ [Consumidor] Mensajes recibidos procesados:', mensajes.length);
+          if (mensajes.length > 0) {
+            console.log('📋 [Consumidor] Primeros 3 mensajes:', mensajes.slice(0, 3));
+          }
+          return mensajes;
+        }
+        
+        // Si no tiene data pero tiene mensajes, usar mensajes directamente
+        if (response && response.mensajes && Array.isArray(response.mensajes)) {
+          console.log('✅ [Consumidor] Usando response.mensajes directamente:', response.mensajes.length);
+          return response.mensajes;
+        }
+        
+        console.warn('⚠️ [Consumidor] Respuesta sin datos válidos:', {
+          response,
+          hasSuccess: !!response?.success,
+          hasData: !!response?.data,
+          hasMensajes: !!response?.mensajes,
+          dataIsArray: Array.isArray(response?.data),
+          mensajesIsArray: Array.isArray(response?.mensajes)
+        });
+        return [];
+      } catch (error: any) {
+        console.error('❌ [Consumidor] Error en query mensajes recibidos:', error);
+        console.error('Error completo:', JSON.stringify(error, null, 2));
+        // No mostrar toast para errores 405, solo log
+        if (!error?.message?.includes('405') && !error?.message?.includes('Method Not Allowed')) {
+          toast.error('Error al cargar mensajes recibidos');
+        }
         return [];
       }
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 5000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Obtener mensajes enviados
-  const { data: mensajesEnviados, isLoading: loadingEnviados, refetch: refetchEnviados } = useQuery({
+  const { data: mensajesEnviados, isLoading: loadingEnviados, error: errorEnviados, refetch: refetchEnviados } = useQuery({
     queryKey: ['mensajes', 'consumidor', 'enviados', user?.id_usuario],
     queryFn: async () => {
       try {
+        console.log('🔍 [Consumidor] Obteniendo mensajes enviados para usuario:', user?.id_usuario);
         const response = await mensajesService.obtenerMensajesEnviados();
-        return response.data || [];
-      } catch (error) {
-        console.error('Error obteniendo mensajes enviados:', error);
+        console.log('📤 [Consumidor] Respuesta completa mensajes enviados:', JSON.stringify(response, null, 2));
+        console.log('📤 [Consumidor] response.success:', response?.success);
+        console.log('📤 [Consumidor] response.data:', response?.data);
+        console.log('📤 [Consumidor] response.mensajes:', response?.mensajes);
+        console.log('📤 [Consumidor] Es array response.data?:', Array.isArray(response?.data));
+        console.log('📤 [Consumidor] Es array response.mensajes?:', Array.isArray(response?.mensajes));
+        console.log('📤 [Consumidor] response.data?.length:', response?.data?.length);
+        console.log('📤 [Consumidor] response.mensajes?.length:', response?.mensajes?.length);
+        
+        // El servicio ya normaliza la respuesta (igual que en productor)
+        if (response && response.success !== false && response.data) {
+          const mensajes = Array.isArray(response.data) ? response.data : [];
+          console.log('✅ [Consumidor] Mensajes enviados procesados:', mensajes.length);
+          if (mensajes.length > 0) {
+            console.log('📋 [Consumidor] Primeros 3 mensajes:', mensajes.slice(0, 3));
+          }
+          return mensajes;
+        }
+        
+        // Si no tiene data pero tiene mensajes, usar mensajes directamente
+        if (response && response.mensajes && Array.isArray(response.mensajes)) {
+          console.log('✅ [Consumidor] Usando response.mensajes directamente:', response.mensajes.length);
+          return response.mensajes;
+        }
+        
+        console.warn('⚠️ [Consumidor] Respuesta sin datos válidos:', {
+          response,
+          hasSuccess: !!response?.success,
+          hasData: !!response?.data,
+          hasMensajes: !!response?.mensajes,
+          dataIsArray: Array.isArray(response?.data),
+          mensajesIsArray: Array.isArray(response?.mensajes)
+        });
+        return [];
+      } catch (error: any) {
+        console.error('❌ [Consumidor] Error en query mensajes enviados:', error);
+        console.error('Error completo:', JSON.stringify(error, null, 2));
+        // No mostrar toast para errores 405, solo log
+        if (!error?.message?.includes('405') && !error?.message?.includes('Method Not Allowed')) {
+          toast.error('Error al cargar mensajes enviados');
+        }
         return [];
       }
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 5000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Buscar productos para selector
@@ -165,7 +247,10 @@ const MensajesPage: React.FC = () => {
           refetchEnviados();
         }, 500);
       }
-      setTimeout(scrollToBottom, 300);
+      // Hacer scroll después de que se actualice la conversación
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 500);
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Error al enviar mensaje');
@@ -224,10 +309,29 @@ const MensajesPage: React.FC = () => {
 
   const mensajes = activeTab === 'recibidos' ? (mensajesRecibidos || []) : (mensajesEnviados || []);
   const isLoading = activeTab === 'recibidos' ? loadingRecibidos : loadingEnviados;
+  const error = activeTab === 'recibidos' ? errorRecibidos : errorEnviados;
+  
+  // Log para debug
+  console.log('📊 [Consumidor] Estado actual:', {
+    activeTab,
+    mensajesRecibidos: mensajesRecibidos?.length || 0,
+    mensajesEnviados: mensajesEnviados?.length || 0,
+    mensajes: mensajes?.length || 0,
+    isLoading,
+    error,
+    userId: user?.id_usuario,
+  });
 
   // Agrupar mensajes por conversación (por productor)
   const conversaciones = React.useMemo(() => {
+    console.log('🔄 [Consumidor] Agrupando mensajes:', {
+      mensajesCount: mensajes?.length || 0,
+      activeTab,
+      mensajes: mensajes
+    });
+    
     if (!mensajes || !Array.isArray(mensajes) || mensajes.length === 0) {
+      console.log('⚠️ [Consumidor] No hay mensajes para agrupar');
       return [];
     }
     
@@ -239,13 +343,31 @@ const MensajesPage: React.FC = () => {
       
       if (activeTab === 'recibidos') {
         // Mensajes recibidos: el remitente es el productor
-        productorId = msg.id_remitente || msg.id_usuario_remitente || null;
+        productorId = msg.id_remitente || msg.id_usuario_remitente || msg.id_remitente_id || null;
+        console.log('📥 [Consumidor] Mensaje recibido:', {
+          id_mensaje: msg.id_mensaje,
+          productorId,
+          id_remitente: msg.id_remitente,
+          id_usuario_remitente: msg.id_usuario_remitente
+        });
       } else {
         // Mensajes enviados: el destinatario es el productor
-        productorId = msg.id_destinatario || msg.id_usuario_destinatario || null;
+        productorId = msg.id_destinatario || msg.id_usuario_destinatario || msg.id_destinatario_id || null;
+        console.log('📤 [Consumidor] Mensaje enviado:', {
+          id_mensaje: msg.id_mensaje,
+          productorId,
+          id_destinatario: msg.id_destinatario,
+          id_usuario_destinatario: msg.id_usuario_destinatario
+        });
       }
       
-      if (!productorId || productorId === user?.id_usuario) {
+      if (!productorId) {
+        console.warn('⚠️ [Consumidor] Mensaje sin productorId:', msg);
+        return; // Saltar mensajes sin productor
+      }
+      
+      if (productorId === user?.id_usuario) {
+        console.log('⏭️ [Consumidor] Saltando mensaje propio');
         return; // Saltar mensajes propios
       }
       
@@ -254,8 +376,10 @@ const MensajesPage: React.FC = () => {
       }
       grouped[productorId].push(msg);
     });
+    
+    console.log('✅ [Consumidor] Mensajes agrupados:', Object.keys(grouped).length, 'conversaciones');
 
-    return Object.entries(grouped).map(([userId, msgs]) => {
+    const conversacionesResult = Object.entries(grouped).map(([userId, msgs]) => {
       // Ordenar mensajes por fecha (más reciente primero)
       const mensajesOrdenados = msgs.sort((a: any, b: any) => {
         const fechaA = new Date(a.fecha_envio || a.fecha_creacion || a.fecha || 0).getTime();
@@ -267,12 +391,12 @@ const MensajesPage: React.FC = () => {
       
       // Obtener información del productor desde campos directos del mensaje
       const productorNombre = activeTab === 'recibidos'
-        ? (primerMensaje.nombre_remitente || `Productor #${userId}`)
-        : (primerMensaje.nombre_destinatario || `Productor #${userId}`);
+        ? (primerMensaje.nombre_remitente || primerMensaje.nombre_usuario_remitente || `Productor #${userId}`)
+        : (primerMensaje.nombre_destinatario || primerMensaje.nombre_usuario_destinatario || `Productor #${userId}`);
       
       const productorEmail = activeTab === 'recibidos'
-        ? (primerMensaje.email_remitente || '')
-        : (primerMensaje.email_destinatario || '');
+        ? (primerMensaje.email_remitente || primerMensaje.email_usuario_remitente || '')
+        : (primerMensaje.email_destinatario || primerMensaje.email_usuario_destinatario || '');
       
       return {
         userId: Number(userId),
@@ -283,6 +407,17 @@ const MensajesPage: React.FC = () => {
         productorEmail,
       };
     });
+    
+    console.log('✅ [Consumidor] Conversaciones finales:', {
+      total: conversacionesResult.length,
+      conversaciones: conversacionesResult.map(c => ({
+        userId: c.userId,
+        nombre: c.productorNombre,
+        mensajes: c.mensajes.length
+      }))
+    });
+    
+    return conversacionesResult;
   }, [mensajes, activeTab, user?.id_usuario]);
 
   const conversacionActual = conversaciones.find(c => c.userId === selectedConversation);
@@ -304,7 +439,9 @@ const MensajesPage: React.FC = () => {
       }
     },
     enabled: !!selectedConversation && !!user?.id_usuario,
-    refetchInterval: 3000, // Actualizar cada 3 segundos para acercarnos a tiempo real
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
   
   // Usar la conversación completa si está disponible, sino usar la agrupada
@@ -346,9 +483,14 @@ const MensajesPage: React.FC = () => {
                     }}
                   >
                     Recibidos
-                    {activeTab === 'recibidos' && mensajesRecibidos && (
+                    {activeTab === 'recibidos' && mensajesRecibidos && mensajesRecibidos.length > 0 && (
                       <span className="badge bg-danger ms-2">
                         {mensajesRecibidos.filter((m: any) => !m.leido).length}
+                      </span>
+                    )}
+                    {activeTab === 'recibidos' && mensajesRecibidos && (
+                      <span className="badge bg-info ms-2" title={`Total: ${mensajesRecibidos.length}`}>
+                        {mensajesRecibidos.length}
                       </span>
                     )}
                   </button>
@@ -372,6 +514,24 @@ const MensajesPage: React.FC = () => {
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Cargando...</span>
                   </div>
+                  <p className="text-muted mt-2">Cargando mensajes...</p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-5">
+                  <BiMessageSquare className="display-4 text-danger mb-3" />
+                  <p className="text-danger">Error al cargar mensajes</p>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      if (activeTab === 'recibidos') {
+                        refetchRecibidos();
+                      } else {
+                        refetchEnviados();
+                      }
+                    }}
+                  >
+                    Reintentar
+                  </button>
                 </div>
               ) : conversaciones.length === 0 ? (
                 <div className="text-center py-5">
@@ -384,15 +544,27 @@ const MensajesPage: React.FC = () => {
                   <small className="text-muted d-block mt-2">
                     Puedes contactar productores desde la página de productos
                   </small>
+                  {/* Debug info */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-3 p-2 bg-light rounded small text-start">
+                      <strong>Debug Info:</strong><br />
+                      Mensajes raw: {mensajes?.length || 0}<br />
+                      Mensajes recibidos: {mensajesRecibidos?.length || 0}<br />
+                      Mensajes enviados: {mensajesEnviados?.length || 0}<br />
+                      Active Tab: {activeTab}<br />
+                      User ID: {user?.id_usuario}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
-                  {conversaciones.map((conv) => (
+                  {conversaciones.map((conv, index) => (
                     <button
                       key={conv.userId}
-                      className={`list-group-item list-group-item-action ${
+                      className={`list-group-item list-group-item-action conversation-item ${
                         selectedConversation === conv.userId ? 'active' : ''
                       }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
                       onClick={() => {
                         setSelectedConversation(conv.userId);
                         setNewMessage({ asunto: '', mensaje: '', id_destinatario: conv.userId, id_producto: undefined });

@@ -498,12 +498,13 @@ const ProductorMensajesPage: React.FC = React.memo(() => {
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
-                  {conversaciones.map((conv) => (
+                  {conversaciones.map((conv, index) => (
                     <button
                       key={conv.userId}
-                      className={`list-group-item list-group-item-action ${
+                      className={`list-group-item list-group-item-action conversation-item-productor ${
                         selectedConversation === conv.userId ? 'active' : ''
                       }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
                       onClick={() => {
                         setSelectedConversation(conv.userId);
                         setNewMessage({ asunto: '', mensaje: '', id_destinatario: conv.userId });

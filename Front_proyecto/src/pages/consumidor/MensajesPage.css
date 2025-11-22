@@ -6,21 +6,47 @@
 }
 
 .message-bubble {
-  border-radius: 8px;
+  border-radius: 12px;
   word-wrap: break-word;
   position: relative;
+  transition: all 0.3s ease;
+  animation: fadeInMessage 0.4s ease-out;
+}
+
+@keyframes fadeInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-bubble.mine {
-  background-color: #dcf8c6;
+  background: linear-gradient(135deg, #dcf8c6 0%, #c8e6a0 100%);
   margin-left: auto;
   border-bottom-right-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-bubble.mine:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(-2px);
 }
 
 .message-bubble.other {
-  background-color: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   margin-right: auto;
   border-bottom-left-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.message-bubble.other:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(2px);
 }
 
 .message-bubble.mine::after {
@@ -104,6 +130,80 @@
 .messages-area::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
+}
+
+/* Mejoras en las conversaciones */
+.conversation-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUp 0.4s ease-out;
+  animation-fill-mode: both;
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  border: 2px solid transparent;
+  padding: 1rem !important;
+}
+
+.conversation-item:hover {
+  transform: translateX(5px);
+  background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
+  border-color: #4a7c2a;
+  box-shadow: 0 4px 12px rgba(45, 80, 22, 0.15);
+}
+
+.conversation-item.active {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  color: white;
+  border-color: #4a7c2a;
+  box-shadow: 0 6px 20px rgba(45, 80, 22, 0.3);
+}
+
+.conversation-item.active .text-muted {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.conversation-item.active strong {
+  color: white;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras en el área de mensajes */
+.messages-area {
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+/* Mejoras en el formulario de envío */
+.card-footer {
+  background: white;
+  border-top: 2px solid #e5e7eb;
+  border-radius: 0 0 12px 12px;
+}
+
+.form-control:focus,
+textarea:focus {
+  border-color: #4a7c2a;
+  box-shadow: 0 0 0 0.2rem rgba(74, 124, 42, 0.25);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 80, 22, 0.4);
 }
 
 .messages-area::-webkit-scrollbar-thumb:hover {

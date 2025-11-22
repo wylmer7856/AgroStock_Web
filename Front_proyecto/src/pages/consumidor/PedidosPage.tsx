@@ -19,6 +19,9 @@ const PedidosPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Query para verificar si hay items en el carrito
@@ -28,6 +31,9 @@ const PedidosPage: React.FC = () => {
       const response = await carritoService.obtenerCarrito();
       return response.data || null;
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const handleNuevoPedido = () => {

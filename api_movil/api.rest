@@ -63,8 +63,8 @@ POST http://127.0.0.1:8000/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@agrostock.com",
-  "password": "admin123"
+  "email": "wilmerma53@gmail.com",
+  "password": "WaMp1234*"
 }
 
 

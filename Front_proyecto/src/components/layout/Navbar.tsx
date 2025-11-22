@@ -422,79 +422,83 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
           {/* Items del lado derecho */}
           <ul className="navbar-nav ms-auto align-items-center">
-            {/* Lista de deseos - Siempre visible */}
-            <li className="nav-item">
-              {isAuthenticated && user?.rol === 'consumidor' ? (
-                <Link 
-                  className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
-                  to="/consumidor/lista-deseos"
-                  title="Lista de Deseos"
-                  style={navLinkStyle}
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiHeart className="fs-5" />
-                  {listaDeseosCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                    </span>
-                  )}
-                </Link>
-              ) : (
-                <span
-                  className="nav-link position-relative"
-                  style={{ ...navLinkStyle, cursor: 'pointer' }}
-                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
-                  title="Inicia sesión para ver tu lista de deseos"
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiHeart className="fs-5" />
-                  {listaDeseosCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                    </span>
-                  )}
-                </span>
-              )}
-            </li>
+            {/* Lista de deseos - Oculto solo en login o en inicio si no es consumidor autenticado */}
+            {(location.pathname !== '/login' && (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor'))) && (
+              <li className="nav-item">
+                {isAuthenticated && user?.rol === 'consumidor' ? (
+                  <Link 
+                    className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
+                    to="/consumidor/lista-deseos"
+                    title="Lista de Deseos"
+                    style={navLinkStyle}
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiHeart className="fs-5" />
+                    {listaDeseosCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <span
+                    className="nav-link position-relative"
+                    style={{ ...navLinkStyle, cursor: 'pointer' }}
+                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                    title="Inicia sesión para ver tu lista de deseos"
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiHeart className="fs-5" />
+                    {listaDeseosCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </li>
+            )}
 
-            {/* Carrito - Siempre visible */}
-            <li className="nav-item">
-              {isAuthenticated && user?.rol === 'consumidor' ? (
-                <Link 
-                  className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
-                  to="/consumidor/carrito"
-                  title="Carrito de Compras"
-                  style={navLinkStyle}
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiCart className="fs-5" />
-                  {carritoCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {carritoCount > 9 ? '9+' : carritoCount}
-                    </span>
-                  )}
-                </Link>
-              ) : (
-                <span
-                  className="nav-link position-relative"
-                  style={{ ...navLinkStyle, cursor: 'pointer' }}
-                  onClick={() => navigate('/login', { state: { from: location.pathname } })}
-                  title="Inicia sesión para ver tu carrito"
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiCart className="fs-5" />
-                  {carritoCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {carritoCount > 9 ? '9+' : carritoCount}
-                    </span>
-                  )}
-                </span>
-              )}
-            </li>
+            {/* Carrito - Oculto solo en login o en inicio si no es consumidor autenticado */}
+            {(location.pathname !== '/login' && (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor'))) && (
+              <li className="nav-item">
+                {isAuthenticated && user?.rol === 'consumidor' ? (
+                  <Link 
+                    className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
+                    to="/consumidor/carrito"
+                    title="Carrito de Compras"
+                    style={navLinkStyle}
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiCart className="fs-5" />
+                    {carritoCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {carritoCount > 9 ? '9+' : carritoCount}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <span
+                    className="nav-link position-relative"
+                    style={{ ...navLinkStyle, cursor: 'pointer' }}
+                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                    title="Inicia sesión para ver tu carrito"
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiCart className="fs-5" />
+                    {carritoCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {carritoCount > 9 ? '9+' : carritoCount}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </li>
+            )}
 
             {isAuthenticated && user ? (
               <>

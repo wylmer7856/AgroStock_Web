@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { BiPlus, BiEdit, BiTrash, BiPackage, BiImage, BiGridAlt, BiListUl, BiSearch } from 'react-icons/bi';
+import { BiPlus, BiEdit, BiTrash, BiPackage, BiImage, BiGridAlt, BiListUl, BiSearch, BiCheckCircle, BiTime } from 'react-icons/bi';
 import type { Producto } from '../../types';
+import './ProductosPage.css';
 
 const ProductorProductosPage: React.FC = React.memo(() => {
   const { user } = useAuth();
@@ -167,40 +168,68 @@ const ProductorProductosPage: React.FC = React.memo(() => {
       {productosList.length > 0 && (
         <div className="row mb-4">
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.1s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Total Productos</h6>
-                <h3 className="fw-bold mb-0">{productosList.length}</h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Total Productos</h6>
+                    <h3 className="fw-bold mb-0">{productosList.length}</h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-total">
+                    <BiPackage />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.2s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Disponibles</h6>
-                <h3 className="fw-bold text-success mb-0">
-                  {productosList.filter(p => p.disponible).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Disponibles</h6>
+                    <h3 className="fw-bold text-success mb-0">
+                      {productosList.filter(p => p.disponible).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-success">
+                    <BiCheckCircle />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.3s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Stock Bajo</h6>
-                <h3 className="fw-bold text-warning mb-0">
-                  {productosList.filter(p => p.stock <= p.stock_minimo).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Stock Bajo</h6>
+                    <h3 className="fw-bold text-warning mb-0">
+                      {productosList.filter(p => p.stock <= p.stock_minimo).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-warning">
+                    <BiTime />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.4s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">No Disponibles</h6>
-                <h3 className="fw-bold text-danger mb-0">
-                  {productosList.filter(p => !p.disponible).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">No Disponibles</h6>
+                    <h3 className="fw-bold text-danger mb-0">
+                      {productosList.filter(p => !p.disponible).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-danger">
+                    <BiPackage />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -324,9 +353,9 @@ const ProductorProductosPage: React.FC = React.memo(() => {
         </div>
       ) : (
         <div className="row g-4">
-          {productosFiltrados.map((producto) => (
+          {productosFiltrados.map((producto, index) => (
             <div key={producto.id_producto} className="col-md-6 col-lg-4">
-              <div className="card h-100 border-0 shadow-sm">
+              <div className="card h-100 border-0 shadow-sm product-card-grid" style={{ animationDelay: `${index * 0.1}s` }}>
                 <div className="position-relative">
                   {producto.imagen_principal || producto.imagenUrl ? (
                     <img

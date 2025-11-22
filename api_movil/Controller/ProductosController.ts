@@ -799,6 +799,9 @@ export const deleteProducto = async (ctx: RouterContext<"/productos/:id">) => {
       return;
     }
 
+    // Obtener usuario autenticado para el historial
+    const id_usuario_eliminador = ctx.state.user?.id || ctx.state.user?.id_usuario;
+
     // Obtener información del producto antes de eliminarlo para borrar todas las imágenes
     const { conexion } = await import("../Models/Conexion.ts");
     const producto = await conexion.query(
@@ -851,12 +854,14 @@ export const deleteProducto = async (ctx: RouterContext<"/productos/:id">) => {
     }
 
     const objProductos = new ProductosModel();
-    const result = await objProductos.EliminarProducto(id_producto);
+    const result = await objProductos.EliminarProducto(id_producto, id_usuario_eliminador);
 
     ctx.response.status = result.success ? 200 : 404;
     ctx.response.body = {
       success: result.success,
       message: result.message,
+      eliminado_permanentemente: result.success,
+      registrado_en_historial: result.success
     };
   } catch (error) {
     console.error("Error en deleteProducto:", error);
