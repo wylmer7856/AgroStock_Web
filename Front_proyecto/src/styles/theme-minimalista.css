@@ -1,0 +1,150 @@
+/* 🌾 TEMA MINIMALISTA ENFOCADO AL CAMPO - AGROSTOCK */
+
+:root {
+  /* Colores Minimalistas del Campo */
+  --verde-campo: #2D5016;
+  --verde-claro: #6B9E68;
+  --ocre-tierra: #8B6914;
+  --crema-trigo: #FDF6E3;
+  --blanco: #FFFFFF;
+  --gris-claro: #F5F7FA;
+  --gris-texto: #475569;
+  
+  /* Espaciado Minimalista */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  
+  /* Bordes Suaves */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  
+  /* Sombras Sutiles */
+  --shadow-sm: 0 2px 4px rgba(45, 80, 22, 0.08);
+  --shadow-md: 0 4px 8px rgba(45, 80, 22, 0.12);
+  
+  /* Transiciones Suaves */
+  --transition: all 0.2s ease;
+}
+
+/* Reset Minimalista */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--gris-claro);
+  color: var(--gris-texto);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tipografía Minimalista */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  color: var(--verde-campo);
+  line-height: 1.3;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+/* Botones Minimalistas */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 0.9375rem;
+}
+
+.btn-primary {
+  background: var(--verde-campo);
+  color: var(--blanco);
+}
+
+.btn-primary:hover {
+  background: #3A6432;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background: var(--blanco);
+  color: var(--verde-campo);
+  border: 1px solid var(--verde-campo);
+}
+
+.btn-secondary:hover {
+  background: var(--gris-claro);
+}
+
+/* Cards Minimalistas */
+.card {
+  background: var(--blanco);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Inputs Minimalistas */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  transition: var(--transition);
+  background: var(--blanco);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--verde-campo);
+  box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
+}
+
+/* Contenedores Minimalistas */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+.section {
+  padding: var(--space-xl) 0;
+}
+
+/* Grid Minimalista */
+.grid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+/* Utilidades */
+.text-center { text-align: center; }
+.text-primary { color: var(--verde-campo); }
+.bg-cream { background: var(--crema-trigo); }
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+

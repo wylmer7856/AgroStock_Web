@@ -1,0 +1,48 @@
+{
+  "productos": [
+    {
+      "id": 1,
+      "nombre": "Semillas de Maíz Premium",
+      "descripcion": "Semillas de maíz de alta calidad, ideal para cultivos de alto rendimiento",
+      "precio": 20000,
+      "stock": 150,
+      "unidadMedida": "kg",
+      "categoria": "Semillas",
+      "imagen": "/assets/images/productos/maiz-premium.jpg"
+    },
+    {
+      "id": 2,
+      "nombre": "Fertilizante Orgánico",
+      "descripcion": "Fertilizante 100% orgánico, enriquecido con nutrientes naturales",
+      "precio": 35000,
+      "stock": 80,
+      "unidadMedida": "bolsa 25kg",
+      "categoria": "Fertilizantes",
+      "imagen": "/assets/images/productos/fertilizante-organico.jpg"
+    },
+    {
+      "id": 3,
+      "nombre": "Tractor Mini Agrícola",
+      "descripcion": "Tractor compacto ideal para pequeñas y medianas fincas",
+      "precio": 2000000,
+      "stock": 5,
+      "unidadMedida": "unidad",
+      "categoria": "Maquinaria",
+      "imagen": "/assets/images/productos/tractor-mini.jpg"
+    }
+  ]
+}
+
+
+
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
+
+
+
+
+
+

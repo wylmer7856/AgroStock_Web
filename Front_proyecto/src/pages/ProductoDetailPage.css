@@ -1,0 +1,257 @@
+.product-detail-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.product-image-gallery {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.product-image-main {
+  border-radius: 12px;
+  transition: transform 0.3s ease;
+}
+
+.product-image-main:hover {
+  transform: scale(1.02);
+}
+
+.product-thumbnail {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.product-thumbnail:hover {
+  border-color: #0d6efd;
+  transform: scale(1.05);
+}
+
+.product-thumbnail.active {
+  border-color: #0d6efd;
+  border-width: 3px;
+}
+
+.product-info-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+}
+
+.price-display {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #0d6efd;
+  line-height: 1.2;
+}
+
+.stock-info-card {
+  border-left: 4px solid #0d6efd;
+  transition: all 0.3s ease;
+}
+
+.stock-info-card:hover {
+  border-left-width: 6px;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+}
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.quantity-input {
+  width: 80px;
+  text-align: center;
+  font-weight: 600;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.quantity-input:focus {
+  border-color: #0d6efd;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.quantity-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #dee2e6;
+  background: white;
+  font-weight: 700;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+}
+
+.quantity-btn:hover {
+  border-color: #0d6efd;
+  background: #f8f9ff;
+  transform: scale(1.1);
+}
+
+.quantity-btn:active {
+  transform: scale(0.95);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.action-buttons .btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.action-buttons .btn-primary {
+  background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+  border: none;
+  box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+}
+
+.action-buttons .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
+}
+
+.action-buttons .btn-outline-primary {
+  border-width: 2px;
+}
+
+.action-buttons .btn-outline-primary:hover {
+  background: #0d6efd;
+  border-color: #0d6efd;
+  transform: translateY(-2px);
+}
+
+.product-description {
+  line-height: 1.8;
+  color: #495057;
+}
+
+.product-specs {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.spec-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.spec-item:last-child {
+  border-bottom: none;
+}
+
+.spec-label {
+  font-weight: 600;
+  color: #6c757d;
+}
+
+.spec-value {
+  color: #212529;
+  font-weight: 500;
+}
+
+.reviews-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid #dee2e6;
+}
+
+.review-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.review-card:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.review-author {
+  font-weight: 600;
+  color: #212529;
+}
+
+.review-date {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.review-rating {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.review-text {
+  color: #495057;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .product-image-gallery {
+    margin-bottom: 2rem;
+  }
+
+  .price-display {
+    font-size: 2rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+  }
+}
+
+/* Estilos para el corazón de lista de deseos */
+.heart-filled {
+  fill: #dc3545 !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+.heart-filled svg,
+.heart-filled path {
+  fill: #dc3545 !important;
+  stroke: none !important;
+}
+
+.heart-outline {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
+}
+
+.heart-outline svg,
+.heart-outline path {
+  fill: none !important;
+  stroke: #dc3545 !important;
+  stroke-width: 3 !important;
+}

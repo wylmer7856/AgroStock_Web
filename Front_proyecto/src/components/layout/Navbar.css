@@ -1,0 +1,152 @@
+/* Navbar - Espaciado uniforme y compacto */
+.navbar {
+  padding: 0.5rem 1rem !important;
+}
+
+.navbar .container-fluid {
+  padding: 0 !important;
+}
+
+.navbar-nav {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.navbar-nav .nav-item {
+  margin: 0;
+}
+
+/* SOLUCIÓN AGRESIVA: Eliminar TODOS los fondos del navbar excepto dropdowns */
+.navbar *:not(.dropdown-menu):not(.dropdown-menu *):not(.badge) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* ELIMINAR COMPLETAMENTE EL FONDO BLANCO EN HOVER Y TODOS LOS ESTADOS */
+.navbar .nav-link,
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .nav-link:focus-visible,
+.navbar .nav-link:active,
+.navbar .nav-link.active,
+.navbar .nav-link:visited,
+.navbar button.nav-link,
+.navbar button.nav-link:hover,
+.navbar button.nav-link:focus,
+.navbar button.nav-link:focus-visible,
+.navbar button.nav-link:active,
+.navbar button.nav-link:visited,
+.navbar span.nav-link,
+.navbar span.nav-link:hover,
+.navbar span.nav-link:focus,
+.navbar span.nav-link:focus-visible,
+.navbar span.nav-link:active,
+.navbar span.nav-link:visited,
+.navbar a.nav-link,
+.navbar a.nav-link:hover,
+.navbar a.nav-link:focus,
+.navbar a.nav-link:focus-visible,
+.navbar a.nav-link:active,
+.navbar a.nav-link.active,
+.navbar a.nav-link:visited {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+/* Asegurar que los SVG también sean transparentes */
+.navbar-nav .nav-link svg {
+  background: transparent !important;
+  fill: currentColor;
+}
+
+/* Espaciado lateral derecho */
+.navbar-nav.ms-auto {
+  gap: 0.5rem;
+}
+
+.navbar-nav .btn {
+  margin-left: 0.5rem;
+}
+
+/* Eliminar cualquier efecto de Bootstrap en dropdowns */
+.navbar .dropdown-toggle::after {
+  background: transparent !important;
+}
+
+/* Asegurar que los botones del navbar no tengan fondo */
+.navbar button.btn-link,
+.navbar button.btn-link:hover,
+.navbar button.btn-link:focus,
+.navbar button.btn-link:focus-visible,
+.navbar button.btn-link:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  text-decoration: none !important;
+  border: none !important;
+}
+
+/* Efecto hover sutil opcional (cambia solo el texto) */
+.navbar .nav-link:hover {
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+/* Para el menú de usuario y notificaciones */
+.navbar .dropdown button:hover,
+.navbar .dropdown button:focus,
+.navbar .dropdown button:focus-visible,
+.navbar .dropdown button:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Eliminar border-radius que pueda crear el efecto de recuadro */
+.navbar .nav-link,
+.navbar button.nav-link {
+  border-radius: 0 !important;
+}
+
+/* Restaurar estilos de dropdown-menu y badges */
+.navbar .dropdown-menu {
+  background-color: white !important;
+  background: white !important;
+}
+
+.navbar .badge {
+  background-color: var(--bs-danger) !important;
+}
+
+/* Eliminar cualquier pseudo-elemento que pueda crear el recuadro */
+.navbar .nav-link::before,
+.navbar .nav-link::after,
+.navbar button::before,
+.navbar button::after {
+  content: none !important;
+  background: transparent !important;
+}
+
+/* Forzar transparencia en todos los estados interactivos */
+.navbar .nav-item:hover,
+.navbar .nav-item:focus,
+.navbar .nav-item:focus-within {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Asegurar que el botón del navbar-toggler también sea transparente */
+.navbar .navbar-toggler,
+.navbar .navbar-toggler:hover,
+.navbar .navbar-toggler:focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}

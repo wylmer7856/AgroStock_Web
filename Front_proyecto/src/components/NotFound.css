@@ -1,0 +1,148 @@
+/* 🚫 ESTILOS PARA PÁGINA 404 */
+
+.not-found-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #F8FAFC 0%, #FDF6E3 100%);
+  padding: 2rem;
+}
+
+.not-found-content {
+  max-width: 800px;
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.6s ease-out;
+}
+
+.not-found-illustration {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.not-found-illustration img {
+  max-width: 400px;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(45, 80, 22, 0.15));
+}
+
+.not-found-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #2D5016;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.not-found-message {
+  font-size: 1.25rem;
+  color: #64748B;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.not-found-suggestions {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 16px rgba(45, 80, 22, 0.1);
+  text-align: left;
+}
+
+.not-found-suggestions h3 {
+  font-size: 1.25rem;
+  color: #2D5016;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.not-found-suggestions ul {
+  list-style: none;
+  padding: 0;
+}
+
+.not-found-suggestions li {
+  padding: 0.75rem 0;
+  color: #475569;
+  position: relative;
+  padding-left: 2rem;
+}
+
+.not-found-suggestions li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #4A7C47;
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.not-found-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.not-found-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.not-found-loading .loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(45, 80, 22, 0.1);
+  border-top-color: #4A7C47;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .not-found-title {
+    font-size: 2rem;
+  }
+
+  .not-found-message {
+    font-size: 1.1rem;
+  }
+
+  .not-found-suggestions {
+    padding: 1.5rem;
+  }
+
+  .not-found-actions {
+    flex-direction: column;
+  }
+
+  .not-found-actions .btn {
+    width: 100%;
+  }
+}
+
+
+
+

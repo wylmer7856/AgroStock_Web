@@ -1,0 +1,99 @@
+/* 📝 ESTILOS DEL FORMULARIO DE REGISTRO - AGROSTOCK */
+
+/* ===== ROLE SELECTOR (Segmented Control) ===== */
+.role-selector {
+  display: flex;
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+  gap: 0.25rem;
+  position: relative;
+  transition: background-color 0.3s ease;
+}
+
+/* Fondo del selector según el rol seleccionado */
+.role-selector.consumidor-selected {
+  background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%);
+}
+
+.role-selector.productor-selected {
+  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+}
+
+.role-selector-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.role-selector-option {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  text-align: center;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+  color: #64748B;
+  font-weight: 500;
+  font-size: 1rem;
+  user-select: none;
+  border: none;
+  margin: 0;
+  position: relative;
+}
+
+.role-selector-option:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #475569;
+}
+
+/* Estilo para Consumidor activo */
+.role-selector.consumidor-selected .role-selector-option[for="rol-consumidor"].active {
+  background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Estilo para Productor activo */
+.role-selector.productor-selected .role-selector-option[for="rol-productor"].active {
+  background: linear-gradient(135deg, #2D5016 0%, #4A7C47 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(45, 80, 22, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Estilo para opción no activa cuando consumidor está seleccionado */
+.role-selector.consumidor-selected .role-selector-option[for="rol-productor"] {
+  color: #64748B;
+  background: transparent;
+}
+
+/* Estilo para opción no activa cuando productor está seleccionado */
+.role-selector.productor-selected .role-selector-option[for="rol-consumidor"] {
+  color: #64748B;
+  background: transparent;
+}
+
+/* Animación suave al cambiar */
+.role-selector-option.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 0.5rem;
+  z-index: -1;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .role-selector-option {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
