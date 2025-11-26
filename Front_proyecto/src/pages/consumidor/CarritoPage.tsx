@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { carritoService } from '../../services';
@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import { BiCart, BiTrash, BiPlus, BiMinus, BiRightArrowAlt, BiPackage, BiLogIn } from 'react-icons/bi';
 import { useForm } from 'react-hook-form';
 import ConfirmModal from '../../components/ConfirmModal';
+import './CarritoPage.css';
 
 interface CheckoutFormData {
   direccionEntrega: string;
@@ -30,9 +31,12 @@ const CarritoPage: React.FC = () => {
     },
   });
 
-  // Sincronizar carrito local cuando el usuario inicia sesión
+  const sincronizadoRef = useRef(false);
+
+  // Sincronizar carrito local cuando el usuario inicia sesión (solo una vez)
   useEffect(() => {
-    if (isAuthenticated && user && carritoLocal.items.length > 0) {
+    if (isAuthenticated && user && carritoLocal.items.length > 0 && !sincronizadoRef.current) {
+      sincronizadoRef.current = true;
       carritoLocalService.sincronizarConServidor(carritoService).then(() => {
         setCarritoLocal(carritoLocalService.obtenerCarrito());
         queryClient.invalidateQueries({ queryKey: ['carrito'] });
@@ -49,6 +53,9 @@ const CarritoPage: React.FC = () => {
       return response.data;
     },
     enabled: isAuthenticated,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Usar carrito local si no está autenticado, o carrito del servidor si está autenticado
@@ -203,8 +210,8 @@ const CarritoPage: React.FC = () => {
         <div className="col-lg-8">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
-              {items.map((item: any) => (
-                <div key={item.id_producto} className="border-bottom pb-4 mb-4 last-child-border-0">
+              {items.map((item: any, index: number) => (
+                <div key={item.id_producto} className="cart-item-card border-bottom pb-4 mb-4 last-child-border-0" style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="row align-items-center">
                     <div className="col-md-2">
                       {item.imagen_principal ? (
@@ -227,25 +234,27 @@ const CarritoPage: React.FC = () => {
                       </p>
                     </div>
                     <div className="col-md-3">
-                      <div className="input-group">
+                      <div className="input-group cart-quantity-control">
                         <button
-                          className="btn btn-outline-secondary"
+                          className="btn btn-outline-secondary cart-btn-quantity"
                           onClick={() => handleUpdateCantidad(item.id_producto, item.cantidad - 1)}
                           disabled={item.cantidad <= 1}
+                          title="Disminuir cantidad"
                         >
                           <BiMinus />
                         </button>
                         <input
                           type="number"
-                          className="form-control text-center"
+                          className="form-control text-center cart-quantity-input"
                           value={item.cantidad}
                           readOnly
                           style={{ maxWidth: '80px' }}
                         />
                         <button
-                          className="btn btn-outline-secondary"
+                          className="btn btn-outline-secondary cart-btn-quantity"
                           onClick={() => handleUpdateCantidad(item.id_producto, item.cantidad + 1)}
                           disabled={!item.disponible || item.cantidad >= item.stock_actual}
+                          title="Aumentar cantidad"
                         >
                           <BiPlus />
                         </button>
@@ -259,8 +268,9 @@ const CarritoPage: React.FC = () => {
                         ${item.precio_total?.toLocaleString()}
                       </div>
                       <button
-                        className="btn btn-sm btn-outline-danger"
+                        className="btn btn-sm btn-outline-danger cart-btn-delete"
                         onClick={() => handleEliminar(item.id_producto)}
+                        title="Eliminar del carrito"
                       >
                         <BiTrash />
                       </button>
@@ -274,7 +284,7 @@ const CarritoPage: React.FC = () => {
 
         {/* Resumen y Checkout */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm sticky-top" style={{ top: '80px' }}>
+          <div className="card border-0 shadow-sm" style={{ position: 'sticky', top: '80px', alignSelf: 'flex-start' }}>
             <div className="card-header bg-primary text-white">
               <h5 className="mb-0">Resumen del Pedido</h5>
             </div>

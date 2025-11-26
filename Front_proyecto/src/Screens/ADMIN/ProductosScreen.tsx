@@ -79,13 +79,6 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
   // ===== EFECTOS =====
   useEffect(() => {
     cargarProductos();
-    
-    // Actualización automática cada 30 segundos
-    const interval = setInterval(() => {
-      cargarProductos();
-    }, 30000);
-    
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros, busquedaDebounced]);
 

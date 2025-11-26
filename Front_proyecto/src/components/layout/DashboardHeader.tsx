@@ -13,12 +13,13 @@ import {
   BiBell,
   BiHome
 } from 'react-icons/bi';
+import './DashboardHeader.css';
 
 interface DashboardHeaderProps {
   onToggleSidebar?: () => void;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) => {
+const DashboardHeader: React.FC<DashboardHeaderProps> = React.memo(({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,7 +40,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
       }
     },
     enabled: !!user,
-    refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    // NO refrescar automáticamente - solo cuando el usuario interactúa
   });
 
   useEffect(() => {
@@ -61,7 +65,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
       }
     },
     enabled: !!user && showNotifications,
-    refetchInterval: 30000, // Actualizar cada 30 segundos cuando está abierto
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    // NO refrescar automáticamente - solo cuando el usuario abre el menú de notificaciones
   });
 
   // Cerrar menú al hacer clic fuera
@@ -140,11 +147,21 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
     }
   };
 
+  const handleGoToHome = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    console.log('🚀 [DashboardHeader] Navegando al inicio público');
+    // Redirigir al inicio público
+    window.location.href = '/';
+  };
+
   return (
-    <header className="bg-white shadow-sm border-bottom sticky-top" style={{ zIndex: 1020, height: '60px' }}>
-      <div className="d-flex align-items-center justify-content-between h-100 px-3">
-        {/* Logo y botón de menú */}
-        <div className="d-flex align-items-center gap-3">
+    <header className="dashboard-header bg-white shadow-sm border-bottom sticky-top" style={{ zIndex: 1020, height: '60px' }}>
+      <div className="d-flex align-items-center h-100 px-3" style={{ justifyContent: 'space-between', width: '100%' }}>
+        {/* Logo y botón de menú - Izquierda */}
+        <div className="d-flex align-items-center gap-3" style={{ flexShrink: 0 }}>
           {onToggleSidebar && (
             <button
               className="btn btn-link text-dark p-0 d-lg-none"
@@ -154,18 +171,34 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
               <BiMenu />
             </button>
           )}
-          <Link to={getDashboardPath()} className="text-decoration-none d-flex align-items-center">
+          <button
+            onClick={handleGoToHome}
+            className="btn btn-link text-dark p-0 d-flex align-items-center text-decoration-none border-0"
+            style={{ backgroundColor: 'transparent', cursor: 'pointer' }}
+            title="Ir al inicio"
+            type="button"
+          >
             <img 
               src={logoProyecto} 
               alt="AgroStock" 
-              style={{ height: '40px', width: 'auto' }}
+              style={{ height: '40px', width: 'auto', pointerEvents: 'none' }}
             />
             <span className="ms-2 fw-bold text-primary d-none d-md-inline">AgroStock</span>
-          </Link>
+          </button>
+          {/* Icono de casita para ir al inicio */}
+          <button
+            onClick={handleGoToHome}
+            className="btn btn-link text-dark p-2 border-0"
+            title="Ir al inicio"
+            style={{ backgroundColor: 'transparent', textDecoration: 'none', cursor: 'pointer' }}
+            type="button"
+          >
+            <BiHome style={{ fontSize: '1.5rem' }} />
+          </button>
         </div>
 
-        {/* Opciones del usuario */}
-        <div className="d-flex align-items-center gap-2">
+        {/* Opciones del usuario - Derecha */}
+        <div className="d-flex align-items-center gap-2" style={{ marginLeft: 'auto', flexShrink: 0 }}>
           {/* Notificaciones */}
           {user && (
             <div className="dropdown" style={{ position: 'relative' }}>
@@ -385,7 +418,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
       </div>
     </header>
   );
-};
+});
+
+DashboardHeader.displayName = 'DashboardHeader';
 
 export default DashboardHeader;
 

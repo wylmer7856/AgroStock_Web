@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
@@ -39,8 +39,14 @@ const ConsumidorPerfilPage: React.FC = () => {
 
   const idCiudadSeleccionada = watch('id_ciudad');
 
-  // Cargar departamentos
+  const departamentosCargadosRef = useRef(false);
+  const ciudadesCargadasRef = useRef(false);
+
+  // Cargar departamentos (solo una vez)
   useEffect(() => {
+    if (departamentosCargadosRef.current) return;
+    departamentosCargadosRef.current = true;
+    
     const cargarDepartamentos = async () => {
       try {
         const response = await ubicacionesService.listarDepartamentos();
@@ -54,8 +60,11 @@ const ConsumidorPerfilPage: React.FC = () => {
     cargarDepartamentos();
   }, []);
 
-  // Cargar ciudades al montar o cuando se habilita la edición
+  // Cargar ciudades solo cuando se habilita la edición (y no se han cargado antes)
   useEffect(() => {
+    if (!isEditing || ciudadesCargadasRef.current) return;
+    ciudadesCargadasRef.current = true;
+    
     const cargarCiudades = async () => {
       try {
         setLoadingCiudades(true);

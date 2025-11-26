@@ -27,13 +27,6 @@ export const NotificacionesScreen: React.FC<NotificacionesScreenProps> = ({ onNa
 
   useEffect(() => {
     cargarNotificaciones();
-    
-    // Actualización automática cada 30 segundos
-    const interval = setInterval(() => {
-      cargarNotificaciones();
-    }, 30000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   const cargarNotificaciones = async () => {

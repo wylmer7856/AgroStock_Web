@@ -12,6 +12,7 @@ import {
   BiFile,
   BiX
 } from 'react-icons/bi';
+import './Sidebar.css';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -78,42 +79,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <aside
-        className={`bg-primary shadow-lg position-fixed start-0 overflow-auto ${
+        className={`bg-primary shadow-lg position-fixed start-0 sidebar-container ${
           isOpen ? 'show' : ''
         }`}
         style={{
           width: '280px',
-          zIndex: 1010, // Menor que el navbar (1020) para que no lo cubra
+          zIndex: 1000,
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.3s ease-in-out',
-          top: '56px', // Debajo del navbar
-          height: 'calc(100vh - 56px)', // Altura completa menos el navbar
+          top: '56px',
+          bottom: 0,
           position: 'fixed',
           left: 0,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <div className="p-3 border-bottom border-light border-opacity-25 d-flex align-items-center justify-content-between">
-          <h5 className="mb-0 fw-bold text-white">
-            <i className="bi bi-flower1 me-2"></i>
-            AgroStock
-          </h5>
-          <button
-            className="btn btn-sm btn-link text-white d-lg-none"
-            onClick={onClose}
-            type="button"
-          >
-            <BiX className="fs-4" />
-          </button>
-        </div>
-
-        <nav className="p-3">
-          <ul className="nav nav-pills flex-column gap-1">
+        {/* Navegación con scroll independiente */}
+        <nav
+          className="sidebar-nav p-3"
+          style={{
+            flex: '1 1 auto',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            minHeight: 0,
+            paddingTop: '1.5rem',
+          }}
+        >
+          <ul className="nav nav-pills flex-column gap-1" style={{ marginBottom: 0 }}>
             {menuItems().map((item) => (
               <li key={item.path} className="nav-item">
                 <Link
                   className={`nav-link d-flex align-items-center ${
                     isActive(item.path) 
-                      ? 'active bg-white text-primary fw-bold' 
+                      ? 'active fw-bold' 
                       : 'text-white'
                   }`}
                   to={item.path}
@@ -126,7 +125,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   style={{
                     borderRadius: '0.5rem',
                     marginBottom: '0.25rem',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    backgroundColor: 'transparent'
                   }}
                 >
                   <span className="me-2">{item.icon}</span>

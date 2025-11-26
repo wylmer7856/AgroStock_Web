@@ -28,28 +28,6 @@ const productosSchema = z.object({
   unidad_medida: z.string().optional(),
   disponible: z.boolean().optional(),
   imagen_principal: z.string().url().optional().nullable(),
-  imagenData: z.string().optional().refine(
-    (val: string | undefined) => {
-      if (!val) return true;
-      if (typeof val !== 'string') return false;
-            if (val.startsWith('http://') || val.startsWith('https://')) {
-        return true;
-      }
-      if (val.startsWith('file://')) {
-        return true;
-      }
-      
-      if (val.startsWith('data:image/')) {
-        return true;
-      }
-        if (val.match(/^[A-Za-z0-9+/]+=*$/)) {
-        return true;
-      }
-      
-      return false;
-    },
-
-  ),
 });
 
 const productosUpdateSchema = productosSchema.extend({
@@ -562,9 +540,69 @@ export const getProductoPorId = async (ctx: RouterContext<"/productos/:id">) => 
 export const postProducto = async (ctx: Context) => {
   try {
     const body = await ctx.request.body.json();
-    const validated = productosSchema.parse(body);
+    console.log(`📦 [POST /productos] Datos recibidos:`, { 
+      campos: Object.keys(body),
+      tieneImagenData: !!body.imagenData,
+      tipoImagenData: typeof body.imagenData,
+      longitudImagenData: body.imagenData ? body.imagenData.length : 0,
+      prefijoImagenData: body.imagenData ? body.imagenData.substring(0, 50) : null
+    });
+    
+    // Extraer imagenData ANTES de validar con Zod
+    const imagenDataRaw = body.imagenData;
+    const imagen_principal = body.imagen_principal;
+    
+    // Remover imagenData del body para que Zod no lo valide
+    const bodySinImagenData = { ...body };
+    delete bodySinImagenData.imagenData;
+    
+    // Normalizar imagenData: convertir strings vacíos a undefined
+    const imagenData = (imagenDataRaw && typeof imagenDataRaw === 'string' && imagenDataRaw !== '' && imagenDataRaw !== null) 
+      ? imagenDataRaw 
+      : undefined;
+    
+    // Log para depuración
+    if (imagenData) {
+      console.log(`🔍 [POST /productos] imagenData recibido:`, {
+        tipo: typeof imagenData,
+        longitud: imagenData.length,
+        prefijo: imagenData.substring(0, 100),
+        esDataImage: imagenData.startsWith('data:image/'),
+        esDataImagePuntoComa: imagenData.startsWith('data:image;'),
+      });
+    }
+    
+    let validated;
+    try {
+      validated = productosSchema.parse(bodySinImagenData);
+      console.log(`✅ [POST /productos] Validación exitosa`);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        console.error(`❌ [POST /productos] Error de validación:`, validationError.errors);
+        ctx.response.status = 400;
+        ctx.response.body = {
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "Datos inválidos.",
+          errors: validationError.errors.map((err: z.ZodIssue) => ({
+            field: err.path.join('.'),
+            message: err.message,
+            code: err.code
+          }))
+        };
+        return;
+      }
+      throw validationError;
+    }
 
-    const { imagenData, imagen_principal, ...productoData } = validated;
+    const { imagen_principal: imagenPrincipalValidada, ...productoData } = validated;
+    
+    console.log(`🖼️ [POST /productos] imagenData procesado:`, {
+      tipo: typeof imagenData,
+      tieneValor: !!imagenData,
+      longitud: imagenData ? imagenData.length : 0,
+      prefijo: imagenData ? imagenData.substring(0, 50) : null
+    });
 
     const productoCompleto: ProductoData = {
       id_producto: 0,
@@ -578,7 +616,7 @@ export const postProducto = async (ctx: Context) => {
       id_ciudad_origen: productoData.id_ciudad_origen ?? undefined,
       unidad_medida: productoData.unidad_medida || 'kg',
       disponible: productoData.disponible !== false,
-      imagen_principal: imagen_principal ?? undefined
+      imagen_principal: imagenPrincipalValidada ?? undefined
     };
 
     const objProductos = new ProductosModel(productoCompleto);
@@ -586,10 +624,10 @@ export const postProducto = async (ctx: Context) => {
     const result = await objProductos.AgregarProducto(imagenData);
     
     // Si se creó exitosamente y hay imagen_principal (URL), actualizarla
-    if (result.success && result.producto && imagen_principal && !imagenData) {
+    if (result.success && result.producto && imagenPrincipalValidada && !imagenData) {
       await conexion.execute(
         "UPDATE productos SET imagen_principal = ? WHERE id_producto = ?",
-        [imagen_principal, result.producto.id_producto]
+        [imagenPrincipalValidada, result.producto.id_producto]
       );
       // Recargar el producto con la imagen actualizada
       const productoActualizado = await conexion.query(
@@ -685,7 +723,30 @@ export const putProducto = async (ctx: RouterContext<"/productos/:id">) => {
       return;
     }
     
-    const bodyWithId = { ...body, id_producto };
+    // Extraer imagenData ANTES de validar con Zod
+    const imagenDataRaw = body.imagenData;
+    
+    // Remover imagenData del body para que Zod no lo valide
+    const bodySinImagenData = { ...body };
+    delete bodySinImagenData.imagenData;
+    
+    // Normalizar imagenData: convertir strings vacíos a undefined
+    const imagenData = (imagenDataRaw && typeof imagenDataRaw === 'string' && imagenDataRaw !== '' && imagenDataRaw !== null) 
+      ? imagenDataRaw 
+      : undefined;
+    
+    // Log para depuración
+    if (imagenData) {
+      console.log(`🔍 [PUT /productos/${id_producto}] imagenData recibido:`, {
+        tipo: typeof imagenData,
+        longitud: imagenData.length,
+        prefijo: imagenData.substring(0, 100),
+        esDataImage: imagenData.startsWith('data:image/'),
+        esDataImagePuntoComa: imagenData.startsWith('data:image;'),
+      });
+    }
+    
+    const bodyWithId = { ...bodySinImagenData, id_producto };
     let validated;
     try {
       validated = productosUpdateSchema.parse(bodyWithId);
@@ -700,7 +761,8 @@ export const putProducto = async (ctx: RouterContext<"/productos/:id">) => {
           message: "Datos inválidos.",
           errors: validationError.errors.map((err: z.ZodIssue) => ({
             field: err.path.join('.'),
-            message: err.message
+            message: err.message,
+            code: err.code
           }))
         };
         return;
@@ -708,7 +770,14 @@ export const putProducto = async (ctx: RouterContext<"/productos/:id">) => {
       throw validationError;
     }
 
-    const { imagenData, ...productoData } = validated;
+    const { ...productoData } = validated;
+    
+    console.log(`🖼️ [PUT /productos/${id_producto}] imagenData procesado:`, {
+      tipo: typeof imagenData,
+      tieneValor: !!imagenData,
+      longitud: imagenData ? imagenData.length : 0,
+      prefijo: imagenData ? imagenData.substring(0, 50) : null
+    });
 
     const objProductosCheck = new ProductosModel();
     const productoExiste = await objProductosCheck.ObtenerProductoPorId(id_producto);

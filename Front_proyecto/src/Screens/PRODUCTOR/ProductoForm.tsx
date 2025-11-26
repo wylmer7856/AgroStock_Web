@@ -1,6 +1,6 @@
 // 🛍️ FORMULARIO DE PRODUCTO - Crear y Editar
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, Button, Loading, Toast } from '../../components/ReusableComponents';
@@ -15,7 +15,7 @@ interface ProductoFormProps {
   onSuccess: () => void;
 }
 
-export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose, onSuccess }) => {
+export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoId, onClose, onSuccess }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -27,8 +27,8 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
   const [formData, setFormData] = useState<Partial<Producto>>({
     nombre: '',
     descripcion: '',
-    precio: 0,
-    stock: 0,
+    precio: undefined,
+    stock: undefined,
     stock_minimo: 5,
     unidad_medida: 'kg',
     id_categoria: null,
@@ -42,15 +42,136 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
   const [imagenesAdicionalesFiles, setImagenesAdicionalesFiles] = useState<File[]>([]);
   const [imagenActualIndex, setImagenActualIndex] = useState(0);
   const [subiendoImagenes, setSubiendoImagenes] = useState(false);
-
+  const [camposVacios, setCamposVacios] = useState<Set<string>>(new Set());
+  const datosCargadosRef = useRef(false);
+  const formDataInicializadoRef = useRef(false);
+  const preventResetRef = useRef(false);
+  
+  // Guardar estado del formulario en sessionStorage para prevenir pérdida de datos
   useEffect(() => {
-    cargarDatos();
-    if (productoId) {
-      cargarProducto();
+    // Solo guardar si es creación (no edición) y hay datos ingresados
+    if (!productoId && preventResetRef.current && formData.nombre) {
+      const estadoAGuardar = {
+        formData,
+        imagenPreview,
+        timestamp: Date.now()
+      };
+      
+      try {
+        sessionStorage.setItem('productoFormData', JSON.stringify(estadoAGuardar));
+      } catch (error) {
+        console.error('Error guardando estado del formulario:', error);
+      }
+    }
+  }, [formData, imagenPreview, productoId]);
+  
+  // Guardar también cuando la ventana pierde el foco
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!productoId && preventResetRef.current && formData.nombre) {
+        try {
+          sessionStorage.setItem('productoFormData', JSON.stringify({
+            formData,
+            imagenPreview,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('Error guardando estado antes de cerrar:', error);
+        }
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [formData, imagenPreview, productoId]);
+  
+  // Restaurar estado del formulario si existe en sessionStorage (solo para creación)
+  useEffect(() => {
+    if (!productoId && !formDataInicializadoRef.current) {
+      const estadoGuardado = sessionStorage.getItem('productoFormData');
+      if (estadoGuardado) {
+        try {
+          const { formData: savedFormData, imagenPreview: savedPreview, timestamp } = JSON.parse(estadoGuardado);
+          // Solo restaurar si el estado es reciente (menos de 1 hora)
+          if (Date.now() - timestamp < 3600000 && savedFormData.nombre) {
+            preventResetRef.current = true;
+            setFormData(savedFormData);
+            if (savedPreview) {
+              setImagenPreview(savedPreview);
+            }
+            // Limpiar el estado guardado después de restaurarlo
+            sessionStorage.removeItem('productoFormData');
+          }
+        } catch (error) {
+          console.error('Error restaurando estado del formulario:', error);
+        }
+      }
     }
   }, [productoId]);
 
+  useEffect(() => {
+    // Solo ejecutar la inicialización una vez cuando el componente se monta
+    // Esto previene que se resetee el formulario mientras el usuario está escribiendo
+    if (formDataInicializadoRef.current) {
+      return;
+    }
+    
+    formDataInicializadoRef.current = true;
+    preventResetRef.current = true; // Activar protección contra reset
+    
+    // Cargar datos de categorías y ciudades solo una vez
+    if (!datosCargadosRef.current) {
+      datosCargadosRef.current = true;
+      cargarDatos();
+    }
+    
+    // Solo cargar producto si hay productoId
+    if (productoId) {
+      cargarProducto();
+    } else {
+      // Si es creación y no hay datos guardados, marcar todos los campos como inválidos inicialmente
+      if (!sessionStorage.getItem('productoFormData')) {
+        setCamposVacios(new Set(['nombre', 'precio', 'stock', 'stock_minimo', 'unidad_medida']));
+      }
+    }
+    
+    // Prevenir que el formulario se resetee cuando la ventana recupera el foco
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && preventResetRef.current) {
+        // No hacer nada, solo prevenir reset
+        console.log('Ventana recuperó foco, pero el formulario está protegido');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Array vacío para que solo se ejecute una vez al montar
+
+  // Prevenir recargas automáticas cuando el formulario está montado
+  // Usar useRef para rastrear si el formulario está montado y prevenir recargas
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const cargarDatos = async () => {
+    // Solo cargar datos si el formulario está montado y no hay datos ya cargados
+    if (!isMountedRef.current || categorias.length > 0 || ciudades.length > 0) {
+      return;
+    }
+    
     try {
       setLoading(true);
       const [categoriasRes, ciudadesRes] = await Promise.all([
@@ -58,12 +179,18 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
         ubicacionesService.listarCiudades()
       ]);
 
+      // Verificar nuevamente si el formulario está montado antes de actualizar el estado
+      if (!isMountedRef.current) return;
+
       if (categoriasRes.success && categoriasRes.data) {
         console.log('Categorías cargadas:', categoriasRes.data.length);
         setCategorias(categoriasRes.data);
       } else {
         console.error('Error cargando categorías:', categoriasRes);
-        mostrarToast('Error cargando categorías', 'error');
+        // No mostrar toast si el usuario ya está escribiendo
+        if (!formData.nombre) {
+          mostrarToast('Error cargando categorías', 'error');
+        }
       }
 
       if (ciudadesRes.success && ciudadesRes.data) {
@@ -71,36 +198,54 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
         setCiudades(ciudadesRes.data);
       } else {
         console.error('Error cargando ciudades:', ciudadesRes);
-        mostrarToast('Error cargando ciudades', 'error');
+        // No mostrar toast si el usuario ya está escribiendo
+        if (!formData.nombre) {
+          mostrarToast('Error cargando ciudades', 'error');
+        }
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error('Error cargando datos:', error);
-      mostrarToast('Error cargando datos', 'error');
+      // No mostrar toast si el usuario ya está escribiendo
+      if (!formData.nombre) {
+        mostrarToast('Error cargando datos', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const cargarProducto = async () => {
-    if (!productoId) return;
+    if (!productoId || !isMountedRef.current) return;
     
     try {
       setLoading(true);
       const response = await productosService.obtenerProducto(productoId);
       
+      // Verificar nuevamente si el formulario está montado antes de actualizar el estado
+      if (!isMountedRef.current) return;
+      
       if (response.success && response.data) {
-        setFormData({
-          nombre: response.data.nombre,
-          descripcion: response.data.descripcion || '',
-          precio: response.data.precio,
-          stock: response.data.stock,
-          stock_minimo: response.data.stock_minimo,
-          unidad_medida: response.data.unidad_medida,
-          id_categoria: response.data.id_categoria || null,
-          id_ciudad_origen: response.data.id_ciudad_origen || null,
-          imagen_principal: response.data.imagen_principal || '',
-          disponible: response.data.disponible
-        });
+        // Solo actualizar formData si es edición (productoId existe) y no hay datos ingresados por el usuario
+        // Esto previene que se reseteen los datos mientras el usuario está escribiendo
+        if (productoId) {
+          setFormData({
+            nombre: response.data.nombre,
+            descripcion: response.data.descripcion || '',
+            precio: response.data.precio,
+            stock: response.data.stock,
+            stock_minimo: response.data.stock_minimo,
+            unidad_medida: response.data.unidad_medida,
+            id_categoria: response.data.id_categoria || null,
+            id_ciudad_origen: response.data.id_ciudad_origen || null,
+            imagen_principal: response.data.imagen_principal || '',
+            disponible: response.data.disponible
+          });
+          // Si es edición, limpiar los campos vacíos ya que todos tienen valores
+          setCamposVacios(new Set());
+        }
         // Si hay imagen, establecer preview (usar imagenUrl si está disponible, sino construir URL)
         const imagenUrl = (response.data as any).imagenUrl || response.data.imagen_principal;
         if (imagenUrl) {
@@ -147,9 +292,12 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
         }
       }
     } catch (error) {
+      if (!isMountedRef.current) return;
       mostrarToast('Error cargando producto', 'error');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -259,7 +407,7 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
             setImagenActualIndex(0);
           }
           mostrarToast('Imagen eliminada exitosamente', 'success');
-          queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
+          // No invalidar queries aquí para evitar recargas mientras el formulario está abierto
         }
       } catch (error) {
         console.error('Error eliminando imagen adicional:', error);
@@ -296,11 +444,98 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
     }
   };
 
+  const validarCampos = (): boolean => {
+    const camposInvalidos = new Set<string>();
+    
+    // Validar nombre - debe tener al menos 1 carácter
+    const nombre = formData.nombre?.trim() || '';
+    if (nombre === '') {
+      camposInvalidos.add('nombre');
+    }
+    
+    // Validar precio - debe ser mayor que 0
+    const precio = Number(formData.precio);
+    if (isNaN(precio) || precio <= 0) {
+      camposInvalidos.add('precio');
+    }
+    
+    // Validar stock - debe ser un número válido >= 0
+    const stock = Number(formData.stock);
+    if (isNaN(stock) || stock < 0) {
+      camposInvalidos.add('stock');
+    }
+    
+    // Validar stock_minimo - debe ser un número válido >= 0
+    const stockMinimo = Number(formData.stock_minimo);
+    if (isNaN(stockMinimo) || stockMinimo < 0) {
+      camposInvalidos.add('stock_minimo');
+    }
+    
+    // Validar unidad_medida - debe tener un valor
+    const unidadMedida = formData.unidad_medida?.trim() || '';
+    if (unidadMedida === '') {
+      camposInvalidos.add('unidad_medida');
+    }
+    
+    setCamposVacios(camposInvalidos);
+    
+    if (camposInvalidos.size > 0) {
+      const camposFaltantes = Array.from(camposInvalidos).map(campo => {
+        const nombres: { [key: string]: string } = {
+          'nombre': 'Nombre del Producto',
+          'precio': 'Precio',
+          'stock': 'Stock Disponible',
+          'stock_minimo': 'Stock Mínimo',
+          'unidad_medida': 'Unidad de Medida'
+        };
+        return nombres[campo] || campo;
+      }).join(', ');
+      
+      mostrarToast(`Por favor completa los siguientes campos obligatorios: ${camposFaltantes}`, 'error');
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Función para verificar si el formulario es válido (para deshabilitar el botón)
+  const esFormularioValido = (): boolean => {
+    const nombre = formData.nombre?.trim() || '';
+    const precio = Number(formData.precio);
+    const stock = Number(formData.stock);
+    const stockMinimo = Number(formData.stock_minimo);
+    const unidadMedida = formData.unidad_medida?.trim() || '';
+    
+    return (
+      nombre !== '' &&
+      !isNaN(precio) && precio > 0 &&
+      !isNaN(stock) && stock >= 0 &&
+      !isNaN(stockMinimo) && stockMinimo >= 0 &&
+      unidadMedida !== ''
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nombre || !formData.precio || formData.precio <= 0) {
-      mostrarToast('Por favor completa todos los campos obligatorios', 'error');
+    // Validar todos los campos antes de continuar
+    if (!validarCampos()) {
+      // Hacer scroll al primer campo con error
+      const primerCampoError = Array.from(camposVacios)[0];
+      if (primerCampoError) {
+        const campoElement = document.querySelector(`input[name="${primerCampoError}"], select[name="${primerCampoError}"]`) as HTMLElement;
+        if (!campoElement) {
+          // Buscar por clase si no se encuentra por name
+          const campoPorClase = document.querySelector(`.form-input.placeholder-error`) as HTMLElement;
+          if (campoPorClase) {
+            campoPorClase.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            campoPorClase.focus();
+          }
+        } else {
+          campoElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          campoElement.focus();
+        }
+      }
       return;
     }
 
@@ -313,7 +548,7 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
         try {
           const imagenResponse = await productosService.subirImagenProducto(productoId, imagenFile);
           if (imagenResponse.success) {
-            queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
+            // No invalidar queries aquí para evitar recargas mientras el formulario está abierto
             mostrarToast('Imagen actualizada exitosamente', 'success');
             onSuccess();
             return;
@@ -324,12 +559,32 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
         }
       }
       
+      // Asegurarse de que todos los valores sean válidos antes de enviar
+      const precio = Number(formData.precio);
+      const stock = Number(formData.stock);
+      const stockMinimo = Number(formData.stock_minimo);
+      
+      if (isNaN(precio) || precio <= 0) {
+        mostrarToast('El precio debe ser mayor que 0', 'error');
+        return;
+      }
+      
+      if (isNaN(stock) || stock < 0) {
+        mostrarToast('El stock debe ser un número válido mayor o igual a 0', 'error');
+        return;
+      }
+      
+      if (isNaN(stockMinimo) || stockMinimo < 0) {
+        mostrarToast('El stock mínimo debe ser un número válido mayor o igual a 0', 'error');
+        return;
+      }
+      
       const productoData: any = {
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || null,
-        precio: Number(formData.precio),
-        stock: Number(formData.stock) || 0,
-        stock_minimo: Number(formData.stock_minimo) || 5,
+        nombre: formData.nombre?.trim(),
+        descripcion: formData.descripcion?.trim() || null,
+        precio: precio,
+        stock: stock,
+        stock_minimo: stockMinimo,
         unidad_medida: formData.unidad_medida || 'kg',
         id_usuario: userId,
         id_categoria: formData.id_categoria || null,
@@ -370,62 +625,70 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
           console.warn('Producto creado pero no se obtuvo ID, continuando de todas formas');
         }
         
-        // Mostrar mensaje de éxito inmediatamente
+        // Subir imagen principal ANTES de navegar (si hay imagen)
+        if (imagenFile && productoIdFinal) {
+          try {
+            console.log('Subiendo imagen principal para producto:', productoIdFinal);
+            const imagenResponse = await productosService.subirImagenProducto(productoIdFinal, imagenFile);
+            if (imagenResponse.success) {
+              console.log('Imagen principal subida exitosamente');
+              // Invalidar queries para que se actualicen (se refetchearán después del submit)
+              queryClient.invalidateQueries({ 
+                queryKey: ['productos', 'productor']
+              });
+              queryClient.invalidateQueries({ 
+                queryKey: ['productos']
+              });
+            } else {
+              console.warn('Error subiendo imagen principal:', imagenResponse);
+            }
+          } catch (error) {
+            console.error('Error subiendo imagen principal:', error);
+            // Continuar aunque falle la subida de imagen
+          }
+        } else if (imagenFile && !productoIdFinal) {
+          console.warn('No se pudo subir la imagen porque no se obtuvo el ID del producto');
+        }
+
+        // Subir imágenes adicionales ANTES de navegar (si hay imágenes)
+        if (imagenesAdicionalesFiles.length > 0 && productoIdFinal) {
+          try {
+            setSubiendoImagenes(true);
+            const responses = await Promise.all(
+              imagenesAdicionalesFiles.map(file => 
+                productosService.subirImagenAdicional(productoIdFinal, file)
+              )
+            );
+            const exitosas = responses.filter(r => r.success).length;
+            console.log(`${exitosas} imagen(es) adicional(es) subida(s) exitosamente`);
+            setImagenesAdicionalesFiles([]);
+            // Invalidar queries para que se actualicen (se refetchearán después del submit)
+            queryClient.invalidateQueries({ 
+              queryKey: ['productos', 'productor']
+            });
+            queryClient.invalidateQueries({ 
+              queryKey: ['productos']
+            });
+          } catch (error) {
+            console.error('Error subiendo imágenes adicionales:', error);
+            // Continuar aunque falle la subida de imágenes adicionales
+          } finally {
+            setSubiendoImagenes(false);
+          }
+        }
+        
+        // Mostrar mensaje de éxito
         mostrarToast(
           productoId ? 'Producto actualizado exitosamente' : 'Producto creado exitosamente',
           'success'
         );
         
-        // Llamar onSuccess inmediatamente para navegar rápido
-        onSuccess();
+        // Limpiar el estado guardado antes de navegar
+        sessionStorage.removeItem('productoFormData');
+        preventResetRef.current = false;
         
-        // Subir imagen principal en segundo plano (no bloquea la navegación)
-        if (imagenFile && productoIdFinal) {
-          // Subir imagen de forma asíncrona sin bloquear
-          productosService.subirImagenProducto(productoIdFinal, imagenFile)
-            .then((imagenResponse) => {
-              if (imagenResponse.success) {
-                console.log('Imagen principal subida exitosamente');
-                // Invalidar queries para refrescar con la nueva imagen
-                queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
-              }
-            })
-            .catch((error) => {
-              console.error('Error subiendo imagen principal:', error);
-              // No mostrar error crítico, solo log
-            });
-        } else if (imagenFile && !productoIdFinal) {
-          console.warn('No se pudo subir la imagen porque no se obtuvo el ID del producto');
-        }
-
-        // Subir imágenes adicionales en segundo plano
-        if (imagenesAdicionalesFiles.length > 0 && productoIdFinal) {
-          setSubiendoImagenes(true);
-          Promise.all(
-            imagenesAdicionalesFiles.map(file => 
-              productosService.subirImagenAdicional(productoIdFinal, file)
-            )
-          )
-            .then((responses) => {
-              const exitosas = responses.filter(r => r.success).length;
-              console.log(`${exitosas} imagen(es) adicional(es) subida(s) exitosamente`);
-              setImagenesAdicionalesFiles([]);
-              queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
-              // Recargar el producto para obtener las nuevas imágenes
-              if (productoIdFinal) {
-                setTimeout(() => {
-                  cargarProducto();
-                }, 1000); // Esperar un poco para que el servidor procese
-              }
-            })
-            .catch((error) => {
-              console.error('Error subiendo imágenes adicionales:', error);
-              mostrarToast('Algunas imágenes adicionales no se pudieron subir', 'error');
-            })
-            .finally(() => {
-              setSubiendoImagenes(false);
-            });
-        }
+        // Llamar onSuccess para navegar (después de subir las imágenes)
+        onSuccess();
       } else {
         const errorMsg = response.message || response.error || 'Error guardando producto';
         console.error('Error en respuesta:', response);
@@ -452,7 +715,10 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
     <div className="producto-form">
       <div className="form-header">
         <h2>{productoId ? '✏️ Editar Producto' : '➕ Crear Nuevo Producto'}</h2>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={() => {
+          sessionStorage.removeItem('productoFormData');
+          onClose();
+        }}>
           ← Volver
         </Button>
       </div>
@@ -466,10 +732,20 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
             <input
               type="text"
               value={formData.nombre || ''}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, nombre: e.target.value });
+                // Remover del conjunto de campos vacíos si tiene valor
+                if (e.target.value.trim() !== '') {
+                  setCamposVacios(prev => {
+                    const nuevo = new Set(prev);
+                    nuevo.delete('nombre');
+                    return nuevo;
+                  });
+                }
+              }}
               placeholder="Ej: Tomates orgánicos"
               required
-              className="form-input"
+              className={`form-input ${camposVacios.has('nombre') ? 'placeholder-error' : ''}`}
             />
           </div>
 
@@ -489,13 +765,31 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
               <label>Precio por Unidad (COP) *</label>
               <input
                 type="number"
-                value={formData.precio || ''}
-                onChange={(e) => setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })}
+                value={formData.precio !== undefined ? formData.precio : ''}
+                onChange={(e) => {
+                  const valorStr = e.target.value;
+                  const valor = valorStr === '' ? undefined : parseFloat(valorStr);
+                  setFormData({ ...formData, precio: valor });
+                  // Remover del conjunto de campos vacíos si tiene valor válido
+                  if (valor !== undefined && !isNaN(valor) && valor > 0) {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.delete('precio');
+                      return nuevo;
+                    });
+                  } else {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.add('precio');
+                      return nuevo;
+                    });
+                  }
+                }}
                 placeholder="0"
                 min="0"
                 step="100"
                 required
-                className="form-input"
+                className={`form-input ${camposVacios.has('precio') ? 'placeholder-error' : ''}`}
               />
             </div>
 
@@ -503,8 +797,19 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
               <label>Unidad de Medida *</label>
               <select
                 value={formData.unidad_medida || 'kg'}
-                onChange={(e) => setFormData({ ...formData, unidad_medida: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, unidad_medida: e.target.value });
+                  // Remover del conjunto de campos vacíos si tiene valor
+                  if (e.target.value) {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.delete('unidad_medida');
+                      return nuevo;
+                    });
+                  }
+                }}
                 required
+                className={camposVacios.has('unidad_medida') ? 'placeholder-error' : ''}
               >
                 <option value="kg">Kilogramos (kg)</option>
                 <option value="g">Gramos (g)</option>
@@ -527,12 +832,30 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
               <label>Stock Disponible *</label>
               <input
                 type="number"
-                value={formData.stock || ''}
-                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                value={formData.stock !== undefined ? formData.stock : ''}
+                onChange={(e) => {
+                  const valorStr = e.target.value;
+                  const valor = valorStr === '' ? undefined : parseInt(valorStr);
+                  setFormData({ ...formData, stock: valor });
+                  // Remover del conjunto de campos vacíos si tiene valor válido
+                  if (valor !== undefined && !isNaN(valor) && valor >= 0) {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.delete('stock');
+                      return nuevo;
+                    });
+                  } else {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.add('stock');
+                      return nuevo;
+                    });
+                  }
+                }}
                 placeholder="0"
                 min="0"
                 required
-                className="form-input"
+                className={`form-input ${camposVacios.has('stock') ? 'placeholder-error' : ''}`}
               />
             </div>
 
@@ -541,11 +864,22 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
               <input
                 type="number"
                 value={formData.stock_minimo || 5}
-                onChange={(e) => setFormData({ ...formData, stock_minimo: parseInt(e.target.value) || 5 })}
+                onChange={(e) => {
+                  const valor = parseInt(e.target.value) || 5;
+                  setFormData({ ...formData, stock_minimo: valor });
+                  // Remover del conjunto de campos vacíos si tiene valor válido
+                  if (valor >= 0) {
+                    setCamposVacios(prev => {
+                      const nuevo = new Set(prev);
+                      nuevo.delete('stock_minimo');
+                      return nuevo;
+                    });
+                  }
+                }}
                 placeholder="5"
                 min="0"
                 required
-                className="form-input"
+                className={`form-input ${camposVacios.has('stock_minimo') ? 'placeholder-error' : ''}`}
               />
             </div>
           </div>
@@ -836,7 +1170,10 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
           <Button 
             type="button" 
             variant="secondary" 
-            onClick={onClose}
+            onClick={() => {
+              sessionStorage.removeItem('productoFormData');
+              onClose();
+            }}
             disabled={saving}
           >
             Cancelar
@@ -845,6 +1182,8 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
             type="submit" 
             variant="primary"
             loading={saving}
+            disabled={!esFormularioValido() && !productoId}
+            title={!esFormularioValido() && !productoId ? 'Completa todos los campos obligatorios para crear el producto' : ''}
           >
             {productoId ? '💾 Actualizar Producto' : '➕ Crear Producto'}
           </Button>
@@ -860,5 +1199,8 @@ export const ProductoForm: React.FC<ProductoFormProps> = ({ productoId, onClose,
       )}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Solo re-renderizar si productoId cambia, no si las funciones cambian
+  return prevProps.productoId === nextProps.productoId;
+});
 

@@ -49,18 +49,25 @@ class MensajesService {
   // ===== OBTENER MENSAJES RECIBIDOS =====
   async obtenerMensajesRecibidos(): Promise<ApiResponse<Mensaje[]>> {
     try {
-      console.log('📞 Llamando a /mensajes/recibidos');
+      console.log('📞 [MensajesService] Llamando a /mensajes/recibidos');
       const response = await apiService.get<any>(
         `/mensajes/recibidos`
       );
-      console.log('📥 Respuesta raw de API:', JSON.stringify(response, null, 2));
+      console.log('📥 [MensajesService] Respuesta COMPLETA de API:', JSON.stringify(response, null, 2));
+      console.log('📥 [MensajesService] Tipo de respuesta:', typeof response);
+      console.log('📥 [MensajesService] response.success:', response?.success);
+      console.log('📥 [MensajesService] response.data:', response?.data);
+      console.log('📥 [MensajesService] response.mensajes:', response?.mensajes);
+      console.log('📥 [MensajesService] response.total:', response?.total);
+      console.log('📥 [MensajesService] Es array?:', Array.isArray(response));
+      console.log('📥 [MensajesService] Keys de response:', response ? Object.keys(response) : 'null');
       
       // El backend devuelve { success: true, mensajes: [...], total: ... }
-      // El apiService normaliza mensajes a data, pero verificar ambos
+      // El apiService normaliza mensajes a data en la línea 94-106 de api.ts
       if (response) {
-        // Primero verificar si tiene data (normalizado por apiService)
+        // El apiService ya normaliza mensajes a data, así que primero verificar data
         if (response.data && Array.isArray(response.data)) {
-          console.log('✅ Usando response.data:', response.data.length);
+          console.log('✅ [MensajesService] Usando response.data (normalizado):', response.data.length);
           return {
             success: true,
             data: response.data,
@@ -68,9 +75,9 @@ class MensajesService {
           };
         }
         
-        // Si no tiene data, verificar mensajes directamente
+        // Si no tiene data normalizado, verificar mensajes directamente (formato original del backend)
         if (response.mensajes && Array.isArray(response.mensajes)) {
-          console.log('✅ Usando response.mensajes:', response.mensajes.length);
+          console.log('✅ [MensajesService] Usando response.mensajes (formato original):', response.mensajes.length);
           return {
             success: true,
             data: response.mensajes,
@@ -80,7 +87,7 @@ class MensajesService {
         
         // Si es un array directo
         if (Array.isArray(response)) {
-          console.log('✅ Response es array directo:', response.length);
+          console.log('✅ [MensajesService] Response es array directo:', response.length);
           return {
             success: true,
             data: response,
@@ -90,14 +97,14 @@ class MensajesService {
       }
       
       // Si no hay datos, devolver array vacío
-      console.warn('⚠️ No se encontraron mensajes en la respuesta');
+      console.warn('⚠️ [MensajesService] No se encontraron mensajes en la respuesta. Response:', response);
       return {
         success: true,
         data: [],
         message: response?.message || 'No hay mensajes'
       };
     } catch (error: any) {
-      console.error('❌ Error obteniendo mensajes recibidos:', error);
+      console.error('❌ [MensajesService] Error obteniendo mensajes recibidos:', error);
       console.error('Error completo:', JSON.stringify(error, null, 2));
       // Si es un error 405, puede ser que la ruta no exista
       if (error?.message?.includes('405') || error?.message?.includes('Method Not Allowed')) {
@@ -115,18 +122,25 @@ class MensajesService {
   // ===== OBTENER MENSAJES ENVIADOS =====
   async obtenerMensajesEnviados(): Promise<ApiResponse<Mensaje[]>> {
     try {
-      console.log('📞 Llamando a /mensajes/enviados');
+      console.log('📞 [MensajesService] Llamando a /mensajes/enviados');
       const response = await apiService.get<any>(
         `/mensajes/enviados`
       );
-      console.log('📥 Respuesta raw de API:', JSON.stringify(response, null, 2));
+      console.log('📥 [MensajesService] Respuesta COMPLETA de API:', JSON.stringify(response, null, 2));
+      console.log('📥 [MensajesService] Tipo de respuesta:', typeof response);
+      console.log('📥 [MensajesService] response.success:', response?.success);
+      console.log('📥 [MensajesService] response.data:', response?.data);
+      console.log('📥 [MensajesService] response.mensajes:', response?.mensajes);
+      console.log('📥 [MensajesService] response.total:', response?.total);
+      console.log('📥 [MensajesService] Es array?:', Array.isArray(response));
+      console.log('📥 [MensajesService] Keys de response:', response ? Object.keys(response) : 'null');
       
       // El backend devuelve { success: true, mensajes: [...], total: ... }
-      // El apiService normaliza mensajes a data, pero verificar ambos
+      // El apiService normaliza mensajes a data en la línea 94-106 de api.ts
       if (response) {
-        // Primero verificar si tiene data (normalizado por apiService)
+        // El apiService ya normaliza mensajes a data, así que primero verificar data
         if (response.data && Array.isArray(response.data)) {
-          console.log('✅ Usando response.data:', response.data.length);
+          console.log('✅ [MensajesService] Usando response.data (normalizado):', response.data.length);
           return {
             success: true,
             data: response.data,
@@ -134,9 +148,9 @@ class MensajesService {
           };
         }
         
-        // Si no tiene data, verificar mensajes directamente
+        // Si no tiene data normalizado, verificar mensajes directamente (formato original del backend)
         if (response.mensajes && Array.isArray(response.mensajes)) {
-          console.log('✅ Usando response.mensajes:', response.mensajes.length);
+          console.log('✅ [MensajesService] Usando response.mensajes (formato original):', response.mensajes.length);
           return {
             success: true,
             data: response.mensajes,
@@ -146,7 +160,7 @@ class MensajesService {
         
         // Si es un array directo
         if (Array.isArray(response)) {
-          console.log('✅ Response es array directo:', response.length);
+          console.log('✅ [MensajesService] Response es array directo:', response.length);
           return {
             success: true,
             data: response,
@@ -156,14 +170,14 @@ class MensajesService {
       }
       
       // Si no hay datos, devolver array vacío
-      console.warn('⚠️ No se encontraron mensajes en la respuesta');
+      console.warn('⚠️ [MensajesService] No se encontraron mensajes en la respuesta. Response:', response);
       return {
         success: true,
         data: [],
         message: response?.message || 'No hay mensajes'
       };
     } catch (error: any) {
-      console.error('❌ Error obteniendo mensajes enviados:', error);
+      console.error('❌ [MensajesService] Error obteniendo mensajes enviados:', error);
       console.error('Error completo:', JSON.stringify(error, null, 2));
       // Si es un error 405, puede ser que la ruta no exista
       if (error?.message?.includes('405') || error?.message?.includes('Method Not Allowed')) {

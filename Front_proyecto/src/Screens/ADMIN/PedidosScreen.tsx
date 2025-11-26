@@ -95,13 +95,6 @@ export const PedidosScreen: React.FC<PedidosScreenProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     cargarPedidos();
-    
-    // Actualización automática cada 30 segundos
-    const interval = setInterval(() => {
-      cargarPedidos();
-    }, 30000);
-    
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroEstado, busquedaDebounced]);
 

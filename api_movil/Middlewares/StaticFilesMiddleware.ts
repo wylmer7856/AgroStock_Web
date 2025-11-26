@@ -2,9 +2,27 @@
 // Sirve imágenes y archivos desde la carpeta uploads
 
 import { Context } from "../Dependencies/dependencias.ts";
-import { join } from "../Dependencies/dependencias.ts";
+import { join, resolve, fromFileUrl } from "../Dependencies/dependencias.ts";
 
-const UPLOADS_DIR = "./uploads";
+// Resolver la ruta absoluta del directorio uploads
+// Usar Deno.cwd() que ya está en api_movil según los logs
+let UPLOADS_DIR: string;
+try {
+  // @ts-ignore - Deno is a global object in Deno runtime
+  const cwd = Deno.cwd();
+  // Si cwd es api_movil, usar directamente; si no, construir la ruta
+  if (cwd.endsWith('api_movil')) {
+    UPLOADS_DIR = resolve(cwd, "uploads");
+  } else {
+    // Si estamos en el directorio raíz del proyecto
+    UPLOADS_DIR = resolve(cwd, "api_movil", "uploads");
+  }
+  console.log(`📁 [StaticFilesMiddleware] UPLOADS_DIR resuelto: ${UPLOADS_DIR} (cwd: ${cwd})`);
+} catch (error) {
+  // Fallback: usar ruta relativa
+  UPLOADS_DIR = "./uploads";
+  console.log(`⚠️ [StaticFilesMiddleware] Usando fallback UPLOADS_DIR: ${UPLOADS_DIR}`);
+}
 
 /**
  * Middleware para servir archivos estáticos desde uploads
@@ -28,15 +46,24 @@ export async function staticFilesMiddleware(ctx: Context, next: () => Promise<un
       console.warn('⚠️ Error decodificando pathname, usando original:', pathname);
       decodedPathname = pathname;
     }
-    const filePath = decodedPathname.replace('/uploads/', '').replace(/\\/g, '/');
-    const fullPath = join(UPLOADS_DIR, filePath);
+    // Normalizar la ruta: remover /uploads/ del inicio y normalizar separadores
+    let filePath = decodedPathname.replace(/^\/uploads\//, '').replace(/\\/g, '/');
+    // Asegurar que no empiece con /
+    if (filePath.startsWith('/')) {
+      filePath = filePath.substring(1);
+    }
+    // Usar resolve para construir la ruta completa de forma correcta
+    const fullPath = resolve(UPLOADS_DIR, filePath);
 
     console.log('📁 [StaticFilesMiddleware] Intentando servir archivo:', {
       pathname,
       decodedPathname,
       filePath,
       fullPath,
-      UPLOADS_DIR
+      UPLOADS_DIR,
+      // @ts-ignore - Deno is a global object in Deno runtime
+      cwd: Deno.cwd(),
+      fullPathNormalized: fullPath.replace(/\\/g, '/')
     });
 
     // Verificar que el archivo existe

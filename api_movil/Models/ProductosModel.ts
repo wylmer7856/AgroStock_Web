@@ -1,5 +1,5 @@
 import { conexion } from "./Conexion.ts";
-import { join } from "../Dependencies/dependencias.ts";
+import { join, resolve, fromFileUrl } from "../Dependencies/dependencias.ts";
 import { HistorialPreciosModel, HistorialPrecioCreateData } from "./HistorialPreciosModel.ts";
 
 export interface ProductoData {
@@ -31,10 +31,28 @@ export interface ProductoDataResponse extends ProductoData {
 
 export class ProductosModel {
     public _objProducto: ProductoData | null;
-    private readonly UPLOADS_DIR = "./uploads";
-
+    private readonly UPLOADS_DIR: string;
+    
     constructor(objProducto: ProductoData | null = null) {
         this._objProducto = objProducto;
+        // Resolver la ruta absoluta del directorio uploads
+        // Usar Deno.cwd() que ya está en api_movil según los logs
+        try {
+            // @ts-ignore - Deno is a global object in Deno runtime
+            const cwd = Deno.cwd();
+            // Si cwd es api_movil, usar directamente; si no, construir la ruta
+            if (cwd.endsWith('api_movil')) {
+                this.UPLOADS_DIR = resolve(cwd, "uploads");
+            } else {
+                // Si estamos en el directorio raíz del proyecto
+                this.UPLOADS_DIR = resolve(cwd, "api_movil", "uploads");
+            }
+            console.log(`📁 [ProductosModel] UPLOADS_DIR resuelto: ${this.UPLOADS_DIR} (cwd: ${cwd})`);
+        } catch (error) {
+            // Fallback: usar ruta relativa
+            this.UPLOADS_DIR = "./uploads";
+            console.log(`⚠️ [ProductosModel] Usando fallback UPLOADS_DIR: ${this.UPLOADS_DIR}`);
+        }
     }
 
     public async ListarProductos(): Promise<ProductoData[]> {
@@ -415,6 +433,19 @@ export class ProductosModel {
                 };
             }
 
+            // Eliminar TODOS los detalle_pedidos relacionados (son registros históricos)
+            // Los pedidos se mantienen, solo se elimina la referencia al producto
+            try {
+                const resultDetalles = await conexion.execute(
+                    "DELETE FROM detalle_pedidos WHERE id_producto = ?",
+                    [id_producto]
+                );
+                console.log(`✅ Detalles de pedidos eliminados (${resultDetalles.affectedRows || 0} registros)`);
+            } catch (detalleError) {
+                console.warn("⚠️ Error eliminando detalles de pedidos:", detalleError);
+                // Si falla, intentar continuar de todos modos
+            }
+
             // Eliminar o actualizar registros relacionados que tienen restricciones de clave foránea
             try {
                 // Establecer id_producto a NULL en mensajes relacionados
@@ -472,6 +503,7 @@ export class ProductosModel {
                 console.warn("⚠️ Error eliminando historial de precios:", historialError);
             }
 
+
             // Ahora eliminar el producto
             const result = await conexion.execute("DELETE FROM productos WHERE id_producto = ?", [id_producto]);
 
@@ -512,7 +544,26 @@ export class ProductosModel {
 
     public construirUrlImagen(rutaImagen: string | null | undefined, baseUrl: string = "http://localhost:8000"): string | null {
         if (!rutaImagen) return null;
-        return `${baseUrl}/${rutaImagen}`;
+        
+        // Normalizar la ruta: reemplazar backslashes con forward slashes y eliminar barras duplicadas
+        let rutaNormalizada = rutaImagen.replace(/\\/g, '/').replace(/\/+/g, '/');
+        
+        // Remover cualquier prefijo /uploads/ o uploads/ que ya exista
+        rutaNormalizada = rutaNormalizada.replace(/^\/?uploads\//, '');
+        
+        // Remover cualquier / al inicio
+        rutaNormalizada = rutaNormalizada.replace(/^\/+/, '');
+        
+        // Construir la URL completa con /uploads/ al inicio
+        const url = `${baseUrl}/uploads/${rutaNormalizada}`;
+        
+        console.log(`🔗 [ProductosModel.construirUrlImagen]`, {
+            rutaOriginal: rutaImagen,
+            rutaNormalizada,
+            url
+        });
+        
+        return url;
     }
 
     private async existeDirectorio(ruta: string): Promise<boolean> {
@@ -600,6 +651,20 @@ export class ProductosModel {
             return match ? match[1] : 'jpg';
         }
         
+        // Manejar formato data:image;base64,
+        if (imagenData.startsWith('data:image;')) {
+            // Intentar detectar el tipo desde el contenido base64 o usar jpg por defecto
+            // Para JPEG, el inicio suele ser /9j/4AAQ
+            if (imagenData.includes('/9j/')) {
+                return 'jpg';
+            }
+            // Para PNG, el inicio suele ser iVBORw0KGgo
+            if (imagenData.includes('iVBORw0KGgo')) {
+                return 'png';
+            }
+            // Por defecto, asumir jpg
+            return 'jpg';
+        }
 
         if (imagenData.startsWith('http://') || imagenData.startsWith('https://') || imagenData.startsWith('file://')) {
             const url = new URL(imagenData);
@@ -624,6 +689,15 @@ export class ProductosModel {
                 const base64Data = imagenData.split(',')[1];
                 if (!base64Data) {
                     throw new Error("Datos base64 invalidos despues del prefijo data:image/");
+                }
+                return Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            }
+            
+            // Manejar formato data:image;base64,
+            if (imagenData.startsWith('data:image;')) {
+                const base64Data = imagenData.split(',')[1];
+                if (!base64Data) {
+                    throw new Error("Datos base64 invalidos despues del prefijo data:image;");
                 }
                 return Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
             }
@@ -697,8 +771,9 @@ export class ProductosModel {
             
             console.log(`✅ [ProductosModel.guardarImagen] Imagen guardada exitosamente`);
             
-            // Retornar la ruta relativa: uploads/productos/5/imagen_xxx.jpg
-            const rutaRelativa = join("uploads", "productos", idProducto.toString(), nombreArchivo);
+            // Retornar la ruta relativa normalizada: uploads/productos/5/imagen_xxx.jpg
+            // Usar siempre / como separador para compatibilidad con URLs
+            const rutaRelativa = `uploads/productos/${idProducto.toString()}/${nombreArchivo}`.replace(/\\/g, '/');
             console.log(`🔗 [ProductosModel.guardarImagen] Ruta relativa retornada: ${rutaRelativa}`);
             return rutaRelativa;
         } catch (error) {

@@ -51,8 +51,9 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
   const handleGuardar = async () => {
     setLoading(true);
     try {
+      // Solo guardar estado del sistema y límites (no información del sistema)
       const configData = {
-        nombre_sistema: config.nombreSistema,
+        nombre_sistema: config.nombreSistema, // Mantener valores actuales
         email_contacto: config.emailContacto,
         telefono_contacto: config.telefonoContacto,
         direccion: config.direccion,
@@ -65,6 +66,8 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
       
       if (response.success) {
         mostrarToast('Configuración guardada exitosamente', 'success');
+        // Recargar configuración para asegurar sincronización
+        await cargarConfiguracion();
       } else {
         mostrarToast(response.message || 'Error guardando configuración', 'error');
       }
@@ -93,7 +96,7 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
             onClick={handleGuardar}
             loading={loading}
           >
-            <i className="bi bi-save"></i> Guardar Cambios
+            💾 Guardar Cambios
           </Button>
         </div>
       </div>
@@ -102,77 +105,47 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
         <Loading text="Cargando configuración..." />
       ) : (
         <div className="configuracion-grid">
-          {/* Información General */}
+          {/* Información General - Solo Lectura */}
           <Card className="configuracion-card">
             <div className="card-header">
               <h3 className="card-title">
-                <i className="bi bi-info-circle"></i> Información General
+                <i className="bi bi-info-circle"></i> Información del Sistema
               </h3>
             </div>
             <div className="card-body">
-              <div className="form-group">
-                <label className="form-label">
+              <div className="info-group">
+                <label className="info-label">
                   <i className="bi bi-building"></i> Nombre del Sistema
-                  <span className="text-danger">*</span>
                 </label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-building"></i></span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={config.nombreSistema}
-                    onChange={(e) => setConfig({ ...config, nombreSistema: e.target.value })}
-                    placeholder="Nombre del sistema"
-                  />
+                <div className="info-value">
+                  {config.nombreSistema}
                 </div>
               </div>
               
-              <div className="form-group">
-                <label className="form-label">
+              <div className="info-group">
+                <label className="info-label">
                   <i className="bi bi-envelope"></i> Email de Contacto
-                  <span className="text-danger">*</span>
                 </label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-envelope"></i></span>
-                  <input
-                    type="email"
-                    className="form-control"
-                    value={config.emailContacto}
-                    onChange={(e) => setConfig({ ...config, emailContacto: e.target.value })}
-                    placeholder="email@ejemplo.com"
-                  />
+                <div className="info-value">
+                  {config.emailContacto}
                 </div>
               </div>
               
-              <div className="form-group">
-                <label className="form-label">
+              <div className="info-group">
+                <label className="info-label">
                   <i className="bi bi-telephone"></i> Teléfono de Contacto
                 </label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-telephone"></i></span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={config.telefonoContacto}
-                    onChange={(e) => setConfig({ ...config, telefonoContacto: e.target.value })}
-                    placeholder="+57 300 000 0000"
-                  />
+                <div className="info-value">
+                  {config.telefonoContacto}
                 </div>
               </div>
               
-              <div className="form-group">
-                <label className="form-label">
+              <div className="info-group">
+                <label className="info-label">
                   <i className="bi bi-geo-alt"></i> Dirección
                 </label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-geo-alt"></i></span>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={config.direccion}
-                    onChange={(e) => setConfig({ ...config, direccion: e.target.value })}
-                    placeholder="Dirección"
-                  />
+                <div className="info-value">
+                  {config.direccion}
                 </div>
               </div>
             </div>

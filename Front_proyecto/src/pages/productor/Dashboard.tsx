@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './Dashboard.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService, pedidosService, notificacionesService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,7 +11,7 @@ import {
   BiCalendar, BiStore
 } from 'react-icons/bi';
 
-const ProductorDashboard: React.FC = () => {
+const ProductorDashboard: React.FC = React.memo(() => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
@@ -25,6 +26,9 @@ const ProductorDashboard: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const { data: pedidos } = useQuery({
@@ -35,6 +39,9 @@ const ProductorDashboard: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const { data: notificacionesNoLeidas } = useQuery({
@@ -43,6 +50,9 @@ const ProductorDashboard: React.FC = () => {
       const response = await notificacionesService.contarNoLeidas();
       return response.data || 0;
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const productosActivos = (misProductos || []).filter((p: any) => p.disponible).length;
@@ -90,9 +100,14 @@ const ProductorDashboard: React.FC = () => {
       
       return { previousProductos };
     },
-    onSuccess: () => {
-      // Invalidar para asegurar sincronización con el servidor
-      queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
+    onSuccess: async () => {
+      // Invalidar y refetch para actualizar la lista inmediatamente
+      await queryClient.invalidateQueries({ 
+        queryKey: ['productos', 'productor']
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['productos', 'productor']
+      });
       toast.success('✅ Producto eliminado correctamente');
     },
     onError: (error: any, _id, context) => {
@@ -116,25 +131,55 @@ const ProductorDashboard: React.FC = () => {
     }
   };
 
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (showModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+    return;
+  }, [showModal]);
+
   return (
     <div className="container-fluid py-4" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
-      {/* Header con Bienvenida */}
+      {/* Header con Bienvenida mejorado */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="display-5 fw-bold mb-2" style={{ color: '#2c3e50' }}>
-                <BiStore className="me-2" style={{ color: '#28a745' }} />
-                Dashboard del Productor
-              </h1>
-              <p className="text-muted mb-0">
-                Bienvenido, {user?.nombre || 'Productor'} • Gestiona tus productos y pedidos
-              </p>
-            </div>
-            <div className="text-end">
-              <div className="badge bg-success fs-6 px-3 py-2">
-                <BiCheckCircle className="me-1" />
-                Activo
+          <div className="dashboard-header-productor">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+              <div className="d-flex align-items-center gap-3">
+                <div className="header-icon-productor">
+                  <BiStore />
+                </div>
+                <div>
+                  <h1 className="display-5 fw-bold mb-2" style={{ color: '#2c3e50' }}>
+                    Dashboard del Productor
+                  </h1>
+                  <p className="text-muted mb-0">
+                    Bienvenido, <strong>{user?.nombre || 'Productor'}</strong> • Gestiona tus productos y pedidos
+                  </p>
+                </div>
+              </div>
+              <div className="d-flex gap-2 align-items-center">
+                {notificacionesNoLeidas > 0 && (
+                  <Link 
+                    to="/productor/notificaciones" 
+                    className="notification-badge-productor"
+                    title={`${notificacionesNoLeidas} notificaciones sin leer`}
+                  >
+                    <BiBell />
+                    {notificacionesNoLeidas > 0 && (
+                      <span className="badge-count-productor">{notificacionesNoLeidas}</span>
+                    )}
+                  </Link>
+                )}
+                <div className="status-badge-productor">
+                  <BiCheckCircle className="me-1" />
+                  Activo
+                </div>
               </div>
             </div>
           </div>
@@ -652,57 +697,92 @@ const ProductorDashboard: React.FC = () => {
 
       {/* Modal de Confirmación de Eliminación */}
       {showModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Confirmar Eliminación</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowModal(false)}
-                />
-              </div>
-              <div className="modal-body">
-                <p>
-                  ¿Estás seguro de que deseas eliminar el producto{' '}
-                  <strong>{productoSeleccionado?.nombre}</strong>?
-                </p>
-                <p className="text-muted small mb-0">
-                  Esta acción no se puede deshacer.
-                </p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={confirmarEliminar}
-                  disabled={eliminarMutation.isPending}
-                >
-                  {eliminarMutation.isPending ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" />
-                      Eliminando...
-                    </>
-                  ) : (
-                    'Eliminar'
-                  )}
-                </button>
-              </div>
+        <div 
+          style={{ 
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            zIndex: 1055,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h5 className="modal-title">
+                <BiTrash className="me-2" />
+                Confirmar Eliminación
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setShowModal(false)}
+                disabled={eliminarMutation.isPending}
+              />
+            </div>
+            <div className="modal-body">
+              <p>
+                ¿Estás seguro de que deseas eliminar el producto{' '}
+                <strong>{productoSeleccionado?.nombre}</strong>?
+              </p>
+              <p className="text-muted small mb-0">
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowModal(false)}
+                disabled={eliminarMutation.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={confirmarEliminar}
+                disabled={eliminarMutation.isPending}
+              >
+                {eliminarMutation.isPending ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <BiTrash className="me-2" />
+                    Eliminar
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
+});
+
+ProductorDashboard.displayName = 'ProductorDashboard';
 
 export default ProductorDashboard;
 

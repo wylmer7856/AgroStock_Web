@@ -36,6 +36,9 @@ const ConsumidorDashboard: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Query para carrito
@@ -45,6 +48,9 @@ const ConsumidorDashboard: React.FC = () => {
       const response = await carritoService.obtenerCarrito();
       return response.data || null;
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Query para lista de deseos
@@ -54,6 +60,9 @@ const ConsumidorDashboard: React.FC = () => {
       const response = await listaDeseosService.obtenerMiListaDeseos();
       return response.data || [];
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
 
@@ -64,6 +73,9 @@ const ConsumidorDashboard: React.FC = () => {
       const response = await notificacionesService.contarNoLeidas();
       return response.data || 0;
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Ordenar pedidos: más recientes primero
@@ -90,14 +102,42 @@ const ConsumidorDashboard: React.FC = () => {
 
   return (
     <div className="dashboard-consumidor">
-      {/* Header con gradiente agrícola */}
+      {/* Header con gradiente agrícola mejorado */}
       <div className="dashboard-header-section">
         <div className="container">
-          <div className="d-flex align-items-center gap-3 mb-3">
-            <BiLeaf style={{ fontSize: '3rem', opacity: 0.9 }} />
-            <div>
-              <h1>Bienvenido, {user?.nombre || 'Usuario'}</h1>
-              <p>Tu panel de control personal</p>
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+            <div className="d-flex align-items-center gap-3">
+              <div className="header-icon-wrapper">
+                <BiLeaf />
+              </div>
+              <div>
+                <h1>Bienvenido, {user?.nombre || 'Usuario'}</h1>
+                <p>Tu panel de control personal</p>
+              </div>
+            </div>
+            <div className="d-flex gap-2 align-items-center">
+              {notificaciones > 0 && (
+                <Link 
+                  to="/consumidor/notificaciones" 
+                  className="notification-badge-header"
+                  title={`${notificaciones} notificaciones sin leer`}
+                >
+                  <BiBell />
+                  {notificaciones > 0 && (
+                    <span className="badge-count">{notificaciones}</span>
+                  )}
+                </Link>
+              )}
+              <Link 
+                to="/consumidor/carrito" 
+                className="quick-action-btn"
+                title="Ver carrito"
+              >
+                <BiCart />
+                {itemsCarrito > 0 && (
+                  <span className="badge-count">{itemsCarrito}</span>
+                )}
+              </Link>
             </div>
           </div>
         </div>
@@ -290,20 +330,27 @@ const ConsumidorDashboard: React.FC = () => {
                               : 'N/A'}
                           </td>
                           <td>
-                            <span className={`badge ${
-                              pedido.estado === 'entregado' ? 'bg-success' :
-                              pedido.estado === 'cancelado' ? 'bg-danger' :
-                              'bg-warning text-dark'
+                            <span className={`badge status-badge ${
+                              pedido.estado === 'entregado' ? 'status-entregado' :
+                              pedido.estado === 'cancelado' ? 'status-cancelado' :
+                              pedido.estado === 'en_camino' ? 'status-en-camino' :
+                              pedido.estado === 'en_preparacion' ? 'status-en-preparacion' :
+                              'status-pendiente'
                             }`}>
-                              {pedido.estado || 'Pendiente'}
+                              {pedido.estado === 'entregado' ? '✓ Entregado' :
+                               pedido.estado === 'cancelado' ? '✗ Cancelado' :
+                               pedido.estado === 'en_camino' ? '🚚 En Camino' :
+                               pedido.estado === 'en_preparacion' ? '⏳ En Preparación' :
+                               '⏱ Pendiente'}
                             </span>
                           </td>
                           <td className="fw-bold">${(pedido.total || 0).toLocaleString()}</td>
                           <td>
                             <Link 
                               to={`/consumidor/pedidos/${pedido.id_pedido}`}
-                              className="btn btn-sm btn-outline-primary"
+                              className="btn btn-sm btn-outline-primary detail-btn"
                             >
+                              <BiRightArrowAlt className="me-1" />
                               Ver Detalle
                             </Link>
                           </td>

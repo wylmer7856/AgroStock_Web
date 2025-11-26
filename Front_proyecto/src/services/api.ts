@@ -102,7 +102,16 @@ class ApiService {
                   data.notificaciones ? 'notificaciones' :
                   data.mensajes ? 'mensajes' : null;
       if (key) {
+        console.log(`🔄 [apiService] Normalizando respuesta: ${key} -> data`, {
+          original: data[key],
+          length: Array.isArray(data[key]) ? data[key].length : 'not array',
+          tipo: typeof data[key]
+        });
         data.data = data[key];
+        console.log(`✅ [apiService] Normalización completada. data.data ahora tiene:`, {
+          length: Array.isArray(data.data) ? data.data.length : 'not array',
+          tipo: typeof data.data
+        });
       }
     }
 

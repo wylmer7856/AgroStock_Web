@@ -1,0 +1,117 @@
+/* 🌾 LISTA DE DESEOS - MEJORAS VISUALES */
+
+.wishlist-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUp 0.6s ease-out;
+  animation-fill-mode: both;
+  position: relative;
+  overflow: hidden;
+}
+
+.wishlist-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #db2777 0%, #ec4899 50%, #f472b6 100%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.wishlist-card:hover::before {
+  transform: scaleX(1);
+}
+
+.wishlist-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(219, 39, 119, 0.2);
+  border-color: #ec4899;
+}
+
+.wishlist-card .card-img-top {
+  transition: transform 0.4s ease;
+}
+
+.wishlist-card:hover .card-img-top {
+  transform: scale(1.1);
+}
+
+.wishlist-btn-primary {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  border: none;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.wishlist-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.wishlist-btn-primary:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.wishlist-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 80, 22, 0.4);
+}
+
+.wishlist-btn-delete {
+  transition: all 0.3s ease;
+  border-width: 2px;
+}
+
+.wishlist-btn-delete:hover {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras en badges de stock */
+.badge {
+  transition: all 0.3s ease;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+}
+
+.badge:hover {
+  transform: scale(1.1);
+}
+
+/* Mejoras en el header */
+.d-flex.justify-content-between.align-items-center.mb-4 h2 {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+

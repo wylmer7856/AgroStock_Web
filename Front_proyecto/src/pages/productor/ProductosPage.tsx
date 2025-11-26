@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { BiPlus, BiEdit, BiTrash, BiPackage, BiImage, BiGridAlt, BiListUl, BiSearch } from 'react-icons/bi';
+import { BiPlus, BiEdit, BiTrash, BiPackage, BiImage, BiGridAlt, BiListUl, BiSearch, BiCheckCircle, BiTime } from 'react-icons/bi';
 import type { Producto } from '../../types';
+import './ProductosPage.css';
 
-const ProductorProductosPage: React.FC = () => {
+const ProductorProductosPage: React.FC = React.memo(() => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
@@ -24,6 +25,9 @@ const ProductorProductosPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Mutation para eliminar con actualización optimista
@@ -48,9 +52,14 @@ const ProductorProductosPage: React.FC = () => {
       
       return { previousProductos };
     },
-    onSuccess: () => {
-      // Invalidar para asegurar sincronización con el servidor
-      queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
+    onSuccess: async () => {
+      // Invalidar y refetch para actualizar la lista inmediatamente
+      await queryClient.invalidateQueries({ 
+        queryKey: ['productos', 'productor']
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['productos', 'productor']
+      });
       toast.success('✅ Producto eliminado correctamente');
     },
     onError: (error: any, id, context) => {
@@ -73,6 +82,18 @@ const ProductorProductosPage: React.FC = () => {
       eliminarMutation.mutate(productoSeleccionado.id_producto);
     }
   };
+
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (showModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+    return;
+  }, [showModal]);
 
   if (isLoading) {
     return (
@@ -147,40 +168,68 @@ const ProductorProductosPage: React.FC = () => {
       {productosList.length > 0 && (
         <div className="row mb-4">
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.1s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Total Productos</h6>
-                <h3 className="fw-bold mb-0">{productosList.length}</h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Total Productos</h6>
+                    <h3 className="fw-bold mb-0">{productosList.length}</h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-total">
+                    <BiPackage />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.2s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Disponibles</h6>
-                <h3 className="fw-bold text-success mb-0">
-                  {productosList.filter(p => p.disponible).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Disponibles</h6>
+                    <h3 className="fw-bold text-success mb-0">
+                      {productosList.filter(p => p.disponible).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-success">
+                    <BiCheckCircle />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.3s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">Stock Bajo</h6>
-                <h3 className="fw-bold text-warning mb-0">
-                  {productosList.filter(p => p.stock <= p.stock_minimo).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">Stock Bajo</h6>
+                    <h3 className="fw-bold text-warning mb-0">
+                      {productosList.filter(p => p.stock <= p.stock_minimo).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-warning">
+                    <BiTime />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           <div className="col-md-3">
-            <div className="card border-0 shadow-sm">
+            <div className="card border-0 shadow-sm product-stats-card" style={{ animationDelay: '0.4s' }}>
               <div className="card-body">
-                <h6 className="text-muted mb-0">No Disponibles</h6>
-                <h3 className="fw-bold text-danger mb-0">
-                  {productosList.filter(p => !p.disponible).length}
-                </h3>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 className="text-muted mb-0">No Disponibles</h6>
+                    <h3 className="fw-bold text-danger mb-0">
+                      {productosList.filter(p => !p.disponible).length}
+                    </h3>
+                  </div>
+                  <div className="product-stat-icon product-stat-danger">
+                    <BiPackage />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -304,9 +353,9 @@ const ProductorProductosPage: React.FC = () => {
         </div>
       ) : (
         <div className="row g-4">
-          {productosFiltrados.map((producto) => (
+          {productosFiltrados.map((producto, index) => (
             <div key={producto.id_producto} className="col-md-6 col-lg-4">
-              <div className="card h-100 border-0 shadow-sm">
+              <div className="card h-100 border-0 shadow-sm product-card-grid" style={{ animationDelay: `${index * 0.1}s` }}>
                 <div className="position-relative">
                   {producto.imagen_principal || producto.imagenUrl ? (
                     <img
@@ -385,57 +434,92 @@ const ProductorProductosPage: React.FC = () => {
 
       {/* Modal de Confirmación */}
       {showModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Confirmar Eliminación</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowModal(false)}
-                />
-              </div>
-              <div className="modal-body">
-                <p>
-                  ¿Estás seguro de que deseas eliminar el producto{' '}
-                  <strong>{productoSeleccionado?.nombre}</strong>?
-                </p>
-                <p className="text-muted small mb-0">
-                  Esta acción no se puede deshacer.
-                </p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={confirmarEliminar}
-                  disabled={eliminarMutation.isPending}
-                >
-                  {eliminarMutation.isPending ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" />
-                      Eliminando...
-                    </>
-                  ) : (
-                    'Eliminar'
-                  )}
-                </button>
-              </div>
+        <div 
+          style={{ 
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            zIndex: 1055,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h5 className="modal-title">
+                <BiTrash className="me-2" />
+                Confirmar Eliminación
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setShowModal(false)}
+                disabled={eliminarMutation.isPending}
+              />
+            </div>
+            <div className="modal-body">
+              <p>
+                ¿Estás seguro de que deseas eliminar el producto{' '}
+                <strong>{productoSeleccionado?.nombre}</strong>?
+              </p>
+              <p className="text-muted small mb-0">
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowModal(false)}
+                disabled={eliminarMutation.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={confirmarEliminar}
+                disabled={eliminarMutation.isPending}
+              >
+                {eliminarMutation.isPending ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <BiTrash className="me-2" />
+                    Eliminar
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
+});
+
+ProductorProductosPage.displayName = 'ProductorProductosPage';
 
 export default ProductorProductosPage;
 

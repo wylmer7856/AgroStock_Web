@@ -15,40 +15,42 @@ if (!rootElement) {
   throw new Error('No se encontró el elemento root');
 }
 
-// Configurar React Query
+// Configurar React Query con opciones más estrictas para prevenir recargas
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutos
+      staleTime: 10 * 60 * 1000, // 10 minutos - aumentar tiempo de stale
+      gcTime: 30 * 60 * 1000, // 30 minutos - tiempo de garbage collection
     },
   },
 });
 
 // Renderizar la app
+// Deshabilitar StrictMode temporalmente para evitar doble render en desarrollo
 createRoot(rootElement).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </BrowserRouter>
+    </QueryClientProvider>
+  </ErrorBoundary>
 )
 
 // Inicializar tooltips pequeños personalizados - EJECUTAR INMEDIATAMENTE

@@ -14,7 +14,7 @@ interface PerfilProductorProps {
   onClose?: () => void;
 }
 
-export const PerfilProductor: React.FC<PerfilProductorProps> = ({ onNavigate, onClose }) => {
+export const PerfilProductor: React.FC<PerfilProductorProps> = React.memo(({ onNavigate, onClose }) => {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -31,9 +31,16 @@ export const PerfilProductor: React.FC<PerfilProductorProps> = ({ onNavigate, on
     activo: true,
   });
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const datosCargadosRef = React.useRef(false);
 
   useEffect(() => {
+    // Solo cargar datos una vez cuando el componente se monta
+    if (datosCargadosRef.current) {
+      return;
+    }
+    datosCargadosRef.current = true;
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarDatos = async () => {
@@ -516,6 +523,8 @@ export const PerfilProductor: React.FC<PerfilProductorProps> = ({ onNavigate, on
       </div>
     </div>
   );
-};
+});
+
+PerfilProductor.displayName = 'PerfilProductor';
 
 export default PerfilProductor;

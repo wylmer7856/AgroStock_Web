@@ -7,6 +7,8 @@ interface CartItem {
   precio_total: number;
   disponible: boolean;
   stock_actual: number;
+  producto_nombre?: string;
+  imagen_principal?: string;
 }
 
 interface CartData {
@@ -58,7 +60,9 @@ export class CartService {
         precio_unitario: item.precio_actual,
         precio_total: item.cantidad * item.precio_actual,
         disponible: Boolean(item.disponible),
-        stock_actual: item.stock_actual
+        stock_actual: item.stock_actual,
+        producto_nombre: item.producto_nombre,
+        imagen_principal: item.imagen_principal
       }));
 
       const fechaActualizacion = result.length > 0 ? new Date(result[0].fecha_agregado) : new Date();

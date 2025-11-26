@@ -4,6 +4,8 @@
   background: linear-gradient(135deg, #1F380F 0%, #2D5016 100%);
   color: #FFFFFF;
   margin-top: auto;
+  position: relative;
+  z-index: 1; /* Normal, no necesita estar sobre el sidebar */
 }
 
 .footer-brand {

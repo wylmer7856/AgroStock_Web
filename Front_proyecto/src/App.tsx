@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
@@ -81,13 +81,12 @@ const PublicRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 
 // Componente interno que usa el contexto
 const AppRoutes: React.FC = () => {
+  // TODOS LOS HOOKS DEBEN IR PRIMERO, ANTES DE CUALQUIER RETURN CONDICIONAL
   const { isAuthenticated, user, isLoading } = useAuth();
   const { isMantenimiento, loading: mantenimientoLoading } = useMantenimiento();
+  const location = useLocation();
   const [showLoading, setShowLoading] = React.useState(true);
-  
-  // Log para debug
-  console.log('🔄 AppRoutes renderizando:', { isLoading, isAuthenticated, hasUser: !!user });
-  
+
   // Forzar renderizado después de máximo 300ms - NO BLOQUEAR
   React.useEffect(() => {
     const forceTimeout = setTimeout(() => {
@@ -103,11 +102,40 @@ const AppRoutes: React.FC = () => {
       setShowLoading(false);
     }
   }, [isLoading]);
+  
+  // Log para debug
+  console.log('🔄 AppRoutes renderizando:', { 
+    isLoading, 
+    isAuthenticated, 
+    hasUser: !!user,
+    isMantenimiento,
+    mantenimientoLoading
+  });
+  
+  // AHORA SÍ PODEMOS HACER RETURNS CONDICIONALES DESPUÉS DE TODOS LOS HOOKS
+  // Esperar a que se verifique el estado de mantenimiento antes de renderizar
+  // Esto es crítico para mostrar la pantalla de mantenimiento inmediatamente
+  if (mantenimientoLoading) {
+    console.log('⏳ Esperando verificación de mantenimiento...');
+    return <LoadingScreen />;
+  }
 
   // Si el sistema está en mantenimiento, mostrar pantalla de mantenimiento
-  // Excepto para admins que necesitan acceder a la configuración
-  if (!mantenimientoLoading && isMantenimiento && user?.rol !== 'admin') {
-    return <MantenimientoScreen />;
+  // Los admins pueden seguir navegando normalmente (para poder desactivar el mantenimiento)
+  // Todos los demás usuarios (incluidos no autenticados) ven la pantalla de mantenimiento
+  if (isMantenimiento) {
+    console.log('🚧 Sistema en mantenimiento detectado');
+    // Solo los admins pueden seguir navegando durante el mantenimiento
+    if (user?.rol === 'admin') {
+      console.log('✅ Admin puede seguir navegando durante mantenimiento');
+      // El admin puede acceder a todo para poder desactivar el mantenimiento
+    } else {
+      // Para todos los demás usuarios (incluidos no autenticados), mostrar pantalla de mantenimiento
+      console.log('🚧 Usuario no admin en mantenimiento, mostrando pantalla');
+      return <MantenimientoScreen />;
+    }
+  } else {
+    console.log('✅ Sistema operativo, no hay mantenimiento');
   }
 
   // NO bloquear el renderizado - mostrar siempre algo
@@ -231,6 +259,7 @@ const AppRoutes: React.FC = () => {
               <Route path="categorias" element={<AdminDashboard />} />
               <Route path="resenas" element={<AdminDashboard />} />
               <Route path="notificaciones" element={<AdminDashboard />} />
+              <Route path="estadisticas" element={<AdminDashboard />} />
               <Route path="configuracion" element={<AdminDashboard />} />
               <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
             </Routes>

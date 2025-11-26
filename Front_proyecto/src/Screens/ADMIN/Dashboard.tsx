@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Loading, Toast } from '../../components/ReusableComponents';
-import AgroStockLogo from '../../components/AgroStockLogo';
 import { UsuariosScreen } from './UsuariosScreen';
 import { ProductosScreen } from './ProductosScreen';
 import { PedidosScreen } from './PedidosScreen';
@@ -14,6 +13,7 @@ import { ConfiguracionScreen } from './ConfiguracionScreen';
 import { EstadisticasScreen } from './EstadisticasScreen';
 import { useAuth } from '../../contexts/AuthContext';
 import adminService from '../../services/admin';
+import logoProyecto from '../../assets/logoProyecto.png';
 import './AdminScreens.css';
 
 export const AdminDashboard: React.FC = () => {
@@ -87,7 +87,13 @@ export const AdminDashboard: React.FC = () => {
     <div className="admin-dashboard">
       <div className="admin-sidebar">
         <div className="sidebar-header">
-          <AgroStockLogo size="small" variant="full" />
+          <div className="sidebar-logo-container">
+            <img 
+              src={logoProyecto} 
+              alt="AgroStock Logo" 
+              className="sidebar-logo-img"
+            />
+          </div>
           <span className="panel-text">Panel Administrador</span>
         </div>
         
@@ -96,7 +102,7 @@ export const AdminDashboard: React.FC = () => {
             className={`nav-item ${currentView === 'overview' ? 'active' : ''}`}
             onClick={() => handleNavigate('overview')}
           >
-            🏠 Dashboard
+            📊 Resumen
           </button>
           <button
             className={`nav-item ${currentView === 'usuarios' ? 'active' : ''}`}
@@ -138,7 +144,7 @@ export const AdminDashboard: React.FC = () => {
             className={`nav-item ${currentView === 'estadisticas' ? 'active' : ''}`}
             onClick={() => handleNavigate('estadisticas')}
           >
-            📊 Estadísticas
+            📈 Estadísticas
           </button>
           <button
             className={`nav-item ${currentView === 'configuracion' ? 'active' : ''}`}
@@ -274,42 +280,54 @@ const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) => {
     <div className="admin-overview-screen">
       <div className="admin-overview-header">
         <div className="admin-overview-header-content">
-          <h1 className="admin-overview-title">Panel Principal</h1>
-          <p className="admin-overview-subtitle">Resumen del sistema</p>
+          <h1 className="admin-overview-title">📊 Resumen</h1>
+          <p className="admin-overview-subtitle">Vista general del sistema</p>
         </div>
         <div className="admin-overview-actions">
           <Button variant="primary" onClick={cargarDatosResumen} loading={loading}>
-            Actualizar Datos
+            🔄 Actualizar Datos
           </Button>
         </div>
       </div>
 
       <div className="overview-stats">
         <div className="stat-card" onClick={() => onNavigate('usuarios')} style={{ cursor: 'pointer' }}>
-          <div className="stat-value">👥 {formatearNumero(resumenData.totalUsuarios)}</div>
-          <div className="stat-label">Total Usuarios</div>
+          <div className="stat-icon">👥</div>
+          <div className="stat-content">
+            <div className="stat-value">{formatearNumero(resumenData.totalUsuarios)}</div>
+            <div className="stat-label">Total Usuarios</div>
+          </div>
         </div>
 
         <div className="stat-card" onClick={() => onNavigate('productos')} style={{ cursor: 'pointer' }}>
-          <div className="stat-value">🛍️ {formatearNumero(resumenData.totalProductos)}</div>
-          <div className="stat-label">Total Productos</div>
+          <div className="stat-icon">🛍️</div>
+          <div className="stat-content">
+            <div className="stat-value">{formatearNumero(resumenData.totalProductos)}</div>
+            <div className="stat-label">Total Productos</div>
+          </div>
         </div>
 
         <div className="stat-card" onClick={() => onNavigate('pedidos')} style={{ cursor: 'pointer' }}>
-          <div className="stat-value">📦 {formatearNumero(resumenData.totalPedidos)}</div>
-          <div className="stat-label">Total Pedidos</div>
+          <div className="stat-icon">📦</div>
+          <div className="stat-content">
+            <div className="stat-value">{formatearNumero(resumenData.totalPedidos)}</div>
+            <div className="stat-label">Total Pedidos</div>
+          </div>
         </div>
 
         <div className="stat-card" onClick={() => onNavigate('estadisticas')} style={{ cursor: 'pointer' }}>
-          <div className="stat-value">💰 {formatearMoneda(resumenData.ingresosTotales)}</div>
-          <div className="stat-label">Ingresos Totales</div>
+          <div className="stat-icon">💰</div>
+          <div className="stat-content">
+            <div className="stat-value">{formatearMoneda(resumenData.ingresosTotales)}</div>
+            <div className="stat-label">Ingresos Totales</div>
+          </div>
         </div>
       </div>
 
       {resumenData.reportesPendientes > 0 && (
         <div className="productos-section">
           <div className="section-header">
-            <h2 className="section-title">Alertas</h2>
+            <h2 className="section-title">⚠️ Alertas</h2>
           </div>
           <div className="alerts-list">
             <div className="alert-item warning">

@@ -98,8 +98,19 @@ export const getPedidoPorId = async (ctx: RouterContext<"/pedidos/:id">) => {
       return;
     }
 
-    const id_pedido = Number(ctx.params.id);
-    if (isNaN(id_pedido) || id_pedido <= 0) {
+    // Validar que el parámetro sea un número válido (no una palabra como "recibidos")
+    const idParam = ctx.params.id;
+    if (!idParam || isNaN(Number(idParam)) || !/^\d+$/.test(idParam)) {
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "ID de pedido inválido.",
+      };
+      return;
+    }
+
+    const id_pedido = Number(idParam);
+    if (id_pedido <= 0) {
       ctx.response.status = 400;
       ctx.response.body = {
         success: false,
@@ -636,6 +647,126 @@ export const getMisPedidos = async (ctx: Context) => {
     };
   } catch (error) {
     console.error("Error en getMisPedidos:", error);
+    ctx.response.status = 500;
+    ctx.response.body = {
+      success: false,
+      message: "Error interno del servidor.",
+    };
+  }
+};
+
+// 📌 Obtener pedidos recibidos (para productores)
+// 📌 Obtener pedidos realizados (para consumidores)
+export const getPedidosRealizados = async (ctx: Context) => {
+  try {
+    const userId = ctx.state.user?.id || ctx.state.user?.id_usuario;
+    
+    if (!userId) {
+      ctx.response.status = 401;
+      ctx.response.body = {
+        success: false,
+        message: "Usuario no autenticado.",
+      };
+      return;
+    }
+
+    // Verificar que el usuario es consumidor
+    if (ctx.state.user?.rol !== 'consumidor' && ctx.state.user?.rol !== 'admin') {
+      ctx.response.status = 403;
+      ctx.response.body = {
+        success: false,
+        message: "Solo los consumidores pueden ver sus pedidos realizados.",
+      };
+      return;
+    }
+
+    const pedidos = await conexion.query(
+      `SELECT 
+        p.*,
+        u.nombre as nombre_productor,
+        u.email as email_productor,
+        u.telefono as telefono_productor
+      FROM pedidos p
+      LEFT JOIN usuarios u ON p.id_productor = u.id_usuario
+      WHERE p.id_consumidor = ?
+      ORDER BY p.fecha_pedido DESC`,
+      [userId]
+    );
+
+    ctx.response.status = 200;
+    ctx.response.body = {
+      success: true,
+      message: pedidos.length > 0 ? "Pedidos encontrados." : "No se encontraron pedidos.",
+      data: pedidos,
+    };
+  } catch (error) {
+    console.error("Error en getPedidosRealizados:", error);
+    ctx.response.status = 500;
+    ctx.response.body = {
+      success: false,
+      message: "Error interno del servidor.",
+      data: [],
+    };
+  }
+};
+
+export const getPedidosRecibidos = async (ctx: Context) => {
+  try {
+    console.log(`📋 [GET /pedidos/recibidos] Ruta llamada correctamente`);
+    const user = ctx.state.user;
+    
+    if (!user) {
+      ctx.response.status = 401;
+      ctx.response.body = {
+        success: false,
+        message: "No autenticado.",
+      };
+      return;
+    }
+
+    console.log(`📋 [GET /pedidos/recibidos] Usuario:`, { id: user.id, rol: user.rol });
+
+    // Solo productores pueden ver pedidos recibidos
+    if (user.rol !== 'productor' && user.rol !== 'admin') {
+      ctx.response.status = 403;
+      ctx.response.body = {
+        success: false,
+        message: "Solo los productores pueden ver pedidos recibidos.",
+      };
+      return;
+    }
+
+    const objPedido = new PedidosModel();
+    // Obtener pedidos donde el usuario es el productor
+    const pedidos = await objPedido.ObtenerPedidosPorProductor(user.id) as PedidoDB[];
+
+    // Obtener detalles para cada pedido
+    const pedidosConDetalles = await Promise.all(
+      pedidos.map(async (pedido: PedidoDB) => {
+        try {
+          const detalles = await objPedido.ObtenerDetallesPedido(pedido.id_pedido);
+          return {
+            ...pedido,
+            detalles: detalles
+          };
+        } catch (error) {
+          console.warn(`Error obteniendo detalles del pedido ${pedido.id_pedido}:`, error);
+          return {
+            ...pedido,
+            detalles: []
+          };
+        }
+      })
+    );
+
+    ctx.response.status = 200;
+    ctx.response.body = {
+      success: true,
+      message: "Pedidos recibidos encontrados.",
+      data: pedidosConDetalles,
+    };
+  } catch (error) {
+    console.error("Error en getPedidosRecibidos:", error);
     ctx.response.status = 500;
     ctx.response.body = {
       success: false,

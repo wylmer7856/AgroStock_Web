@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { listaDeseosService } from '../../services';
@@ -9,6 +9,7 @@ import { BiHeart, BiTrash, BiCart, BiPackage, BiLogIn } from 'react-icons/bi';
 import type { ListaDeseo } from '../../types';
 import ConfirmModal from '../../components/ConfirmModal';
 import imagenesService from '../../services/imagenes';
+import './ListaDeseosPage.css';
 
 const ListaDeseosPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -16,9 +17,12 @@ const ListaDeseosPage: React.FC = () => {
   const [listaLocal, setListaLocal] = useState(listaDeseosLocalService.obtenerListaDeseos());
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
-  // Sincronizar lista local cuando el usuario inicia sesión
+  const sincronizadoRef = useRef(false);
+
+  // Sincronizar lista local cuando el usuario inicia sesión (solo una vez)
   useEffect(() => {
-    if (isAuthenticated && user && listaLocal.length > 0) {
+    if (isAuthenticated && user && listaLocal.length > 0 && !sincronizadoRef.current) {
+      sincronizadoRef.current = true;
       listaDeseosLocalService.sincronizarConServidor(listaDeseosService).then(() => {
         setListaLocal(listaDeseosLocalService.obtenerListaDeseos());
         queryClient.invalidateQueries({ queryKey: ['lista-deseos'] });
@@ -35,6 +39,9 @@ const ListaDeseosPage: React.FC = () => {
       return response.data || [];
     },
     enabled: isAuthenticated,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Usar lista local si no está autenticado, o lista del servidor si está autenticado
@@ -188,7 +195,7 @@ const ListaDeseosPage: React.FC = () => {
       <div className="row g-4">
         {listaActual.map((item: any, index: number) => (
           <div key={item.id_lista || `local-${item.id_producto}-${index}`} className="col-md-6 col-lg-4">
-            <div className="card h-100 border-0 shadow-sm">
+            <div className="card h-100 border-0 shadow-sm wishlist-card" style={{ animationDelay: `${index * 0.1}s` }}>
               <Link to={`/productos/${item.id_producto}`} className="text-decoration-none">
                 {(() => {
                   const imagenUrl = item.imagen_principal 
@@ -263,15 +270,16 @@ const ListaDeseosPage: React.FC = () => {
                   <div className="d-flex gap-2">
                     <Link
                       to={`/productos/${item.id_producto}`}
-                      className="btn btn-primary btn-sm flex-fill"
+                      className="btn btn-primary btn-sm flex-fill wishlist-btn-primary"
                     >
                       <BiCart className="me-1" />
                       Ver Detalles
                     </Link>
                     <button
-                      className="btn btn-outline-danger btn-sm"
+                      className="btn btn-outline-danger btn-sm wishlist-btn-delete"
                       onClick={() => handleEliminar(item.id_lista, item.id_producto)}
                       disabled={eliminarMutation.isPending}
+                      title="Eliminar de lista de deseos"
                     >
                       <BiTrash />
                     </button>
