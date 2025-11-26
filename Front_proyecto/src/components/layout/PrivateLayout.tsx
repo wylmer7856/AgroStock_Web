@@ -3,11 +3,16 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import DashboardHeader from './DashboardHeader';
 
-const PrivateLayout: React.FC = () => {
+const PrivateLayout: React.FC = React.memo(() => {
   const [sidebarOpen, setSidebarOpen] = useState(true); // Siempre abierto por defecto
   const [isDesktop, setIsDesktop] = useState(false);
+  const initializedRef = React.useRef(false);
 
   useEffect(() => {
+    // Solo inicializar una vez
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    
     const checkDesktop = () => {
       const isDesktopSize = window.innerWidth >= 992;
       setIsDesktop(isDesktopSize);
@@ -28,7 +33,8 @@ const PrivateLayout: React.FC = () => {
     if (isDesktop && !sidebarOpen) {
       setSidebarOpen(true);
     }
-  }, [isDesktop, sidebarOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDesktop]); // Remover sidebarOpen de dependencias para evitar loops
 
   const toggleSidebar = () => {
     // Solo permitir cerrar en móvil
@@ -64,7 +70,9 @@ const PrivateLayout: React.FC = () => {
       </div>
     </div>
   );
-};
+});
+
+PrivateLayout.displayName = 'PrivateLayout';
 
 export default PrivateLayout;
 

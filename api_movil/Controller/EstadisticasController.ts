@@ -247,4 +247,120 @@ export class EstadisticasController {
       ctx.response.body = { error: "Error interno del servidor" };
     }
   }
+
+  // 📌 Obtener estadísticas de ventas del usuario actual (para productores)
+  static async ObtenerMisVentas(ctx: Context) {
+    try {
+      const user = ctx.state.user;
+      
+      if (!user) {
+        ctx.response.status = 401;
+        ctx.response.body = {
+          success: false,
+          error: "NO_AUTENTICADO",
+          message: "No autenticado."
+        };
+        return;
+      }
+
+      // Solo productores y admin pueden ver sus ventas
+      if (user.rol !== 'productor' && user.rol !== 'admin') {
+        ctx.response.status = 403;
+        ctx.response.body = {
+          success: false,
+          error: "SIN_PERMISOS",
+          message: "Solo los productores pueden ver sus estadísticas de ventas."
+        };
+        return;
+      }
+
+      const { conexion } = await import("../Models/Conexion.ts");
+      const userId = user.id;
+
+      // Estadísticas generales de ventas
+      const totalPedidos = await conexion.query(`
+        SELECT COUNT(*) as total FROM pedidos WHERE id_productor = ?
+      `, [userId]);
+
+      const totalVentas = await conexion.query(`
+        SELECT COALESCE(SUM(total), 0) as total FROM pedidos WHERE id_productor = ?
+      `, [userId]);
+
+      const pedidosPorEstado = await conexion.query(`
+        SELECT 
+          estado,
+          COUNT(*) as cantidad,
+          COALESCE(SUM(total), 0) as total
+        FROM pedidos
+        WHERE id_productor = ?
+        GROUP BY estado
+        ORDER BY cantidad DESC
+      `, [userId]);
+
+      // Ventas por mes (últimos 12 meses)
+      const ventasPorMes = await conexion.query(`
+        SELECT 
+          DATE_FORMAT(fecha_pedido, '%Y-%m') as mes,
+          COUNT(*) as total_pedidos,
+          COALESCE(SUM(total), 0) as total_ventas,
+          COALESCE(AVG(total), 0) as promedio_venta
+        FROM pedidos
+        WHERE id_productor = ? 
+          AND fecha_pedido >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(fecha_pedido, '%Y-%m')
+        ORDER BY mes DESC
+      `, [userId]);
+
+      // Productos más vendidos
+      const productosMasVendidos = await conexion.query(`
+        SELECT 
+          p.id_producto,
+          p.nombre,
+          p.precio,
+          SUM(dp.cantidad) as cantidad_vendida,
+          SUM(dp.subtotal) as total_ventas
+        FROM detalle_pedidos dp
+        INNER JOIN pedidos pe ON dp.id_pedido = pe.id_pedido
+        INNER JOIN productos p ON dp.id_producto = p.id_producto
+        WHERE pe.id_productor = ?
+        GROUP BY p.id_producto, p.nombre, p.precio
+        ORDER BY cantidad_vendida DESC
+        LIMIT 10
+      `, [userId]);
+
+      // Ventas del mes actual
+      const ventasMesActual = await conexion.query(`
+        SELECT 
+          COALESCE(SUM(total), 0) as total_ventas,
+          COUNT(*) as total_pedidos
+        FROM pedidos
+        WHERE id_productor = ?
+          AND DATE_FORMAT(fecha_pedido, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+      `, [userId]);
+
+      ctx.response.status = 200;
+      ctx.response.body = {
+        success: true,
+        estadisticas: {
+          total_pedidos: totalPedidos[0]?.total || 0,
+          total_ventas: totalVentas[0]?.total || 0,
+          pedidos_por_estado: pedidosPorEstado,
+          ventas_por_mes: ventasPorMes,
+          productos_mas_vendidos: productosMasVendidos,
+          ventas_mes_actual: {
+            total_ventas: ventasMesActual[0]?.total_ventas || 0,
+            total_pedidos: ventasMesActual[0]?.total_pedidos || 0
+          }
+        }
+      };
+    } catch (error) {
+      console.error("Error en ObtenerMisVentas:", error);
+      ctx.response.status = 500;
+      ctx.response.body = {
+        success: false,
+        error: "ERROR_INTERNO",
+        message: "Error interno del servidor."
+      };
+    }
+  }
 }

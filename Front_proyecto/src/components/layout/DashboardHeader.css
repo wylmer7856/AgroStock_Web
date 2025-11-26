@@ -1,0 +1,40 @@
+/* Estilos para DashboardHeader - Eliminar líneas negras en hover */
+
+.dashboard-header button.btn-link,
+.dashboard-header button.btn-link:hover,
+.dashboard-header button.btn-link:focus,
+.dashboard-header button.btn-link:active,
+.dashboard-header button.btn-link:focus-visible {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.dashboard-header button.btn-link::before,
+.dashboard-header button.btn-link::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Eliminar cualquier línea o borde que pueda aparecer */
+.dashboard-header button.btn-link {
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* Efecto hover sin líneas */
+.dashboard-header button.btn-link:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+  transition: all 0.2s ease;
+}
+
+.dashboard-header button.btn-link:active {
+  transform: scale(0.95);
+}
+

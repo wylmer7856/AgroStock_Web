@@ -10,8 +10,8 @@ import logoProyecto from '../../assets/logoProyecto.png';
 import './Navbar.css';
 import type { Notification } from '../../types';
 import { 
-  BiCart,
-  BiHeart,
+  BiCart, 
+  BiHeart, 
   BiBell, 
   BiUser, 
   BiLogOut, 
@@ -56,18 +56,6 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [carritoCount, setCarritoCount] = useState(0);
   const [listaDeseosCount, setListaDeseosCount] = useState(0);
 
-  // Mostrar iconos de consumidor cuando esté en su panel o en rutas públicas clave (inicio/productos)
-  const esConsumidorAutenticado = isAuthenticated && user?.rol === 'consumidor';
-  const rutasConIconosConsumidor = ['/', '/productos'];
-  const estaEnPanelConsumidor = location.pathname.startsWith('/consumidor');
-  const estaEnRutaPublicaConIconos = rutasConIconosConsumidor.some((ruta) => {
-    if (ruta === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname === ruta || location.pathname.startsWith(`${ruta}/`);
-  });
-  const debeMostrarIconosConsumidor = esConsumidorAutenticado && (estaEnPanelConsumidor || estaEnRutaPublicaConIconos);
-
   // Forzar estilos de navbar - aplicar cada vez que cambie algo
   useEffect(() => {
     const forceTransparent = () => {
@@ -90,7 +78,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     };
   }, []);
 
-  // Query para carrito cuando está autenticado como consumidor
+  // Query para carrito cuando está autenticado
   const { data: carritoData } = useQuery({
     queryKey: ['carrito'],
     queryFn: async () => {
@@ -102,12 +90,12 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         return null;
       }
     },
-    enabled: debeMostrarIconosConsumidor,
-    refetchInterval: 10000,
+    enabled: isAuthenticated && user?.rol === 'consumidor',
+    refetchInterval: false, // Desactivar refresco automático para evitar recargas constantes
     retry: 1,
   });
 
-  // Query para lista de deseos cuando está autenticado como consumidor
+  // Query para lista de deseos cuando está autenticado
   const { data: listaDeseosData } = useQuery({
     queryKey: ['lista-deseos'],
     queryFn: async () => {
@@ -119,14 +107,14 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         return [];
       }
     },
-    enabled: debeMostrarIconosConsumidor,
-    refetchInterval: 10000,
+    enabled: isAuthenticated && user?.rol === 'consumidor',
+    refetchInterval: false, // Desactivar refresco automático para evitar recargas constantes
     retry: 1,
   });
 
   // Actualizar contador de lista de deseos cuando cambian los datos
   useEffect(() => {
-    if (debeMostrarIconosConsumidor) {
+    if (isAuthenticated && user?.rol === 'consumidor') {
       if (Array.isArray(listaDeseosData)) {
         setListaDeseosCount(listaDeseosData.length);
       } else {
@@ -137,13 +125,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       const listaDeseos = listaDeseosLocalService.obtenerListaDeseos();
       setListaDeseosCount(listaDeseos?.length || 0);
     }
-  }, [listaDeseosData, isAuthenticated, user, debeMostrarIconosConsumidor]);
+  }, [listaDeseosData, isAuthenticated, user]);
 
   // Cargar contadores de carrito
   useEffect(() => {
     const actualizarContadores = () => {
       try {
-        if (debeMostrarIconosConsumidor) {
+        if (isAuthenticated && user?.rol === 'consumidor') {
           // Usar datos del servidor
           setCarritoCount(carritoData?.items?.length || 0);
         } else {
@@ -161,7 +149,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     // Actualizar cuando cambia la ruta o los datos
     const interval = setInterval(actualizarContadores, 2000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, user, location.pathname, carritoData, debeMostrarIconosConsumidor]);
+  }, [isAuthenticated, user, location.pathname, carritoData]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -174,7 +162,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000); // refrescar cada 5s para una experiencia más cercana a tiempo real
+    const interval = setInterval(fetchNotifications, 60000); // refrescar cada 60s (1 minuto) para evitar refrescos constantes
     return () => clearInterval(interval);
   }, [isAuthenticated, user, showNotifications]);
 
@@ -434,45 +422,85 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
           {/* Items del lado derecho */}
           <ul className="navbar-nav ms-auto align-items-center">
-            {/* Lista de deseos - Solo para consumidor en las rutas designadas */}
-            {debeMostrarIconosConsumidor && (
+            {/* Lista de deseos - Oculto en login, inicio (si no es consumidor), y en notificaciones si es productor */}
+            {(location.pathname !== '/login' && 
+              (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor')) &&
+              !(location.pathname === '/notificaciones' && user?.rol === 'productor')) && (
               <li className="nav-item">
-                <Link 
-                  className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
-                  to="/consumidor/lista-deseos"
-                  title="Lista de Deseos"
-                  style={navLinkStyle}
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiHeart className="fs-5" />
-                  {listaDeseosCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                    </span>
-                  )}
-                </Link>
+                {isAuthenticated && user?.rol === 'consumidor' ? (
+                  <Link 
+                    className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
+                    to="/consumidor/lista-deseos"
+                    title="Lista de Deseos"
+                    style={navLinkStyle}
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiHeart className="fs-5" />
+                    {listaDeseosCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <span
+                    className="nav-link position-relative"
+                    style={{ ...navLinkStyle, cursor: 'pointer' }}
+                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                    title="Inicia sesión para ver tu lista de deseos"
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiHeart className="fs-5" />
+                    {listaDeseosCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
+                      </span>
+                    )}
+                  </span>
+                )}
               </li>
             )}
 
-            {/* Carrito - Solo para consumidor en las rutas designadas */}
-            {debeMostrarIconosConsumidor && (
+            {/* Carrito - Oculto en login, inicio (si no es consumidor), y en notificaciones si es productor */}
+            {(location.pathname !== '/login' && 
+              (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor')) &&
+              !(location.pathname === '/notificaciones' && user?.rol === 'productor')) && (
               <li className="nav-item">
-                <Link 
-                  className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
-                  to="/consumidor/carrito"
-                  title="Carrito de Compras"
-                  style={navLinkStyle}
-                  onMouseEnter={handleNavLinkMouseEnter}
-                  onMouseLeave={handleNavLinkMouseLeave}
-                >
-                  <BiCart className="fs-5" />
-                  {carritoCount > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                      {carritoCount > 9 ? '9+' : carritoCount}
-                    </span>
-                  )}
-                </Link>
+                {isAuthenticated && user?.rol === 'consumidor' ? (
+                  <Link 
+                    className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
+                    to="/consumidor/carrito"
+                    title="Carrito de Compras"
+                    style={navLinkStyle}
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiCart className="fs-5" />
+                    {carritoCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {carritoCount > 9 ? '9+' : carritoCount}
+                      </span>
+                    )}
+                  </Link>
+                ) : (
+                  <span
+                    className="nav-link position-relative"
+                    style={{ ...navLinkStyle, cursor: 'pointer' }}
+                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
+                    title="Inicia sesión para ver tu carrito"
+                    onMouseEnter={handleNavLinkMouseEnter}
+                    onMouseLeave={handleNavLinkMouseLeave}
+                  >
+                    <BiCart className="fs-5" />
+                    {carritoCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
+                        {carritoCount > 9 ? '9+' : carritoCount}
+                      </span>
+                    )}
+                  </span>
+                )}
               </li>
             )}
 

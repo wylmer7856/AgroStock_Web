@@ -1,0 +1,217 @@
+/* ========================================
+   ESTILOS MEJORADOS PARA SIDEBAR CONSUMIDOR
+   ======================================== */
+
+/* Sidebar con gradiente atractivo y moderno (solo contenedor principal del panel) */
+aside.bg-primary.sidebar-container {
+  background: linear-gradient(180deg, #2d5016 0%, #234011 50%, #1a300d 100%) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: calc(100vh - 56px) !important; /* Altura exacta menos navbar */
+  max-height: calc(100vh - 56px) !important;
+  overflow: hidden !important;
+}
+
+/* Navegación con scroll */
+aside.bg-primary .sidebar-nav {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-bottom: 1rem !important;
+}
+
+/* Eliminar TODOS los estilos de Bootstrap en nav-link */
+aside.bg-primary .nav-link,
+aside.bg-primary .nav-link:hover,
+aside.bg-primary .nav-link:focus,
+aside.bg-primary .nav-link:active,
+aside.bg-primary .nav-link:focus-visible {
+  background-color: transparent !important;
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+  font-size: 0.95rem !important;
+  padding: 1rem 1.25rem !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* Hover elegante con iluminación sutil */
+aside.bg-primary .nav-link:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+  transform: translateX(6px) !important;
+  padding-left: 1.5rem !important;
+  border-radius: 0 10px 10px 0 !important;
+  font-weight: 600 !important;
+}
+
+/* Estilo para el elemento activo - destacado y brillante */
+aside.bg-primary .nav-link.active,
+aside.bg-primary .nav-link.active:hover,
+aside.bg-primary .nav-link.active:focus {
+  background: rgba(139, 195, 74, 0.15) !important;
+  color: #c5e1a5 !important;
+  border-left: 4px solid #8bc34a !important;
+  padding-left: calc(1.5rem - 4px) !important;
+  font-weight: 600 !important;
+  border-radius: 0 10px 10px 0 !important;
+  box-shadow: 0 4px 12px rgba(139, 195, 74, 0.25), inset 0 0 20px rgba(139, 195, 74, 0.1) !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Iconos mejorados */
+aside.bg-primary .nav-link span {
+  font-size: 1.35rem !important;
+  color: inherit !important;
+  margin-right: 0.75rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 24px !important;
+}
+
+/* Efecto de brillo en hover para los iconos */
+aside.bg-primary .nav-link:hover span {
+  filter: brightness(1.4) drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+  transition: filter 0.3s ease;
+}
+
+aside.bg-primary .nav-link.active span {
+  filter: brightness(1.3) drop-shadow(0 0 6px rgba(139, 195, 74, 0.5));
+  color: #8bc34a !important;
+}
+
+/* Eliminar todos los pseudo-elementos */
+aside.bg-primary .nav-link::before,
+aside.bg-primary .nav-link::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Forzar transparencia en todos los estados de nav-pills */
+aside.bg-primary .nav-pills .nav-link,
+aside.bg-primary .nav-pills .nav-link:hover,
+aside.bg-primary .nav-pills .nav-link:focus {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+aside.bg-primary .nav-pills .nav-link.active {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Header del sidebar mejorado */
+aside.bg-primary .border-bottom {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding: 1.5rem 1.25rem !important;
+  background: linear-gradient(180deg, #2d5016 0%, #234011 50%, #1a300d 100%) !important;
+  backdrop-filter: blur(10px) !important;
+  position: relative !important;
+  z-index: 2 !important;
+  flex-shrink: 0 !important;
+  min-height: fit-content !important;
+  overflow: visible !important;
+}
+
+aside.bg-primary h5 {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* Espaciado perfecto entre items */
+aside.bg-primary .nav-pills {
+  padding: 0.75rem 0.5rem !important;
+}
+
+aside.bg-primary .nav-item {
+  margin-bottom: 0.5rem !important;
+}
+
+/* Contenedor de navegación con scroll */
+aside.bg-primary nav {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important; /* Permite que el flex funcione correctamente */
+  -webkit-overflow-scrolling: touch !important; /* Scroll suave en iOS */
+}
+
+/* Asegurar que el scrollbar sea visible cuando hay contenido */
+aside.bg-primary .sidebar-nav::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+}
+
+aside.bg-primary .sidebar-nav::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1) !important;
+  border-radius: 4px !important;
+}
+
+aside.bg-primary .sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 4px !important;
+}
+
+aside.bg-primary .sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Scrollbar para Firefox */
+aside.bg-primary .sidebar-nav {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Animación de entrada suave */
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-25px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+aside.bg-primary .nav-item {
+  animation: slideInFromLeft 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+aside.bg-primary .nav-item:nth-child(1) { animation-delay: 0.1s; }
+aside.bg-primary .nav-item:nth-child(2) { animation-delay: 0.15s; }
+aside.bg-primary .nav-item:nth-child(3) { animation-delay: 0.2s; }
+aside.bg-primary .nav-item:nth-child(4) { animation-delay: 0.25s; }
+aside.bg-primary .nav-item:nth-child(5) { animation-delay: 0.3s; }
+
+/* Scrollbar estilizado */
+aside.bg-primary::-webkit-scrollbar {
+  width: 6px;
+}
+
+aside.bg-primary::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+aside.bg-primary::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+aside.bg-primary::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+

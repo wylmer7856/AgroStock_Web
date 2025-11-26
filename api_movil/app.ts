@@ -40,21 +40,29 @@ const app = new Application();
 app.use(async (ctx, next) => {
   const origin = ctx.request.headers.get("origin");
   
+  // En desarrollo, permitir todos los orígenes para facilitar pruebas con móviles
   // En producción, especificar dominios permitidos
-  const allowedOrigins = [
-    "http://localhost:3000",
-    "http://localhost:8080", 
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://agrostock.com"
-  ];
+  const isDevelopment = Deno.env.get("NODE_ENV") !== "production";
   
-  // Permitir el origen si está en la lista o si no hay origen (solicitudes del mismo origen)
-  if (origin && allowedOrigins.includes(origin)) {
-    ctx.response.headers.set("Access-Control-Allow-Origin", origin);
-  } else if (!origin) {
-    // Si no hay origin, permitir (solicitud del mismo origen)
+  if (isDevelopment) {
+    // En desarrollo, permitir todas las conexiones (incluyendo móviles)
     ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  } else {
+    // En producción, solo permitir orígenes específicos
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://localhost:8080", 
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://192.168.1.11:5173",
+      "https://agrostock.com"
+    ];
+    
+    if (origin && allowedOrigins.includes(origin)) {
+      ctx.response.headers.set("Access-Control-Allow-Origin", origin);
+    } else if (!origin) {
+      ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+    }
   }
   
   ctx.response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
@@ -92,6 +100,22 @@ app.use(rateLimitMiddleware(15 * 60 * 1000, 100)); // 100 requests per 15 minute
 
 // Middleware para servir archivos estáticos (uploads)
 app.use(staticFilesMiddleware);
+
+// 📌 Endpoint de health check simple (antes de los routers)
+app.use(async (ctx, next) => {
+  if (ctx.request.url.pathname === "/health" || ctx.request.url.pathname === "/ping") {
+    ctx.response.status = 200;
+    ctx.response.body = {
+      status: "ok",
+      message: "Servidor funcionando correctamente",
+      timestamp: new Date().toISOString(),
+      server: "AgroStock API",
+      version: "1.0.0"
+    };
+    return;
+  }
+  await next();
+});
 
 // 📌 Routers principales (orden de prioridad)
 const routers = [
@@ -295,6 +319,7 @@ console.log("  📈 Estadísticas: /estadisticas");
 console.log("  👨‍💼 Administración: /admin");
 console.log("  👥 Usuarios: /usuarios");
 console.log("  🌍 Ubicaciones: /regiones, /departamentos, /ciudades");
+console.log("  💚 Health check: /health");
 
 // 📌 Iniciar servidor - Puerto 8000
 const PORT = 8000;
@@ -303,8 +328,17 @@ const HOST = "0.0.0.0"; // Escuchar en todas las interfaces para permitir conexi
 // Función para iniciar el servidor con manejo de errores
 async function iniciarServidor() {
   try {
-    console.log(`🌐 Servidor corriendo en http://localhost:${PORT} y http://127.0.0.1:${PORT}`);
-    console.log("✅ AgroStock API lista para recibir conexiones");
+    console.log("\n" + "=".repeat(60));
+    console.log("🚀 INICIANDO SERVIDOR AGROSTOCK API");
+    console.log("=".repeat(60));
+    console.log(`📡 Escuchando en todas las interfaces (0.0.0.0:${PORT})`);
+    console.log(`🌐 URLs disponibles:`);
+    console.log(`   - http://localhost:${PORT}`);
+    console.log(`   - http://127.0.0.1:${PORT}`);
+    console.log(`   - http://192.168.1.11:${PORT} (IP local)`);
+    console.log(`\n✅ Servidor listo para recibir conexiones`);
+    console.log(`💡 Health check: http://localhost:${PORT}/health`);
+    console.log("=".repeat(60) + "\n");
     
     await app.listen({ port: PORT, hostname: HOST });
   } catch (error) {

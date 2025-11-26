@@ -1,6 +1,6 @@
 // 🔐 CONTEXTO DE AUTENTICACIÓN GLOBAL
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import authService from '../services/auth';
 import { APP_CONFIG } from '../config';
 import type { User, LoginCredentials, RegisterData, AppView } from '../types';
@@ -99,45 +99,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // ===== EFECTOS =====
   
-  // Verificar autenticación al cargar la aplicación
+  // Verificar autenticación al cargar la aplicación - VERSIÓN MEJORADA
   useEffect(() => {
     console.log('🔍 Iniciando verificación de autenticación...');
     
-    // Mantener isLoading en true hasta que termine la verificación
-    dispatch({ type: 'SET_LOADING', payload: true });
-    
-    // Verificar autenticación
-    const checkAuth = () => {
+    // Verificar primero de forma síncrona si hay datos en localStorage
+    // Esto evita redirecciones innecesarias al login al recargar
+    const checkAuthSync = () => {
       try {
         const user = authService.getCurrentUser();
-        if (user && authService.isAuthenticated()) {
-          if (user.rol && (user.rol === 'admin' || user.rol === 'consumidor' || user.rol === 'productor')) {
-            console.log('✅ Usuario válido encontrado, rol:', user.rol);
-            dispatch({ type: 'SET_USER', payload: user });
-            const view: AppView = user.rol === 'admin' ? 'admin' : 
-                                 user.rol === 'productor' ? 'productor' : 'consumidor';
-            dispatch({ type: 'SET_VIEW', payload: view });
-            dispatch({ type: 'SET_LOADING', payload: false });
-            return;
-          }
+        const isAuth = authService.isAuthenticated();
+        
+        if (user && isAuth && user.rol && (user.rol === 'admin' || user.rol === 'consumidor' || user.rol === 'productor')) {
+          console.log('✅ Usuario válido encontrado en localStorage, rol:', user.rol);
+          dispatch({ type: 'SET_USER', payload: user });
+          const view: AppView = user.rol === 'admin' ? 'admin' : 
+                               user.rol === 'productor' ? 'productor' : 'consumidor';
+          dispatch({ type: 'SET_VIEW', payload: view });
+          dispatch({ type: 'SET_LOADING', payload: false });
+          return true; // Usuario encontrado
         }
-        // Si no hay usuario válido, marcar como no autenticado
-        dispatch({ type: 'SET_USER', payload: null });
-        dispatch({ type: 'SET_LOADING', payload: false });
       } catch (error) {
         console.warn('⚠️ Error verificando autenticación:', error);
-        dispatch({ type: 'SET_USER', payload: null });
-        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+      return false; // No se encontró usuario
+    };
+    
+    // Verificar primero de forma síncrona
+    const userFound = checkAuthSync();
+    
+    // Si no se encontró usuario, marcar como no autenticado
+    if (!userFound) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: 'SET_USER', payload: null });
+    }
+    
+    // Verificar token en segundo plano para asegurar que sigue siendo válido
+    // Esto es útil si el token expiró pero aún está en localStorage
+    const verifyTokenAsync = async () => {
+      try {
+        const isValid = await authService.refreshTokenIfNeeded();
+        if (!isValid) {
+          // Si el token no es válido, limpiar el estado
+          const currentUser = authService.getCurrentUser();
+          if (currentUser) {
+            console.log('⚠️ Token inválido, limpiando sesión');
+            authService.logout();
+            dispatch({ type: 'LOGOUT' });
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Error verificando token:', error);
       }
     };
     
-    // Ejecutar inmediatamente
-    checkAuth();
+    // Verificar token en segundo plano (no bloquea)
+    setTimeout(verifyTokenAsync, 100);
   }, []);
 
   // ===== FUNCIONES DEL CONTEXTO =====
+  // Usar useCallback para estabilizar las funciones y evitar re-renders
   
-  const login = async (credentials: LoginCredentials): Promise<void> => {
+  const login = useCallback(async (credentials: LoginCredentials): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
@@ -167,9 +190,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, []);
 
-  const register = async (userData: RegisterData): Promise<void> => {
+  const register = useCallback(async (userData: RegisterData): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
@@ -198,9 +221,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'SET_LOADING', payload: false });
       throw error;
     }
-  };
+  }, [login]);
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
@@ -212,17 +235,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Aún así limpiar el estado local
       dispatch({ type: 'LOGOUT' });
     }
-  };
+  }, []);
 
-  const setCurrentView = (view: AppView): void => {
+  const setCurrentView = useCallback((view: AppView): void => {
     dispatch({ type: 'SET_VIEW', payload: view });
-  };
+  }, []);
 
-  const clearError = (): void => {
+  const clearError = useCallback((): void => {
     dispatch({ type: 'CLEAR_ERROR' });
-  };
+  }, []);
 
-  const refreshAuth = async (): Promise<void> => {
+  const refreshAuth = useCallback(async (): Promise<void> => {
     try {
       const isValid = await authService.refreshTokenIfNeeded();
       if (!isValid) {
@@ -232,9 +255,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error refrescando autenticación:', error);
       dispatch({ type: 'LOGOUT' });
     }
-  };
+  }, []);
 
-  const updateUser = (userData: Partial<User>): void => {
+  const updateUser = useCallback((userData: Partial<User>): void => {
     if (state.user) {
       const updatedUser: User = {
         ...state.user,
@@ -246,10 +269,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // También actualizar en localStorage
       localStorage.setItem(APP_CONFIG.AUTH.USER_KEY, JSON.stringify(updatedUser));
     }
-  };
+  }, [state.user]);
 
   // ===== VALOR DEL CONTEXTO =====
-  const contextValue: AuthContextType = {
+  // Usar useMemo para evitar que el contexto cambie en cada render
+  // Las funciones están envueltas en useCallback, así que son estables
+  const contextValue: AuthContextType = useMemo(() => ({
     ...state,
     login,
     register,
@@ -258,7 +283,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clearError,
     refreshAuth,
     updateUser,
-  };
+  }), [state, login, register, logout, setCurrentView, clearError, refreshAuth, updateUser]);
 
   return (
     <AuthContext.Provider value={contextValue}>

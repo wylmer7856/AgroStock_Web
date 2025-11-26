@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { notificacionesService } from '../services';
@@ -12,6 +12,35 @@ const NotificacionesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'todas' | 'noLeidas'>('todas');
 
+  // Ocultar el sidebar solo para productores
+  useEffect(() => {
+    if (user?.rol === 'productor') {
+      const sidebar = document.querySelector('aside.sidebar-container');
+      if (sidebar) {
+        (sidebar as HTMLElement).style.display = 'none';
+      }
+      // Ajustar el margin del main
+      const main = document.querySelector('main');
+      if (main) {
+        (main as HTMLElement).style.marginLeft = '0';
+      }
+    }
+
+    // Cleanup: restaurar cuando se desmonte el componente
+    return () => {
+      if (user?.rol === 'productor') {
+        const sidebar = document.querySelector('aside.sidebar-container');
+        if (sidebar) {
+          (sidebar as HTMLElement).style.display = '';
+        }
+        const main = document.querySelector('main');
+        if (main) {
+          (main as HTMLElement).style.marginLeft = '';
+        }
+      }
+    };
+  }, [user?.rol]);
+
   // Query para obtener notificaciones
   const { data: notificaciones, isLoading } = useQuery({
     queryKey: ['notificaciones', filter],
@@ -23,7 +52,7 @@ const NotificacionesPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
-    refetchInterval: 5000, // refrescar cada 5 segundos para simular tiempo real
+    refetchInterval: false, // Desactivar refresco automático para evitar parpadeos
   });
 
   // Mutation para marcar como leída
@@ -257,7 +286,6 @@ const NotificacionesPage: React.FC = () => {
 };
 
 export default NotificacionesPage;
-
 
 
 

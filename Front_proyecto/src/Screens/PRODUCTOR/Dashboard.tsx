@@ -1,6 +1,6 @@
 // 🌾 DASHBOARD DEL PRODUCTOR - GESTIÓN DE PRODUCTOS Y VENTAS
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, Button, Badge, Loading, Toast } from '../../components/ReusableComponents';
 import AgroStockLogo from '../../components/AgroStockLogo';
@@ -366,8 +366,16 @@ export const ProductorDashboard: React.FC<ProductorDashboardProps> = ({ onNaviga
   const [productoEditando, setProductoEditando] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<{ show: boolean; id?: number }>({ show: false });
 
+  const datosCargadosRef = useRef(false);
+  
   useEffect(() => {
+    // Solo cargar datos una vez cuando el componente se monta
+    if (datosCargadosRef.current) {
+      return;
+    }
+    datosCargadosRef.current = true;
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarDatos = async () => {

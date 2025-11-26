@@ -3,48 +3,38 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mensajesService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { BiMessageSquare, BiSend, BiTrash, BiCheck, BiUser, BiTime, BiEnvelope, BiPhone } from 'react-icons/bi';
+import { BiMessageSquare, BiSend, BiCheck, BiUser, BiTime, BiEnvelope, BiPhone } from 'react-icons/bi';
 import './MensajesPage.css';
 
-const ProductorMensajesPage: React.FC = () => {
+const ProductorMensajesPage: React.FC = React.memo(() => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<'recibidos' | 'enviados'>('recibidos');
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState({ asunto: '', mensaje: '', id_destinatario: 0 });
+  const [lastMessageCount, setLastMessageCount] = useState(0);
   
-  // Scroll al final cuando hay nuevos mensajes
+  // Scroll al final solo cuando hay nuevos mensajes (no al seleccionar conversación)
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   };
-  
-  useEffect(() => {
-    scrollToBottom();
-  }, [selectedConversation]);
 
   // Obtener mensajes recibidos (de consumidores)
-  const { data: mensajesRecibidos, isLoading: loadingRecibidos, error: errorRecibidos, refetch: refetchRecibidos } = useQuery({
+  const { data: mensajesRecibidos, isLoading: loadingRecibidos } = useQuery({
     queryKey: ['mensajes', 'productor', 'recibidos', user?.id_usuario],
     queryFn: async () => {
       try {
-        console.log('🔍 Obteniendo mensajes recibidos para usuario:', user?.id_usuario);
         const response = await mensajesService.obtenerMensajesRecibidos();
-        console.log('📨 Respuesta completa mensajes recibidos:', JSON.stringify(response, null, 2));
-        
-        // El servicio ya normaliza la respuesta
         if (response && response.success !== false && response.data) {
-          const mensajes = Array.isArray(response.data) ? response.data : [];
-          console.log('✅ Mensajes recibidos procesados:', mensajes.length, mensajes);
-          return mensajes;
+          return Array.isArray(response.data) ? response.data : [];
         }
-        
-        console.warn('⚠️ Respuesta sin datos válidos:', response);
+        if (response && response.mensajes && Array.isArray(response.mensajes)) {
+          return response.mensajes;
+        }
         return [];
       } catch (error: any) {
-        console.error('❌ Error en query mensajes recibidos:', error);
-        console.error('Error completo:', JSON.stringify(error, null, 2));
-        // No mostrar toast para errores 405, solo log
         if (!error?.message?.includes('405') && !error?.message?.includes('Method Not Allowed')) {
           toast.error('Error al cargar mensajes recibidos');
         }
@@ -53,31 +43,25 @@ const ProductorMensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 5000, // refrescar cada 5s
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Obtener mensajes enviados
-  const { data: mensajesEnviados, isLoading: loadingEnviados, error: errorEnviados, refetch: refetchEnviados } = useQuery({
+  const { data: mensajesEnviados, isLoading: loadingEnviados } = useQuery({
     queryKey: ['mensajes', 'productor', 'enviados', user?.id_usuario],
     queryFn: async () => {
       try {
-        console.log('🔍 Obteniendo mensajes enviados para usuario:', user?.id_usuario);
         const response = await mensajesService.obtenerMensajesEnviados();
-        console.log('📤 Respuesta completa mensajes enviados:', JSON.stringify(response, null, 2));
-        
-        // El servicio ya normaliza la respuesta
         if (response && response.success !== false && response.data) {
-          const mensajes = Array.isArray(response.data) ? response.data : [];
-          console.log('✅ Mensajes enviados procesados:', mensajes.length, mensajes);
-          return mensajes;
+          return Array.isArray(response.data) ? response.data : [];
         }
-        
-        console.warn('⚠️ Respuesta sin datos válidos:', response);
+        if (response && response.mensajes && Array.isArray(response.mensajes)) {
+          return response.mensajes;
+        }
         return [];
       } catch (error: any) {
-        console.error('❌ Error en query mensajes enviados:', error);
-        console.error('Error completo:', JSON.stringify(error, null, 2));
-        // No mostrar toast para errores 405, solo log
         if (!error?.message?.includes('405') && !error?.message?.includes('Method Not Allowed')) {
           toast.error('Error al cargar mensajes enviados');
         }
@@ -86,53 +70,38 @@ const ProductorMensajesPage: React.FC = () => {
     },
     enabled: !!user?.id_usuario,
     retry: 1,
-    refetchInterval: 5000, // refrescar cada 5s
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Mutation para enviar mensaje (respuesta a consumidor)
   const sendMessageMutation = useMutation({
     mutationFn: async (data: typeof newMessage) => {
-      console.log('🔄 [sendMessageMutation] mutationFn iniciada con datos:', data);
+      const response = await mensajesService.enviarMensaje({
+        id_destinatario: data.id_destinatario,
+        asunto: data.asunto,
+        mensaje: data.mensaje,
+        tipo_mensaje: 'general',
+      });
       
-      try {
-        const response = await mensajesService.enviarMensaje({
-          id_destinatario: data.id_destinatario,
-          asunto: data.asunto,
-          mensaje: data.mensaje,
-          tipo_mensaje: 'general',
-        });
-        
-        console.log('📥 [sendMessageMutation] Respuesta del servicio:', {
-          success: response.success,
-          message: response.message,
-          hasData: !!response.data,
-          fullResponse: response
-        });
-        
-        if (!response.success) {
-          console.error('❌ [sendMessageMutation] Respuesta sin éxito:', response);
-          throw new Error(response.message || response.error || 'Error al enviar mensaje');
-        }
-        
-        console.log('✅ [sendMessageMutation] Mensaje enviado exitosamente');
-        return response.data || response;
-      } catch (error: any) {
-        console.error('❌ [sendMessageMutation] Error en mutationFn:', error);
-        console.error('   Error completo:', JSON.stringify(error, null, 2));
-        throw error;
+      if (!response.success) {
+        throw new Error(response.message || response.error || 'Error al enviar mensaje');
       }
+      
+      return response.data || response;
     },
-    onSuccess: (data) => {
-      console.log('✅ [sendMessageMutation] onSuccess ejecutado con data:', data);
-      toast.success('✅ Mensaje enviado y guardado en la base de datos');
-      // Limpiar solo el mensaje, mantener el destinatario
+    onSuccess: () => {
+      toast.success('✅ Mensaje enviado correctamente');
       setNewMessage({ asunto: '', mensaje: '', id_destinatario: selectedConversation || 0 });
-      // Invalidar todas las queries relacionadas para actualizar la vista
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'productor'] });
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'productor', 'recibidos'] });
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'productor', 'enviados'] });
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'conversacion'] });
-      // Recargar la conversación completa inmediatamente
+      queryClient.invalidateQueries({ 
+        queryKey: ['mensajes', 'productor'],
+        refetchType: 'none'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['mensajes', 'conversacion'],
+        refetchType: 'none'
+      });
       if (selectedConversation) {
         setTimeout(() => {
           refetchConversacion();
@@ -140,14 +109,9 @@ const ProductorMensajesPage: React.FC = () => {
           refetchEnviados();
         }, 500);
       }
-      // Scroll al final después de enviar
-      setTimeout(scrollToBottom, 300);
     },
     onError: (error: Error) => {
-      console.error('❌ [sendMessageMutation] onError ejecutado:', error);
-      console.error('   Error message:', error.message);
-      console.error('   Error stack:', error.stack);
-      toast.error(error.message || 'Error al enviar mensaje. Revisa la consola para más detalles.');
+      toast.error(error.message || 'Error al enviar mensaje');
     },
   });
 
@@ -157,132 +121,63 @@ const ProductorMensajesPage: React.FC = () => {
       return await mensajesService.marcarComoLeido(id_mensaje);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'productor'] });
-    },
-  });
-
-  // Mutation para eliminar mensaje
-  const deleteMessageMutation = useMutation({
-    mutationFn: async (id_mensaje: number) => {
-      return await mensajesService.eliminarMensaje(id_mensaje);
-    },
-    onSuccess: () => {
-      toast.success('Mensaje eliminado');
-      queryClient.invalidateQueries({ queryKey: ['mensajes', 'productor'] });
-    },
-    onError: () => {
-      toast.error('Error al eliminar mensaje');
+      queryClient.invalidateQueries({ 
+        queryKey: ['mensajes', 'productor'],
+        refetchType: 'none'
+      });
     },
   });
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('📝 [handleSendMessage] Iniciando envío de mensaje');
-    
     if (!selectedConversation) {
-      console.error('❌ [handleSendMessage] No hay conversación seleccionada');
       toast.error('Selecciona una conversación para enviar un mensaje');
       return;
     }
     if (!newMessage.mensaje || !newMessage.mensaje.trim()) {
-      console.error('❌ [handleSendMessage] Mensaje vacío');
       toast.error('Por favor escribe un mensaje');
       return;
     }
-    // Si no hay asunto, usar uno por defecto o el del último mensaje
     const asunto = newMessage.asunto.trim() || 
                    (conversacionActual?.ultimoMensaje?.asunto && conversacionActual.ultimoMensaje.asunto !== 'Sin asunto'
                      ? `Re: ${conversacionActual.ultimoMensaje.asunto}`
                      : 'Consulta');
     
-    const mensajeData = {
+    sendMessageMutation.mutate({
       asunto,
       mensaje: newMessage.mensaje.trim(),
       id_destinatario: selectedConversation,
-    };
-    
-    console.log('📤 [handleSendMessage] Datos a enviar:', mensajeData);
-    console.log('👤 [handleSendMessage] Usuario actual:', user);
-    
-    sendMessageMutation.mutate(mensajeData);
+    });
   };
 
-  const mensajes = activeTab === 'recibidos' ? (mensajesRecibidos || []) : (mensajesEnviados || []);
-  const isLoading = activeTab === 'recibidos' ? loadingRecibidos : loadingEnviados;
-  
-  console.log('📊 Estado actual:', {
-    activeTab,
-    mensajesRecibidos: mensajesRecibidos?.length || 0,
-    mensajesEnviados: mensajesEnviados?.length || 0,
-    mensajes: mensajes?.length || 0,
-    isLoading,
-    errorRecibidos,
-    errorEnviados,
-    userId: user?.id_usuario,
-    mensajesRaw: activeTab === 'recibidos' ? mensajesRecibidos : mensajesEnviados
-  });
+  // Combinar todos los mensajes (recibidos + enviados)
+  const todosLosMensajes = React.useMemo(() => {
+    const recibidos = mensajesRecibidos || [];
+    const enviados = mensajesEnviados || [];
+    return [...recibidos, ...enviados];
+  }, [mensajesRecibidos, mensajesEnviados]);
 
   // Agrupar mensajes por conversación (por consumidor)
   const conversaciones = React.useMemo(() => {
-    if (!mensajes || !Array.isArray(mensajes) || mensajes.length === 0) {
-      console.log('📭 No hay mensajes para agrupar', { activeTab, mensajesLength: mensajes?.length || 0 });
+    if (!todosLosMensajes || !Array.isArray(todosLosMensajes) || todosLosMensajes.length === 0) {
       return [];
     }
     
-    console.log('📬 Agrupando mensajes:', {
-      activeTab,
-      totalMensajes: mensajes.length,
-      primerMensaje: mensajes[0],
-      userId: user?.id_usuario
-    });
-    
     const grouped: Record<number, any[]> = {};
-    mensajes.forEach((msg: any, index: number) => {
-      // Para recibidos: agrupar por remitente (consumidor que envió)
-      // Para enviados: agrupar por destinatario (consumidor que recibió)
+    todosLosMensajes.forEach((msg: any) => {
+      // Identificar el ID del consumidor (remitente o destinatario según corresponda)
       let consumidorId: number | null = null;
       
-      if (activeTab === 'recibidos') {
-        // Mensajes recibidos: el remitente es el consumidor
-        consumidorId = msg.id_remitente || msg.id_usuario_remitente || null;
-      } else {
-        // Mensajes enviados: el destinatario es el consumidor
+      if (msg.id_remitente === user?.id_usuario) {
+        // Mensaje enviado por el productor: el destinatario es el consumidor
         consumidorId = msg.id_destinatario || msg.id_usuario_destinatario || null;
-      }
-      
-      console.log(`📨 Mensaje ${index + 1}:`, {
-        id_mensaje: msg.id_mensaje,
-        id_remitente: msg.id_remitente,
-        id_destinatario: msg.id_destinatario,
-        consumidorId,
-        userId: user?.id_usuario,
-        activeTab
-      });
-      
-      // Validar que tenemos un ID válido
-      if (!consumidorId) {
-        console.warn(`⚠️ Mensaje ${index + 1} sin consumidorId, saltando`, msg);
-        return;
-      }
-      
-      // Para mensajes enviados, el remitente es el usuario actual, así que no debemos filtrarlo
-      // Solo validar que el destinatario (consumidor) sea diferente
-      if (activeTab === 'enviados') {
-        // En mensajes enviados, el remitente es el usuario actual (productor)
-        // El destinatario es el consumidor, así que está bien
-        if (msg.id_remitente === user?.id_usuario && consumidorId !== user?.id_usuario) {
-          // Es un mensaje válido enviado por el productor a un consumidor
-        } else if (consumidorId === user?.id_usuario) {
-          console.warn(`⚠️ Mensaje ${index + 1} tiene el mismo usuario como destinatario, saltando`);
-          return;
-        }
       } else {
-        // Para mensajes recibidos, el destinatario es el usuario actual
-        // El remitente es el consumidor, así que está bien
-        if (consumidorId === user?.id_usuario) {
-          console.warn(`⚠️ Mensaje ${index + 1} es del mismo usuario, saltando`);
-          return;
-        }
+        // Mensaje recibido: el remitente es el consumidor
+        consumidorId = msg.id_remitente || msg.id_usuario_remitente || null;
+      }
+      
+      if (!consumidorId || consumidorId === user?.id_usuario) {
+        return; // Saltar mensajes sin consumidor o propios
       }
       
       if (!grouped[consumidorId]) {
@@ -290,8 +185,6 @@ const ProductorMensajesPage: React.FC = () => {
       }
       grouped[consumidorId].push(msg);
     });
-
-    console.log('📊 Mensajes agrupados por consumidor:', Object.keys(grouped).length, Object.keys(grouped));
 
     const conversacionesResult = Object.entries(grouped).map(([userId, msgs]) => {
       // Ordenar mensajes por fecha (más reciente primero)
@@ -303,49 +196,44 @@ const ProductorMensajesPage: React.FC = () => {
       
       const primerMensaje = mensajesOrdenados[0];
       
-      // Obtener información del consumidor desde campos directos del mensaje
-      const consumidorNombre = activeTab === 'recibidos'
-        ? (primerMensaje.nombre_remitente || `Usuario #${userId}`)
-        : (primerMensaje.nombre_destinatario || `Usuario #${userId}`);
+      // Obtener información del consumidor
+      const consumidorNombre = primerMensaje.nombre_remitente === user?.nombre
+        ? (primerMensaje.nombre_destinatario || `Usuario #${userId}`)
+        : (primerMensaje.nombre_remitente || `Usuario #${userId}`);
       
-      const consumidorEmail = activeTab === 'recibidos'
-        ? (primerMensaje.email_remitente || '')
-        : (primerMensaje.email_destinatario || '');
-      
-      const consumidorTelefono = ''; // No disponible en el modelo actual
+      const consumidorEmail = primerMensaje.email_remitente === user?.email
+        ? (primerMensaje.email_destinatario || '')
+        : (primerMensaje.email_remitente || '');
       
       return {
         userId: Number(userId),
         mensajes: mensajesOrdenados,
         ultimoMensaje: primerMensaje,
-        noLeidos: mensajesOrdenados.filter((m: any) => !m.leido && activeTab === 'recibidos').length,
+        noLeidos: mensajesOrdenados.filter((m: any) => !m.leido && m.id_remitente !== user?.id_usuario).length,
         consumidorNombre,
         consumidorEmail,
-        consumidorTelefono,
       };
     });
     
-    console.log('✅ Conversaciones agrupadas:', {
-      total: conversacionesResult.length,
-      conversaciones: conversacionesResult.map(c => ({
-        userId: c.userId,
-        nombre: c.consumidorNombre,
-        mensajes: c.mensajes.length
-      }))
+    // Ordenar conversaciones por fecha del último mensaje (más reciente primero)
+    conversacionesResult.sort((a, b) => {
+      const fechaA = new Date(a.ultimoMensaje.fecha_envio || a.ultimoMensaje.fecha_creacion || 0).getTime();
+      const fechaB = new Date(b.ultimoMensaje.fecha_envio || b.ultimoMensaje.fecha_creacion || 0).getTime();
+      return fechaB - fechaA;
     });
+    
     return conversacionesResult;
-  }, [mensajes, activeTab, user?.id_usuario]);
+  }, [todosLosMensajes, user?.id_usuario, user?.nombre, user?.email]);
 
   const conversacionActual = conversaciones.find(c => c.userId === selectedConversation);
   
-  // Obtener TODA la conversación (recibidos + enviados) cuando se selecciona una conversación
+  // Obtener TODA la conversación cuando se selecciona una conversación
   const { data: conversacionCompleta, refetch: refetchConversacion } = useQuery({
     queryKey: ['mensajes', 'conversacion', user?.id_usuario, selectedConversation],
     queryFn: async () => {
       if (!selectedConversation || !user?.id_usuario) return [];
       try {
         const response = await mensajesService.obtenerConversacion(selectedConversation);
-        console.log('💬 Conversación completa:', response);
         if (response.success && response.data) {
           return Array.isArray(response.data) ? response.data : [];
         }
@@ -356,7 +244,9 @@ const ProductorMensajesPage: React.FC = () => {
       }
     },
     enabled: !!selectedConversation && !!user?.id_usuario,
-    refetchInterval: 3000, // Actualizar cada 3 segundos para acercarnos a tiempo real
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
   
   // Usar la conversación completa si está disponible, sino usar la agrupada
@@ -364,12 +254,22 @@ const ProductorMensajesPage: React.FC = () => {
     ? conversacionCompleta 
     : (conversacionActual?.mensajes || []);
   
-  // Scroll cuando hay nuevos mensajes en la conversación
+  // Scroll solo cuando hay nuevos mensajes (no al seleccionar conversación)
   useEffect(() => {
-    if (mensajesConversacion.length > 0) {
-      setTimeout(scrollToBottom, 100);
+    if (mensajesConversacion.length > 0 && mensajesConversacion.length > lastMessageCount) {
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      setLastMessageCount(mensajesConversacion.length);
     }
   }, [mensajesConversacion.length]);
+
+  // Resetear contador cuando cambia la conversación seleccionada
+  useEffect(() => {
+    setLastMessageCount(0);
+  }, [selectedConversation]);
+
+  const isLoading = loadingRecibidos || loadingEnviados;
 
   return (
     <div className="container-fluid py-4">
@@ -388,35 +288,7 @@ const ProductorMensajesPage: React.FC = () => {
         <div className="col-md-4">
           <div className="card border-0 shadow-sm h-100">
             <div className="card-header bg-white">
-              <ul className="nav nav-tabs card-header-tabs">
-                <li className="nav-item">
-                  <button
-                    className={`nav-link ${activeTab === 'recibidos' ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveTab('recibidos');
-                      setSelectedConversation(null);
-                    }}
-                  >
-                    Recibidos
-                    {activeTab === 'recibidos' && mensajesRecibidos && (
-                      <span className="badge bg-danger ms-2">
-                        {mensajesRecibidos.filter((m: any) => !m.leido).length}
-                      </span>
-                    )}
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    className={`nav-link ${activeTab === 'enviados' ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveTab('enviados');
-                      setSelectedConversation(null);
-                    }}
-                  >
-                    Enviados
-                  </button>
-                </li>
-              </ul>
+              <h5 className="mb-0">Conversaciones</h5>
             </div>
             <div className="card-body p-0" style={{ maxHeight: '600px', overflowY: 'auto' }}>
               {isLoading ? (
@@ -425,65 +297,30 @@ const ProductorMensajesPage: React.FC = () => {
                     <span className="visually-hidden">Cargando...</span>
                   </div>
                 </div>
-              ) : (errorRecibidos || errorEnviados) && !errorRecibidos?.message?.includes('405') && !errorEnviados?.message?.includes('405') ? (
-                <div className="text-center py-5">
-                  <BiMessageSquare className="display-4 text-danger mb-3" />
-                  <p className="text-danger">Error al cargar mensajes</p>
-                  <button 
-                    className="btn btn-sm btn-primary mt-2"
-                    onClick={() => {
-                      refetchRecibidos();
-                      refetchEnviados();
-                    }}
-                  >
-                    Reintentar
-                  </button>
-                </div>
               ) : conversaciones.length === 0 ? (
                 <div className="text-center py-5">
                   <BiMessageSquare className="display-4 text-muted mb-3" />
-                  <p className="text-muted">
-                    {activeTab === 'recibidos' 
-                      ? 'No hay mensajes recibidos de consumidores' 
-                      : 'No has enviado mensajes a consumidores'}
-                  </p>
+                  <p className="text-muted">No hay conversaciones aún</p>
                   <small className="text-muted d-block mt-2">
-                    {activeTab === 'recibidos'
-                      ? 'Los mensajes se cargan desde la base de datos'
-                      : 'Cuando envíes mensajes a consumidores, aparecerán aquí'}
+                    Los consumidores pueden contactarte sobre tus productos
                   </small>
-                  {mensajes && mensajes.length > 0 && (
-                    <div className="mt-3">
-                      <small className="text-warning d-block">
-                        ⚠️ Se encontraron {mensajes.length} mensaje(s) pero no se pudieron agrupar
-                      </small>
-                      <button 
-                        className="btn btn-sm btn-outline-primary mt-2"
-                        onClick={() => {
-                          console.log('📋 Mensajes sin agrupar:', mensajes);
-                          console.log('👤 Usuario actual:', user);
-                        }}
-                      >
-                        Ver detalles en consola
-                      </button>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
-                  {conversaciones.map((conv) => (
+                  {conversaciones.map((conv, index) => (
                     <button
                       key={conv.userId}
-                      className={`list-group-item list-group-item-action ${
+                      className={`list-group-item list-group-item-action conversation-item-productor ${
                         selectedConversation === conv.userId ? 'active' : ''
                       }`}
+                      style={{ animationDelay: `${index * 0.05}s` }}
                       onClick={() => {
                         setSelectedConversation(conv.userId);
                         setNewMessage({ asunto: '', mensaje: '', id_destinatario: conv.userId });
                         // Marcar como leído los mensajes recibidos
-                        if (activeTab === 'recibidos' && conv.noLeidos > 0) {
+                        if (conv.noLeidos > 0) {
                           conv.mensajes.forEach((msg: any) => {
-                            if (!msg.leido && msg.id_remitente === conv.userId) {
+                            if (!msg.leido && msg.id_remitente !== user?.id_usuario) {
                               markAsReadMutation.mutate(msg.id_mensaje);
                             }
                           });
@@ -500,7 +337,7 @@ const ProductorMensajesPage: React.FC = () => {
                             )}
                           </div>
                           <p className="mb-1 text-truncate" style={{ maxWidth: '200px' }}>
-                            {conv.ultimoMensaje.asunto || 'Sin asunto'}
+                            {conv.ultimoMensaje.mensaje || conv.ultimoMensaje.asunto || 'Sin mensaje'}
                           </p>
                           <small className="text-muted d-block">
                             <BiTime className="me-1" />
@@ -542,12 +379,6 @@ const ProductorMensajesPage: React.FC = () => {
                           {conversacionActual.consumidorEmail}
                         </span>
                       )}
-                      {conversacionActual.consumidorTelefono && (
-                        <span>
-                          <BiPhone className="me-1" />
-                          {conversacionActual.consumidorTelefono}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -560,7 +391,7 @@ const ProductorMensajesPage: React.FC = () => {
                   overflowY: 'auto', 
                   maxHeight: '500px', 
                   backgroundColor: '#e5ddd5',
-                  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'grid\' width=\'40\' height=\'40\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 40 0 L 0 0 0 40\' fill=\'none\' stroke=\'%23d4d4d4\' stroke-width=\'0.5\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' fill=\'url(%23grid)\' /%3E%3C/svg%3E")'
+                  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'grid\' width=\'40\' height=\'40\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 40 0 L 0 0 0 40\' fill=\'none\' stroke=\'%23d4d4d4\' stroke-width=\'0.5\'/%3E%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' fill=\'url(%23grid)\' /%3E%3C/svg%3E")'
                 }}
               >
                 {mensajesConversacion && mensajesConversacion.length > 0 ? (
@@ -715,7 +546,8 @@ const ProductorMensajesPage: React.FC = () => {
       </div>
     </div>
   );
-};
+});
+
+ProductorMensajesPage.displayName = 'ProductorMensajesPage';
 
 export default ProductorMensajesPage;
-

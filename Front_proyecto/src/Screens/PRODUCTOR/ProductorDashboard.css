@@ -3,6 +3,339 @@
 .productor-dashboard {
   min-height: 100vh;
   background: var(--bg-secondary);
+  display: flex;
+  width: 100%;
+}
+
+/* ===== SIDEBAR DE NAVEGACIÓN ===== */
+.productor-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+/* Header del sidebar */
+.sidebar-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.panel-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+/* Navegación del sidebar */
+.sidebar-nav {
+  flex: 1;
+  padding: 1rem 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Items de navegación */
+.nav-item {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent !important;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.nav-item:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: white;
+  opacity: 0.9;
+  transform: translateX(5px);
+}
+
+.nav-item.active {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: white;
+  border-left-color: white !important;
+  font-weight: 600;
+}
+
+.nav-item:focus,
+.nav-item:active,
+.nav-item:focus-visible {
+  background: transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ===== TOGGLE DE DISPONIBILIDAD ===== */
+.availability-toggle {
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  background: #f9fafb;
+  transition: all 0.3s ease;
+}
+
+.availability-toggle.available {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.availability-toggle.unavailable {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.availability-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  margin: 0;
+  font-weight: 500;
+}
+
+.availability-checkbox {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #10b981;
+  flex-shrink: 0;
+}
+
+.availability-indicator {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.availability-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.available-status {
+  color: #059669;
+}
+
+.unavailable-status {
+  color: #dc2626;
+}
+
+.availability-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+}
+
+.available-status .availability-icon {
+  background: #10b981;
+  color: white;
+}
+
+.unavailable-status .availability-icon {
+  background: #ef4444;
+  color: white;
+}
+
+.availability-warning {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.availability-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.availability-toggle.available:hover {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.availability-toggle.unavailable:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+/* Footer del sidebar */
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Botón de cerrar sesión en el footer */
+.sidebar-footer .btn,
+.sidebar-footer button,
+.productor-sidebar .sidebar-footer .btn,
+.productor-sidebar .sidebar-footer button {
+  width: 100% !important;
+  padding: 0.75rem 1rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  margin: 0 !important;
+}
+
+.productor-sidebar .sidebar-footer .btn-danger,
+.productor-sidebar .sidebar-footer button.btn-danger,
+.sidebar-footer .btn.btn-danger,
+.sidebar-footer button.btn-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+}
+
+.productor-sidebar .sidebar-footer .btn-danger:hover,
+.productor-sidebar .sidebar-footer button.btn-danger:hover,
+.sidebar-footer .btn.btn-danger:hover,
+.sidebar-footer button.btn-danger:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4) !important;
+}
+
+.productor-sidebar .sidebar-footer .btn-danger:active,
+.productor-sidebar .sidebar-footer button.btn-danger:active,
+.sidebar-footer .btn.btn-danger:active,
+.sidebar-footer button.btn-danger:active {
+  transform: translateY(0) !important;
+}
+
+/* ===== CONTENIDO PRINCIPAL ===== */
+.productor-main {
+  margin-left: 280px;
+  width: calc(100vw - 280px);
+  flex: 1;
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header principal */
+.main-header {
+  background: var(--color-white);
+  border-bottom: 1px solid var(--border-light);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  box-shadow: var(--shadow-xs);
+}
+
+.main-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+/* Contenido principal */
+.main-content {
+  flex: 1;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .productor-sidebar {
+    width: 240px;
+    min-width: 240px;
+  }
+  
+  .productor-main {
+    margin-left: 240px;
+    width: calc(100vw - 240px);
+  }
+}
+
+@media (max-width: 768px) {
+  .productor-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .productor-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .productor-main {
+    margin-left: 0;
+    width: 100vw;
+  }
+  
+  .main-content {
+    padding: var(--spacing-md);
+  }
 }
 
 /* ===== HEADER ===== */
@@ -134,6 +467,33 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+/* Estilos para placeholders rojos cuando los campos están vacíos */
+.form-input.placeholder-error::placeholder,
+.form-input.placeholder-error::-webkit-input-placeholder,
+.form-input.placeholder-error::-moz-placeholder,
+.form-input.placeholder-error:-ms-input-placeholder {
+  color: #dc3545 !important;
+  opacity: 0.8;
+}
+
+.form-input.placeholder-error {
+  border-color: #dc3545;
+}
+
+.form-input.placeholder-error:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+select.placeholder-error {
+  border-color: #dc3545;
+}
+
+select.placeholder-error:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
 .form-textarea {

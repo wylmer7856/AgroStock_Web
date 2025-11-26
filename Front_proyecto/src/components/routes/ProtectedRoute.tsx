@@ -1,5 +1,5 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -9,9 +9,20 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const location = useLocation();
+  const [hasWaited, setHasWaited] = useState(false);
 
-  if (isLoading) {
+  // Esperar un momento para que el AuthContext termine de verificar la autenticación
+  // Esto evita redirecciones innecesarias al login al recargar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasWaited(true);
+    }, 200); // Esperar 200ms para que se complete la verificación inicial
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Mostrar loading mientras se verifica o mientras esperamos
+  if (isLoading || !hasWaited) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
         <div className="spinner-border text-primary" role="status">
@@ -21,9 +32,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     );
   }
 
+  // Solo redirigir al login si realmente no está autenticado después de esperar
   if (!isAuthenticated) {
-    // Guardar la ruta actual para redirigir después del login
-    return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.rol)) {

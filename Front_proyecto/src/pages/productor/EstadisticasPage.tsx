@@ -16,7 +16,7 @@ import {
   BiDownload
 } from 'react-icons/bi';
 
-const ProductorEstadisticasPage: React.FC = () => {
+const ProductorEstadisticasPage: React.FC = React.memo(() => {
   const { user } = useAuth();
 
   // Obtener productos del productor
@@ -32,6 +32,9 @@ const ProductorEstadisticasPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Obtener pedidos del productor
@@ -47,6 +50,9 @@ const ProductorEstadisticasPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   if (loadingProductos || loadingPedidos) {
@@ -405,7 +411,9 @@ const ProductorEstadisticasPage: React.FC = () => {
       </div>
     </div>
   );
-};
+});
+
+ProductorEstadisticasPage.displayName = 'ProductorEstadisticasPage';
 
 export default ProductorEstadisticasPage;
 

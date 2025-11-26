@@ -17,22 +17,33 @@ const NuevoProductoPage: React.FC = () => {
     navigate(fromDashboard ? '/productor/dashboard' : '/productor/productos');
   };
 
-  const handleSuccess = () => {
-    // Invalidar las queries inmediatamente para recargar los productos
-    queryClient.invalidateQueries({ queryKey: ['productos', 'productor'] });
-    queryClient.invalidateQueries({ queryKey: ['productos'] });
+  const handleSuccess = async () => {
+    // Invalidar y refetch las queries para actualizar la lista inmediatamente
+    await queryClient.invalidateQueries({ 
+      queryKey: ['productos', 'productor']
+    });
+    await queryClient.invalidateQueries({ 
+      queryKey: ['productos']
+    });
+    
+    // Forzar refetch de las queries para que se actualicen inmediatamente
+    await queryClient.refetchQueries({ 
+      queryKey: ['productos', 'productor']
+    });
     
     // Mostrar mensaje de éxito
     toast.success('✅ Producto creado exitosamente');
     
-    // Navegar inmediatamente (el mensaje toast se mantiene visible)
-    // Si viene del dashboard, regresar al dashboard, sino a la lista de productos
-    navigate(fromDashboard ? '/productor/dashboard' : '/productor/productos');
+    // Navegar después de un pequeño delay para asegurar que las queries se actualizaron
+    setTimeout(() => {
+      navigate(fromDashboard ? '/productor/dashboard' : '/productor/productos');
+    }, 100);
   };
 
   return (
     <div className="container-fluid py-4">
       <ProductoForm
+        key="nuevo-producto"
         productoId={null}
         onClose={handleClose}
         onSuccess={handleSuccess}

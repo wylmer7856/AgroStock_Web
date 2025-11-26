@@ -68,12 +68,6 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
   // Actualización automática cada 30 segundos
   useEffect(() => {
     cargarUsuarios();
-    
-    const interval = setInterval(() => {
-      cargarUsuarios();
-    }, 30000); // Actualizar cada 30 segundos
-    
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroRol, filtroEstado]);
 

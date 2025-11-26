@@ -49,14 +49,6 @@ export const CategoriasScreen: React.FC<CategoriasScreenProps> = ({ onNavigate }
   useEffect(() => {
     cargarCategorias();
     cargarProductos();
-    
-    // Actualización automática cada 30 segundos
-    const interval = setInterval(() => {
-      cargarCategorias();
-      cargarProductos();
-    }, 30000);
-    
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,0 +1,159 @@
+/* 🛒 CARRITO - MEJORAS VISUALES */
+
+.cart-item-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUp 0.6s ease-out;
+  animation-fill-mode: both;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 1rem;
+  border: 2px solid transparent;
+}
+
+.cart-item-card:hover {
+  transform: translateX(5px);
+  box-shadow: 0 8px 25px rgba(45, 80, 22, 0.15);
+  border-color: #4a7c2a;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.cart-item-card img {
+  transition: transform 0.3s ease;
+  border-radius: 8px;
+}
+
+.cart-item-card:hover img {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cart-quantity-control {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cart-btn-quantity {
+  transition: all 0.3s ease;
+  border: none;
+  background: #f8f9fa;
+  color: #2d5016;
+  font-weight: 600;
+}
+
+.cart-btn-quantity:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  color: white;
+  transform: scale(1.1);
+}
+
+.cart-btn-quantity:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cart-quantity-input {
+  border: none;
+  background: white;
+  font-weight: 600;
+  color: #2d5016;
+}
+
+.cart-btn-delete {
+  transition: all 0.3s ease;
+  border-width: 2px;
+}
+
+.cart-btn-delete:hover {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+  transform: scale(1.15) rotate(5deg);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Mejoras en el resumen del carrito */
+.card.sticky-top {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(45, 80, 22, 0.15);
+  border: 2px solid rgba(45, 80, 22, 0.1);
+}
+
+.card-header.bg-primary {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%) !important;
+  border: none;
+  padding: 1.5rem;
+}
+
+.card-header.bg-primary h5 {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* Mejoras en el botón de checkout */
+.btn-primary.btn-lg {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  border: none;
+  padding: 1rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary.btn-lg::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary.btn-lg:hover::before {
+  width: 400px;
+  height: 400px;
+}
+
+.btn-primary.btn-lg:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(45, 80, 22, 0.4);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras en el header del carrito */
+.d-flex.justify-content-between.align-items-center.mb-4 h2 {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+}
+
+.badge.bg-primary {
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%) !important;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.3);
+}
+
+

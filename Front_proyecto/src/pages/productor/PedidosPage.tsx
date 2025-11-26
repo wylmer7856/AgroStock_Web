@@ -138,20 +138,71 @@ const ProductorPedidosPage: React.FC = () => {
   const pedidosList = React.useMemo(() => {
     const lista = (pedidos || []) as Pedido[];
     return [...lista].sort((a, b) => {
-      const fechaA = a.fecha_pedido ? new Date(a.fecha_pedido).getTime() : 0;
-      const fechaB = b.fecha_pedido ? new Date(b.fecha_pedido).getTime() : 0;
-      return fechaB - fechaA; // Orden descendente (más recientes primero)
+      // Obtener fecha del pedido (puede estar en diferentes campos)
+      const fechaA = a.fecha_pedido || a.fecha_creacion || a.fecha || null;
+      const fechaB = b.fecha_pedido || b.fecha_creacion || b.fecha || null;
+      
+      // Convertir a timestamps
+      const timestampA = fechaA ? new Date(fechaA).getTime() : 0;
+      const timestampB = fechaB ? new Date(fechaB).getTime() : 0;
+      
+      // Si ambos tienen fecha válida, ordenar descendente (más recientes primero)
+      if (timestampA > 0 && timestampB > 0) {
+        return timestampB - timestampA;
+      }
+      
+      // Si solo uno tiene fecha, ponerlo primero
+      if (timestampA > 0 && timestampB === 0) return -1;
+      if (timestampA === 0 && timestampB > 0) return 1;
+      
+      // Si ninguno tiene fecha, mantener orden original
+      return 0;
     });
   }, [pedidos]);
 
-  // Filtrar pedidos
-  const pedidosFiltrados = pedidosList.filter(pedido => {
+  // Filtrar pedidos por cliente, dirección o texto relacionado
+  // Los pedidos filtrados mantienen el orden de pedidosList (más recientes primero)
+  const pedidosFiltrados = React.useMemo(() => {
+    return pedidosList.filter(pedido => {
     const coincideEstado = filtroEstado === 'todos' || pedido.estado === filtroEstado;
-    const coincideBusqueda = !busqueda || 
+    
+    // Si no hay búsqueda, solo filtrar por estado
+    if (!busqueda) {
+      return coincideEstado;
+    }
+    
+    const busquedaLower = busqueda.toLowerCase();
+    
+    // Buscar en múltiples campos
+    const coincideBusqueda = 
+      // ID del pedido
       pedido.id_pedido.toString().includes(busqueda) ||
-      (pedido.direccion_entrega && pedido.direccion_entrega.toLowerCase().includes(busqueda.toLowerCase()));
+      // Nombre del cliente
+      (pedido.consumidor_nombre && pedido.consumidor_nombre.toLowerCase().includes(busquedaLower)) ||
+      // Email del cliente
+      (pedido.consumidor_email && pedido.consumidor_email.toLowerCase().includes(busquedaLower)) ||
+      // Teléfono del cliente
+      (pedido.consumidor_telefono && pedido.consumidor_telefono.includes(busqueda)) ||
+      // Dirección de entrega
+      (pedido.direccion_entrega && pedido.direccion_entrega.toLowerCase().includes(busquedaLower)) ||
+      // Ciudad
+      (pedido.ciudad_nombre && pedido.ciudad_nombre.toLowerCase().includes(busquedaLower)) ||
+      // Departamento
+      (pedido.departamento_nombre && pedido.departamento_nombre.toLowerCase().includes(busquedaLower)) ||
+      // Notas
+      (pedido.notas && pedido.notas.toLowerCase().includes(busquedaLower)) ||
+      // Método de pago
+      (pedido.metodo_pago && pedido.metodo_pago.toLowerCase().includes(busquedaLower)) ||
+      // Estado
+      (pedido.estado && pedido.estado.toLowerCase().includes(busquedaLower)) ||
+      // Buscar en nombres de productos del pedido
+      (pedido.detalles && pedido.detalles.some((detalle: any) => 
+        (detalle.producto_nombre && detalle.producto_nombre.toLowerCase().includes(busquedaLower))
+      ));
+    
     return coincideEstado && coincideBusqueda;
-  });
+    });
+  }, [pedidosList, filtroEstado, busqueda]);
 
   // Estadísticas
   const pedidosPendientes = pedidosList.filter(p => p.estado === 'pendiente').length;
@@ -246,11 +297,33 @@ const ProductorPedidosPage: React.FC = () => {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Buscar por ID o dirección..."
+                placeholder="Buscar por cliente, dirección, ciudad, notas..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
+                title="Busca por nombre de cliente, email, teléfono, dirección, ciudad, departamento, notas o ID de pedido"
               />
+              {busqueda && (
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={() => setBusqueda('')}
+                  title="Limpiar búsqueda"
+                >
+                  <BiXCircle />
+                </button>
+              )}
             </div>
+            {busqueda && (
+              <small className="text-muted mt-1 d-block">
+                <BiFilter className="me-1" />
+                {pedidosFiltrados.length} {pedidosFiltrados.length === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
+                {pedidosFiltrados.length !== pedidosList.length && (
+                  <span className="ms-2">
+                    (de {pedidosList.length} total)
+                  </span>
+                )}
+              </small>
+            )}
           </div>
           <div className="col-md-6">
             <div className="btn-group w-100" role="group">

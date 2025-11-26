@@ -30,13 +30,6 @@ export const ResenasScreen: React.FC<ResenasScreenProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     cargarResenas();
-    
-    // Actualización automática cada 30 segundos
-    const interval = setInterval(() => {
-      cargarResenas();
-    }, 30000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   const cargarResenas = async () => {
