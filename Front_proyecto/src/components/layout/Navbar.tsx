@@ -21,6 +21,8 @@ import {
   BiStore,
   BiCategory,
   BiStar,
+  BiReceipt,
+  BiMessageSquare,
 } from 'react-icons/bi';
 
 interface NavbarProps {
@@ -146,9 +148,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     };
 
     actualizarContadores();
-    // Actualizar cuando cambia la ruta o los datos
-    const interval = setInterval(actualizarContadores, 2000);
-    return () => clearInterval(interval);
+    // Actualizar solo cuando cambia la ruta o los datos (sin intervalo automático)
+    // const interval = setInterval(actualizarContadores, 2000);
+    // return () => clearInterval(interval);
   }, [isAuthenticated, user, location.pathname, carritoData]);
 
   useEffect(() => {
@@ -162,8 +164,9 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // refrescar cada 60s (1 minuto) para evitar refrescos constantes
-    return () => clearInterval(interval);
+    // Deshabilitar autorecarga de notificaciones
+    // const interval = setInterval(fetchNotifications, 60000);
+    // return () => clearInterval(interval);
   }, [isAuthenticated, user, showNotifications]);
 
   // Cerrar menús al hacer clic fuera
@@ -655,10 +658,17 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                         position: 'absolute', 
                         top: '100%', 
                         right: 0,
-                        zIndex: 1050, 
-                        minWidth: '200px',
+                        zIndex: 1055, 
+                        minWidth: '220px',
                         marginTop: '0.5rem',
-                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)'
+                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        borderRadius: '0.5rem',
+                        padding: '0.5rem 0',
+                        display: 'block',
+                        opacity: 1,
+                        visibility: 'visible'
                       }}
                     >
                       <li>
@@ -671,18 +681,61 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                       </li>
                       <li><hr className="dropdown-divider" /></li>
                       
-                      {/* Dashboard - Solo para consumidores */}
+                      {/* Opciones específicas para consumidores */}
                       {user && user.rol === 'consumidor' && (
-                        <li>
-                          <Link 
-                            className="dropdown-item" 
-                            to="/consumidor/dashboard"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <BiStore className="me-2" />
-                            Mi Dashboard
-                          </Link>
-                        </li>
+                        <>
+                          <li>
+                            <Link 
+                              className="dropdown-item" 
+                              to="/consumidor/dashboard"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <BiHome className="me-2" />
+                              Mi Dashboard
+                            </Link>
+                          </li>
+                          <li>
+                            <Link 
+                              className="dropdown-item" 
+                              to="/consumidor/carrito"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <BiCart className="me-2" />
+                              Mi Carrito {carritoCount > 0 && `(${carritoCount})`}
+                            </Link>
+                          </li>
+                          <li>
+                            <Link 
+                              className="dropdown-item" 
+                              to="/consumidor/lista-deseos"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <BiHeart className="me-2" />
+                              Lista de Deseos {listaDeseosCount > 0 && `(${listaDeseosCount})`}
+                            </Link>
+                          </li>
+                          <li>
+                            <Link 
+                              className="dropdown-item" 
+                              to="/consumidor/pedidos"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <BiReceipt className="me-2" />
+                              Mis Pedidos
+                            </Link>
+                          </li>
+                          <li>
+                            <Link 
+                              className="dropdown-item" 
+                              to="/consumidor/mensajes"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              <BiMessageSquare className="me-2" />
+                              Mensajes
+                            </Link>
+                          </li>
+                          <li><hr className="dropdown-divider" /></li>
+                        </>
                       )}
                       
                       {/* Perfil */}
@@ -742,7 +795,23 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="btn btn-light btn-sm ms-2" to="/register">
+                  <Link 
+                    className="btn-register-custom" 
+                    to="/register"
+                    style={{
+                      backgroundColor: '#ffffff',
+                      background: '#ffffff',
+                      color: '#2d5016',
+                      padding: '0.5rem 1.25rem',
+                      fontWeight: '600',
+                      borderRadius: '0.375rem',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                      textDecoration: 'none',
+                      display: 'inline-block',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     Registrarse
                   </Link>
                 </li>

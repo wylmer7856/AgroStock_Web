@@ -132,6 +132,19 @@ class AdminService {
     }
   }
 
+  // Verificar si un usuario tiene registros relacionados
+  async verificarRegistrosUsuario(id: number): Promise<ApiResponse<{ tieneRegistros: boolean; totalRegistros: number; detalles: Record<string, number> }>> {
+    try {
+      const response = await apiService.get<{ tieneRegistros: boolean; totalRegistros: number; detalles: Record<string, number> }>(
+        `/admin/usuario/${id}/verificar`
+      );
+      return response;
+    } catch (error: any) {
+      console.error('[AdminService] Error verificando registros del usuario:', error);
+      throw error;
+    }
+  }
+
   // Eliminar usuario
   async eliminarUsuario(id: number): Promise<ApiResponse & { detalles?: Record<string, number> }> {
     try {
@@ -162,33 +175,65 @@ class AdminService {
   async getProductos(filtros?: FiltrosProductos): Promise<ApiResponse<ProductoDetallado[]>> {
     try {
       const queryString = filtros ? apiService.buildQueryString(filtros) : '';
+      console.log('🔍 [AdminService] Obteniendo productos con queryString:', queryString);
       // ✅ Endpoint correcto del backend - AdminRouter
       const response = await apiService.get<{productos: ProductoDetallado[], total: number} | ProductoDetallado[]>(
         `/admin/productos${queryString}`
       );
       
+      console.log('🔍 [AdminService] Respuesta completa:', response);
+      console.log('🔍 [AdminService] response.success:', response.success);
+      console.log('🔍 [AdminService] response.data:', response.data);
+      console.log('🔍 [AdminService] Tipo de response.data:', typeof response.data, Array.isArray(response.data));
+      
       // Adaptar respuesta según estructura del backend
-      if (response.success && Array.isArray(response.data)) {
+      // El backend puede devolver: { success: true, data: [...], productos: [...], total: N }
+      if (response.success) {
+        let productosData: ProductoDetallado[] = [];
+        
+        // Prioridad 1: Si response.data es un array directo
+        if (Array.isArray(response.data)) {
+          productosData = response.data;
+          console.log('✅ [AdminService] response.data es array, cantidad:', productosData.length);
+        }
+        // Prioridad 2: Si response.data tiene una propiedad 'productos'
+        else if (response.data && typeof response.data === 'object' && 'productos' in response.data) {
+          productosData = Array.isArray((response.data as any).productos) ? (response.data as any).productos : [];
+          console.log('✅ [AdminService] response.data tiene productos, cantidad:', productosData.length);
+        }
+        // Prioridad 3: Si response tiene 'productos' directamente (normalización del apiService)
+        else if ((response as any).productos && Array.isArray((response as any).productos)) {
+          productosData = (response as any).productos;
+          console.log('✅ [AdminService] response tiene productos directamente, cantidad:', productosData.length);
+        }
+        // Prioridad 4: Buscar cualquier array en response.data
+        else if (response.data && typeof response.data === 'object') {
+          console.log('⚠️ [AdminService] response.data es objeto, keys:', Object.keys(response.data));
+          const dataObj = response.data as any;
+          for (const key in dataObj) {
+            if (Array.isArray(dataObj[key])) {
+              productosData = dataObj[key];
+              console.log(`✅ [AdminService] Encontrado array en key "${key}", cantidad:`, productosData.length);
+              break;
+            }
+          }
+        }
+        
         return {
           success: response.success,
-          data: response.data,
-          message: response.message,
-        };
-      } else if (response.data && 'productos' in response.data) {
-        return {
-          success: response.success,
-          data: (response.data as any).productos || [],
+          data: productosData,
           message: response.message,
         };
       }
       
+      console.warn('⚠️ [AdminService] No se pudo extraer productos de la respuesta, devolviendo array vacío');
       return {
-        success: response.success,
+        success: response.success || false,
         data: [],
-        message: response.message,
+        message: response.message || 'No se pudieron obtener los productos',
       };
     } catch (error) {
-      console.error('Error obteniendo productos:', error);
+      console.error('❌ [AdminService] Error obteniendo productos:', error);
       throw error;
     }
   }

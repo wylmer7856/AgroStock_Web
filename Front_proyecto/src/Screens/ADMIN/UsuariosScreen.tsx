@@ -1,6 +1,7 @@
-// 👥 GESTIÓN DE USUARIOS - ADMIN - SIMPLIFICADO
+// 👥 GESTIÓN DE USUARIOS - ADMIN - CON REACT QUERY PARA EVITAR RECARGAS
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from '../../hooks';
 import adminService from '../../services/admin';
 import ubicacionesService from '../../services/ubicaciones';
@@ -55,9 +56,7 @@ const formatearTelefono = (telefono: string | null | undefined): string => {
 };
 
 export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) => {
-  const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [busqueda, setBusqueda] = useState('');
   const [filtroRol, setFiltroRol] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
@@ -65,53 +64,77 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
 
   const busquedaDebounced = useDebounce(busqueda, 300);
 
-  // Actualización automática cada 30 segundos
-  useEffect(() => {
-    cargarUsuarios();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroRol, filtroEstado]);
-
-  const cargarUsuarios = async () => {
-    try {
-      setLoading(true);
-      
+  // Query para cargar usuarios - React Query maneja el cache y actualizaciones
+  const { data: usuarios = [], isLoading: loading, error } = useQuery({
+    queryKey: ['admin', 'usuarios', filtroRol, filtroEstado],
+    queryFn: async () => {
       const filtros: any = {};
       if (filtroRol !== 'todos') filtros.rol = filtroRol;
-      if (filtroEstado !== 'todos') filtros.activo = filtroEstado === 'activos';
+      if (filtroEstado !== 'todos') {
+        // Enviar como string 'true' o 'false' para que el backend lo maneje correctamente
+        filtros.activo = filtroEstado === 'activos' ? 'true' : 'false';
+        console.log('🔍 [UsuariosScreen] Aplicando filtro de estado:', filtroEstado, '-> activo:', filtros.activo);
+      }
       
+      console.log('🔍 [UsuariosScreen] Filtros enviados al backend:', filtros);
       const response = await adminService.getUsuarios(filtros);
+      console.log('🔍 [UsuariosScreen] Usuarios recibidos del backend:', response.data?.length || 0);
       
       if (response.success && Array.isArray(response.data)) {
-        setUsuarios(response.data);
+        return response.data;
       } else {
-        setError('Error cargando usuarios');
+        throw new Error(response.message || 'Error cargando usuarios');
       }
-    } catch (err) {
-      setError('Error cargando usuarios');
-      console.error('Error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const usuariosFiltrados = usuarios.filter(usuario => {
-    if (!busquedaDebounced) return true;
-    const busquedaLower = busquedaDebounced.toLowerCase();
-    return (
-      usuario.nombre?.toLowerCase().includes(busquedaLower) ||
-      usuario.email?.toLowerCase().includes(busquedaLower) ||
-      usuario.telefono?.includes(busquedaDebounced)
-    );
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // Refetch cuando se monta para asegurar datos actualizados
+    refetchOnReconnect: false,
+    staleTime: 0, // Los datos se consideran obsoletos inmediatamente para que se actualicen con los filtros
   });
 
-  const handleDesactivar = async (usuario: UsuarioAdmin) => {
-    const nuevoEstado = !usuario.activo;
-    const accion = nuevoEstado ? 'activar' : 'desactivar';
+  // Filtrar usuarios por búsqueda (filtrado en cliente para mejor UX)
+  // NOTA: Los usuarios ya vienen filtrados por rol y estado desde el backend
+  const usuariosFiltrados = useMemo(() => {
+    console.log('🔍 [UsuariosScreen] usuariosFiltrados - usuarios recibidos:', usuarios.length);
+    console.log('🔍 [UsuariosScreen] usuariosFiltrados - filtroEstado:', filtroEstado);
+    console.log('🔍 [UsuariosScreen] usuariosFiltrados - busquedaDebounced:', busquedaDebounced);
     
-    try {
-      console.log(`[handleDesactivar] ${accion} usuario ${usuario.id_usuario}, estado actual: ${usuario.activo}, nuevo estado: ${nuevoEstado}`);
-      
-      // Obtener datos actuales del usuario para enviarlos al backend
+    // Los usuarios ya vienen filtrados por rol y estado del backend
+    // Solo aplicamos el filtro de búsqueda aquí
+    let resultado = usuarios;
+    
+    // Aplicar filtro de búsqueda si hay texto
+    if (busquedaDebounced) {
+      const busquedaLower = busquedaDebounced.toLowerCase().trim();
+      resultado = resultado.filter(usuario => {
+        const nombreMatch = usuario.nombre?.toLowerCase().includes(busquedaLower);
+        const emailMatch = usuario.email?.toLowerCase().includes(busquedaLower);
+        const telefonoMatch = usuario.telefono?.includes(busquedaDebounced);
+        const idMatch = usuario.id_usuario?.toString().includes(busquedaDebounced);
+        return nombreMatch || emailMatch || telefonoMatch || idMatch;
+      });
+    }
+    
+    // Verificar que los usuarios tengan el estado correcto (doble verificación en frontend)
+    if (filtroEstado !== 'todos') {
+      const estadoEsperado = filtroEstado === 'activos';
+      const antes = resultado.length;
+      resultado = resultado.filter(usuario => {
+        const usuarioActivo = Boolean(usuario.activo);
+        return usuarioActivo === estadoEsperado;
+      });
+      if (antes !== resultado.length) {
+        console.warn(`⚠️ [UsuariosScreen] Se filtraron ${antes - resultado.length} usuarios que no coincidían con el estado esperado`);
+      }
+    }
+    
+    console.log('🔍 [UsuariosScreen] usuariosFiltrados - resultado final:', resultado.length);
+    return resultado;
+  }, [usuarios, busquedaDebounced, filtroEstado]);
+
+  // Mutation para activar/desactivar usuario - solo actualiza la query específica
+  const toggleUsuarioMutation = useMutation({
+    mutationFn: async ({ usuario, nuevoEstado }: { usuario: UsuarioAdmin; nuevoEstado: boolean }) => {
       const usuarioActual = usuarios.find(u => u.id_usuario === usuario.id_usuario);
       if (!usuarioActual) {
         throw new Error('Usuario no encontrado');
@@ -126,43 +149,187 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
         rol: usuarioActual.rol,
         activo: nuevoEstado
       });
-      
-      console.log(`[handleDesactivar] Respuesta del servidor:`, response);
-      
-      if (response.success) {
-        // Recargar la lista de usuarios para obtener datos actualizados
-        await cargarUsuarios();
-        
-        Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: `Usuario ${nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
-          timer: 2000,
-          showConfirmButton: false,
-          toast: true,
-          position: 'top-end'
-        });
-      } else {
-        console.error(`[handleDesactivar] Error en respuesta:`, response);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: response.message || response.error || 'Error cambiando estado del usuario',
-          confirmButtonColor: '#2d5016'
-        });
+
+      if (!response.success) {
+        throw new Error(response.message || response.error || 'Error cambiando estado del usuario');
       }
-    } catch (err: any) {
-      console.error(`[handleDesactivar] Error al ${accion} usuario:`, err);
+
+      return response;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidar todas las queries de usuarios (incluyendo las filtradas) - esto actualiza las tablas sin recargar la página
+      queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios'] });
+      // También invalidar estadísticas si es necesario
+      queryClient.invalidateQueries({ queryKey: ['admin', 'estadisticas'] });
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: `Usuario ${variables.nuevoEstado ? 'activado' : 'desactivado'} exitosamente`,
+        timer: 2000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    },
+    onError: (err: any) => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: err?.message || `Error al ${accion} el usuario`,
+        text: err?.message || 'Error cambiando estado del usuario',
         confirmButtonColor: '#2d5016'
       });
     }
+  });
+
+  const handleDesactivar = async (usuario: UsuarioAdmin) => {
+    const nuevoEstado = !usuario.activo;
+    toggleUsuarioMutation.mutate({ usuario, nuevoEstado });
   };
 
+  // Mutation para eliminar usuario - solo actualiza la query específica
+  const eliminarUsuarioMutation = useMutation({
+    mutationFn: async (usuario: UsuarioAdmin) => {
+      const response = await adminService.eliminarUsuario(usuario.id_usuario);
+      if (!response.success) {
+        throw new Error(response.message || response.error || 'Error eliminando usuario');
+      }
+      return { response, usuario };
+    },
+    onSuccess: (data) => {
+      // Invalidar solo las queries de usuarios - esto actualiza las tablas sin recargar la página
+      queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'estadisticas'] });
+      
+      // Mostrar mensaje de éxito con detalles
+      const { response, usuario } = data;
+      let detallesHTML = '<div style="text-align: left; margin-top: 1rem;">';
+      if (response.detalles) {
+        const detalles = response.detalles;
+        const items: Array<{ label: string; value: number }> = [];
+        
+        if (detalles.productos > 0) items.push({ label: 'Productos', value: detalles.productos });
+        if (detalles.historial_precios > 0) items.push({ label: 'Registros de historial de precios', value: detalles.historial_precios });
+        if (detalles.alertas > 0) items.push({ label: 'Alertas de stock', value: detalles.alertas });
+        
+        const totalPedidos = (detalles.pedidos_consumidor || 0) + (detalles.pedidos_productor || 0);
+        if (totalPedidos > 0) {
+          items.push({ label: 'Pedidos', value: totalPedidos });
+          if (detalles.detalle_pedidos > 0) items.push({ label: 'Detalles de pedidos', value: detalles.detalle_pedidos });
+        }
+        
+        const totalMensajes = (detalles.mensajes_remitente || 0) + (detalles.mensajes_destinatario || 0);
+        if (totalMensajes > 0) items.push({ label: 'Mensajes', value: totalMensajes });
+        
+        if (detalles.carrito > 0) items.push({ label: 'Items del carrito', value: detalles.carrito });
+        if (detalles.lista_deseos > 0) items.push({ label: 'Items de lista de deseos', value: detalles.lista_deseos });
+        if (detalles.notificaciones > 0) items.push({ label: 'Notificaciones', value: detalles.notificaciones });
+        
+        const totalReseñas = (detalles.reseñas_consumidor || 0) + (detalles.reseñas_productor || 0);
+        if (totalReseñas > 0) items.push({ label: 'Reseñas', value: totalReseñas });
+        
+        if (detalles.estadisticas > 0) items.push({ label: 'Registros de estadísticas', value: detalles.estadisticas });
+        
+        if (items.length > 0) {
+          detallesHTML += '<p style="font-weight: 600; margin-bottom: 0.5rem; color: #059669;">✅ También se eliminaron:</p>';
+          detallesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: #6b7280;">';
+          items.forEach(item => {
+            detallesHTML += `<li><strong>${item.value}</strong> ${item.label}</li>`;
+          });
+          detallesHTML += '</ul>';
+        }
+      }
+      detallesHTML += '</div>';
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Usuario eliminado!',
+        html: `
+          <div style="text-align: left;">
+            <p style="font-size: 1.1rem; margin-bottom: 1rem;">El usuario <strong>${usuario.nombre}</strong> ha sido eliminado exitosamente.</p>
+            <p style="color: #059669; font-weight: 600; margin-bottom: 0.5rem;">✅ Se eliminaron todos los registros relacionados en todas las tablas de la base de datos.</p>
+            ${detallesHTML}
+          </div>
+        `,
+        confirmButtonColor: '#2d5016',
+        confirmButtonText: 'Entendido',
+        width: '600px'
+      });
+    },
+    onError: (err: any) => {
+      let mensajeError = 'Error eliminando usuario';
+      if (err?.response?.data?.message) {
+        mensajeError = err.response.data.message;
+      } else if (err?.message) {
+        mensajeError = err.message;
+      }
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: mensajeError,
+        confirmButtonColor: '#2d5016'
+      });
+    }
+  });
+
   const handleEliminar = async (usuario: UsuarioAdmin) => {
+    // Primero verificar si el usuario tiene registros relacionados
+    try {
+      Swal.fire({
+        title: 'Verificando...',
+        text: 'Verificando registros relacionados del usuario',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const verificacion = await adminService.verificarRegistrosUsuario(usuario.id_usuario);
+      
+      if (verificacion.success && verificacion.data?.tieneRegistros) {
+        const detalles = verificacion.data.detalles || {};
+        const totalRegistros = verificacion.data.totalRegistros || 0;
+        const tablas = Object.keys(detalles);
+        
+        let detallesHTML = '<div style="text-align: left; margin-top: 1rem;">';
+        detallesHTML += '<p style="color: #dc2626; font-weight: 600; margin-bottom: 0.5rem;">⚠️ Este usuario tiene registros relacionados:</p>';
+        detallesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: #6b7280;">';
+        tablas.forEach(tabla => {
+          const nombreTabla = tabla === 'productos' ? 'Productos' :
+                             tabla === 'pedidos' ? 'Pedidos' :
+                             tabla === 'mensajes' ? 'Mensajes' :
+                             tabla === 'carrito' ? 'Items en carrito' :
+                             tabla === 'lista_deseos' ? 'Items en lista de deseos' :
+                             tabla === 'reseñas' ? 'Reseñas' :
+                             tabla === 'notificaciones' ? 'Notificaciones' : tabla;
+          detallesHTML += `<li><strong>${detalles[tabla]}</strong> ${nombreTabla}</li>`;
+        });
+        detallesHTML += '</ul>';
+        detallesHTML += '<p style="color: #dc2626; font-weight: 600; margin-top: 1rem;">No se puede eliminar este usuario mientras tenga registros relacionados.</p>';
+        detallesHTML += '</div>';
+
+        Swal.fire({
+          icon: 'error',
+          title: 'No se puede eliminar',
+          html: `
+            <div style="text-align: left;">
+              <p style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">El usuario <strong>${usuario.nombre}</strong> tiene <strong>${totalRegistros}</strong> registro(s) relacionado(s) en <strong>${tablas.length}</strong> tabla(s).</p>
+              ${detallesHTML}
+            </div>
+          `,
+          confirmButtonColor: '#2d5016',
+          confirmButtonText: 'Entendido',
+          width: '600px'
+        });
+        return;
+      }
+    } catch (error: any) {
+      console.error('Error verificando registros:', error);
+      // Si hay error en la verificación, continuar con el proceso normal
+    }
+
+    // Si no tiene registros o hubo error en la verificación, proceder con la eliminación
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       html: `
@@ -207,100 +374,8 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
       }
     });
 
-    try {
-      console.log(`[handleEliminar] Eliminando usuario ${usuario.id_usuario} (${usuario.nombre})`);
-      
-      const response = await adminService.eliminarUsuario(usuario.id_usuario);
-      
-      console.log(`[handleEliminar] Respuesta del servidor:`, response);
-      
-      if (response.success) {
-        // Recargar la lista completa de usuarios
-        await cargarUsuarios();
-        
-        // Construir HTML con detalles
-        let detallesHTML = '<div style="text-align: left; margin-top: 1rem;">';
-        if (response.detalles) {
-          const detalles = response.detalles;
-          const items: Array<{ label: string; value: number }> = [];
-          
-          // Productos y relacionados
-          if (detalles.productos > 0) items.push({ label: 'Productos', value: detalles.productos });
-          if (detalles.historial_precios > 0) items.push({ label: 'Registros de historial de precios', value: detalles.historial_precios });
-          if (detalles.alertas > 0) items.push({ label: 'Alertas de stock', value: detalles.alertas });
-          
-          // Pedidos
-          const totalPedidos = (detalles.pedidos_consumidor || 0) + (detalles.pedidos_productor || 0);
-          if (totalPedidos > 0) {
-            items.push({ label: 'Pedidos', value: totalPedidos });
-            if (detalles.detalle_pedidos > 0) items.push({ label: 'Detalles de pedidos', value: detalles.detalle_pedidos });
-          }
-          
-          // Mensajes
-          const totalMensajes = (detalles.mensajes_remitente || 0) + (detalles.mensajes_destinatario || 0);
-          if (totalMensajes > 0) items.push({ label: 'Mensajes', value: totalMensajes });
-          
-          // Otros datos
-          if (detalles.carrito > 0) items.push({ label: 'Items del carrito', value: detalles.carrito });
-          if (detalles.lista_deseos > 0) items.push({ label: 'Items de lista de deseos', value: detalles.lista_deseos });
-          if (detalles.notificaciones > 0) items.push({ label: 'Notificaciones', value: detalles.notificaciones });
-          
-          // Reseñas
-          const totalReseñas = (detalles.reseñas_consumidor || 0) + (detalles.reseñas_productor || 0);
-          if (totalReseñas > 0) items.push({ label: 'Reseñas', value: totalReseñas });
-          
-          // Estadísticas
-          if (detalles.estadisticas > 0) items.push({ label: 'Registros de estadísticas', value: detalles.estadisticas });
-          
-          if (items.length > 0) {
-            detallesHTML += '<p style="font-weight: 600; margin-bottom: 0.5rem; color: #059669;">✅ También se eliminaron:</p>';
-            detallesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: #6b7280;">';
-            items.forEach(item => {
-              detallesHTML += `<li><strong>${item.value}</strong> ${item.label}</li>`;
-            });
-            detallesHTML += '</ul>';
-          }
-        }
-        detallesHTML += '</div>';
-
-        Swal.fire({
-          icon: 'success',
-          title: '¡Usuario eliminado!',
-          html: `
-            <div style="text-align: left;">
-              <p style="font-size: 1.1rem; margin-bottom: 1rem;">El usuario <strong>${usuario.nombre}</strong> ha sido eliminado exitosamente.</p>
-              <p style="color: #059669; font-weight: 600; margin-bottom: 0.5rem;">✅ Se eliminaron todos los registros relacionados en todas las tablas de la base de datos.</p>
-              ${detallesHTML}
-            </div>
-          `,
-          confirmButtonColor: '#2d5016',
-          confirmButtonText: 'Entendido',
-          width: '600px'
-        });
-      } else {
-        console.error(`[handleEliminar] Error en respuesta:`, response);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: response.message || response.error || 'Error eliminando usuario',
-          confirmButtonColor: '#2d5016'
-        });
-      }
-    } catch (err: any) {
-      console.error(`[handleEliminar] Error al eliminar usuario:`, err);
-      let mensajeError = 'Error eliminando usuario';
-      if (err?.response?.data?.message) {
-        mensajeError = err.response.data.message;
-      } else if (err?.message) {
-        mensajeError = err.message;
-      }
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: mensajeError,
-        confirmButtonColor: '#2d5016'
-      });
-    }
+    // Ejecutar la mutation - esto actualizará solo las queries necesarias sin recargar la página
+    eliminarUsuarioMutation.mutate(usuario);
   };
 
   const getRolBadge = (rol: string) => {
@@ -449,8 +524,8 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
           <Loading text="Cargando usuarios..." />
         ) : error ? (
           <div className="error-message">
-            <p>{error}</p>
-            <Button variant="primary" onClick={cargarUsuarios}>Reintentar</Button>
+            <p>{error instanceof Error ? error.message : 'Error cargando usuarios'}</p>
+            <Button variant="primary" onClick={() => queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios'] })}>Reintentar</Button>
           </div>
         ) : usuariosFiltrados.length === 0 ? (
           <div className="empty-state">
@@ -619,7 +694,7 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="cantidad" fill="#2d5016" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="cantidad" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -749,6 +824,9 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
         onSuccess={() => {
           console.log('[UsuariosScreen] Usuario creado exitosamente');
           setShowCreateModal(false);
+          // Invalidar solo las queries de usuarios - esto actualiza las tablas sin recargar la página
+          queryClient.invalidateQueries({ queryKey: ['admin', 'usuarios'] });
+          queryClient.invalidateQueries({ queryKey: ['admin', 'estadisticas'] });
           Swal.fire({
             icon: 'success',
             title: '¡Usuario creado!',
@@ -758,7 +836,6 @@ export const UsuariosScreen: React.FC<UsuariosScreenProps> = ({ onNavigate }) =>
             toast: true,
             position: 'top-end'
           });
-          cargarUsuarios();
         }}
       />
     </div>

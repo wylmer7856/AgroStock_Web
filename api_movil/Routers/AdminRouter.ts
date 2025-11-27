@@ -7,6 +7,7 @@ const router = new Router();
 // 📌 Rutas para administración de usuarios
 router.get("/admin/usuarios", AuthMiddleware(['admin']), AdminController.ObtenerTodosLosUsuarios);
 router.post("/admin/usuarios/crear", AuthMiddleware(['admin']), AdminController.CrearUsuario);
+router.get("/admin/usuario/:id_usuario/verificar", AuthMiddleware(['admin']), AdminController.VerificarRegistrosUsuario);
 router.put("/admin/usuario/:id_usuario", AuthMiddleware(['admin']), AdminController.EditarUsuario);
 router.delete("/admin/usuario/:id_usuario", AuthMiddleware(['admin']), AdminController.EliminarUsuario);
 

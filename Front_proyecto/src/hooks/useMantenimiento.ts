@@ -60,15 +60,13 @@ export const useMantenimiento = () => {
     // Verificar inmediatamente al montar
     verificarMantenimiento();
 
-    // Verificar solo cuando la pestaña está visible y cada 2 minutos (reducido para evitar recargas)
-    // Solo verifica en segundo plano sin causar re-renders si no hay cambios
-    const interval = setInterval(() => {
-      // Solo verificar si la pestaña está visible
-      if (document.visibilityState === 'visible') {
-        verificarMantenimiento();
-      }
-    }, 120000); // 2 minutos en lugar de 30 segundos
-    return () => clearInterval(interval);
+    // Deshabilitar verificación periódica de mantenimiento (funcionalidad eliminada)
+    // const interval = setInterval(() => {
+    //   if (document.visibilityState === 'visible') {
+    //     verificarMantenimiento();
+    //   }
+    // }, 120000);
+    // return () => clearInterval(interval);
   }, []);
 
   return { isMantenimiento, loading };

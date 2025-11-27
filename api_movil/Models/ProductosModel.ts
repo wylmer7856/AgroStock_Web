@@ -217,6 +217,25 @@ export class ProductosModel {
                 throw new Error("Faltan campos obligatorios: nombre, precio, stock, id_usuario.");
             }
 
+            // Verificar límite de productos por usuario
+            const limiteConfig = await conexion.query(
+                "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
+            );
+            const limiteProductos = limiteConfig.length > 0 ? parseInt(limiteConfig[0].valor) || 100 : 100;
+            
+            const productosUsuario = await conexion.query(
+                "SELECT COUNT(*) as total FROM productos WHERE id_usuario = ?",
+                [id_usuario]
+            );
+            const totalProductos = productosUsuario[0]?.total || 0;
+            
+            if (totalProductos >= limiteProductos) {
+                return {
+                    success: false,
+                    message: `Has alcanzado el límite de ${limiteProductos} productos. No puedes crear más productos.`
+                };
+            }
+
             await conexion.execute("START TRANSACTION");
 
             const result = await conexion.execute(`INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, id_usuario, id_categoria, id_ciudad_origen, unidad_medida, disponible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
