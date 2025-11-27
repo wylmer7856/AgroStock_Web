@@ -19,6 +19,10 @@ PaymentRouter.get("/pagos/pedido/:id_pedido", AuthMiddleware(['consumidor', 'pro
 // Actualizar estado de pago: solo admin o webhook (validación en controller)
 PaymentRouter.put("/pagos/estado", AuthMiddleware(['admin']), PaymentController.actualizarEstadoPago);
 
+// Webhooks de PayU (sin autenticación - PayU los llama directamente)
+PaymentRouter.post("/pagos/payu/confirmacion", PaymentController.payuConfirmacion);
+PaymentRouter.get("/pagos/payu/respuesta", PaymentController.payuRespuesta);
+
 
 
 

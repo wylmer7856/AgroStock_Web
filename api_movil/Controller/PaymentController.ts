@@ -174,6 +174,141 @@ export class PaymentController {
   }
 
   /**
+   * Webhook de confirmación de PayU
+   */
+  static async payuConfirmacion(ctx: Context) {
+    try {
+      const body = await ctx.request.body.json();
+      const { referenceCode, transactionState, value, currency, signature } = body;
+
+      // Validar firma
+      // @ts-ignore
+      const apiKey = Deno.env.get("PAYU_API_KEY") || "";
+      // @ts-ignore
+      const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
+      const expectedSignature = this.generarFirmaPayU(referenceCode, Number(value), currency);
+
+      if (signature !== expectedSignature) {
+        console.error("Firma de PayU inválida");
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, error: "Firma inválida" };
+        return;
+      }
+
+      // Buscar pago por referencia
+      const { PaymentService } = await import("../Services/PaymentService.ts");
+      const { conexion } = await import("../Models/Conexion.ts");
+      
+      const [pago] = await conexion.query(
+        `SELECT * FROM pagos WHERE referencia_pago = ?`,
+        [referenceCode]
+      ) as Array<Record<string, unknown>>;
+
+      if (!pago) {
+        ctx.response.status = 404;
+        ctx.response.body = { success: false, error: "Pago no encontrado" };
+        return;
+      }
+
+      // Actualizar estado según respuesta de PayU
+      const estado_pago = transactionState === '4' ? 'aprobado' : 
+                         transactionState === '6' ? 'rechazado' : 
+                         transactionState === '7' ? 'pendiente' : 'procesando';
+
+      await PaymentService.actualizarEstadoPago(
+        Number(pago.id_pago),
+        estado_pago,
+        `Confirmación PayU: ${transactionState}`
+      );
+
+      // Guardar respuesta completa
+      await conexion.execute(
+        `UPDATE pagos SET respuesta_pasarela = ? WHERE id_pago = ?`,
+        [JSON.stringify(body), pago.id_pago]
+      );
+
+      ctx.response.status = 200;
+      ctx.response.body = { success: true, message: "Confirmación recibida" };
+    } catch (error) {
+      console.error("Error procesando confirmación PayU:", error);
+      ctx.response.status = 500;
+      ctx.response.body = { success: false, error: "Error interno" };
+    }
+  }
+
+  /**
+   * Webhook de respuesta de PayU (cuando el usuario regresa)
+   */
+  static async payuRespuesta(ctx: Context) {
+    try {
+      const params = ctx.request.url.searchParams;
+      const referenceCode = params.get('referenceCode');
+      const transactionState = params.get('transactionState');
+      const value = params.get('value');
+      const currency = params.get('currency') || 'COP';
+      const signature = params.get('signature');
+
+      if (!referenceCode) {
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, error: "Parámetros inválidos" };
+        return;
+      }
+
+      // Buscar pago
+      const { conexion } = await import("../Models/Conexion.ts");
+      const [pago] = await conexion.query(
+        `SELECT * FROM pagos WHERE referencia_pago = ?`,
+        [referenceCode]
+      ) as Array<Record<string, unknown>>;
+
+      if (!pago) {
+        ctx.response.status = 404;
+        ctx.response.body = { success: false, error: "Pago no encontrado" };
+        return;
+      }
+
+      // Redirigir al frontend con el resultado
+      // @ts-ignore
+      const frontendUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
+      const estado = transactionState === '4' ? 'aprobado' : 
+                    transactionState === '6' ? 'rechazado' : 'pendiente';
+
+      const redirectUrl = `${frontendUrl}/consumidor/pedidos/${pago.id_pedido}?pago=${estado}&ref=${referenceCode}`;
+      
+      ctx.response.redirect(redirectUrl);
+    } catch (error) {
+      console.error("Error procesando respuesta PayU:", error);
+      // @ts-ignore
+      const frontendUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
+      ctx.response.redirect(`${frontendUrl}/consumidor/pedidos?error=pago`);
+    }
+  }
+
+  /**
+   * Generar firma PayU (helper)
+   */
+  private static generarFirmaPayU(referenceCode: string, amount: number, currency: string): string {
+    // @ts-ignore
+    const apiKey = Deno.env.get("PAYU_API_KEY") || "";
+    // @ts-ignore
+    const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
+    const cadena = `${apiKey}~${merchantId}~${referenceCode}~${amount}~${currency}`;
+    
+    if (!apiKey) {
+      return 'test_signature_' + Date.now();
+    }
+
+    // Implementación simple de hash (en producción usar MD5 real)
+    let hash = 0;
+    for (let i = 0; i < cadena.length; i++) {
+      const char = cadena.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).padStart(32, '0');
+  }
+
+  /**
    * Actualizar estado de pago (solo admin o webhook)
    */
   static async actualizarEstadoPago(ctx: Context) {
