@@ -19,7 +19,19 @@ interface EstadisticasScreenProps {
   onNavigate: (view: string) => void;
 }
 
-const COLORS = ['#2d5016', '#3d6b1f', '#4a7c23', '#5a8d2a', '#6a9e31', '#7aaf38', '#8ac03f', '#9ad146'];
+// Paleta de colores variada y atractiva para gráficas
+const COLORS = [
+  '#3b82f6', // Azul
+  '#10b981', // Verde esmeralda
+  '#f59e0b', // Ámbar
+  '#ef4444', // Rojo
+  '#8b5cf6', // Púrpura
+  '#06b6d4', // Cian
+  '#f97316', // Naranja
+  '#ec4899', // Rosa
+  '#14b8a6', // Turquesa
+  '#6366f1', // Índigo
+];
 
 export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNavigate }) => {
   // ===== ESTADOS =====
@@ -677,7 +689,7 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="cantidad" fill="#2d5016" />
+                      <Bar dataKey="cantidad" fill="#3b82f6" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </Card>
@@ -733,7 +745,7 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
                       <XAxis dataKey="fecha" />
                       <YAxis />
                       <Tooltip />
-                      <Area type="monotone" dataKey="actividad" stroke="#2d5016" fill="#3d6b1f" fillOpacity={0.6} />
+                      <Area type="monotone" dataKey="actividad" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.4} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </Card>
@@ -748,7 +760,7 @@ export const EstadisticasScreen: React.FC<EstadisticasScreenProps> = ({ onNaviga
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="valor" stroke="#2d5016" strokeWidth={3} />
+                    <Line type="monotone" dataKey="valor" stroke="#f59e0b" strokeWidth={3} dot={{ fill: '#f59e0b', r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </Card>

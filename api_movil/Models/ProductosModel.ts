@@ -217,6 +217,25 @@ export class ProductosModel {
                 throw new Error("Faltan campos obligatorios: nombre, precio, stock, id_usuario.");
             }
 
+            // Verificar límite de productos por usuario
+            const limiteConfig = await conexion.query(
+                "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
+            );
+            const limiteProductos = limiteConfig.length > 0 ? parseInt(limiteConfig[0].valor) || 100 : 100;
+            
+            const productosUsuario = await conexion.query(
+                "SELECT COUNT(*) as total FROM productos WHERE id_usuario = ?",
+                [id_usuario]
+            );
+            const totalProductos = productosUsuario[0]?.total || 0;
+            
+            if (totalProductos >= limiteProductos) {
+                return {
+                    success: false,
+                    message: `Has alcanzado el límite de ${limiteProductos} productos. No puedes crear más productos.`
+                };
+            }
+
             await conexion.execute("START TRANSACTION");
 
             const result = await conexion.execute(`INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, id_usuario, id_categoria, id_ciudad_origen, unidad_medida, disponible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -231,7 +250,7 @@ export class ProductosModel {
             const queryResult = await conexion.query("SELECT * FROM productos ORDER BY id_producto DESC LIMIT 1");
             const nuevoProducto = queryResult[0] as ProductoData;
 
-            let rutaImagen = null;
+            let rutaImagen: string | null = null;
             if (imagenData) {
                 try {
                     rutaImagen = await this.guardarImagen(nuevoProducto.id_producto, imagenData);
@@ -433,7 +452,37 @@ export class ProductosModel {
                 };
             }
 
-            // Eliminar TODOS los detalle_pedidos relacionados (son registros históricos)
+            try {
+                const pedidosActivos = await conexion.query(`
+                    SELECT DISTINCT p.id_pedido, p.estado, p.fecha_pedido
+                    FROM pedidos p
+                    INNER JOIN detalle_pedidos dp ON p.id_pedido = dp.id_pedido
+                    WHERE dp.id_producto = ? 
+                    AND p.estado IN ('pendiente', 'confirmado', 'en_preparacion', 'en_camino')
+                `, [id_producto]);
+
+                if (pedidosActivos && pedidosActivos.length > 0) {
+                    await conexion.execute("ROLLBACK");
+                    const estados = pedidosActivos.map((p: any) => p.estado).join(', ');
+                    const cantidadPedidos = pedidosActivos.length;
+                    console.warn(`⚠️ No se puede eliminar producto ${id_producto}: tiene ${cantidadPedidos} pedido(s) activo(s) con estado(s): ${estados}`);
+                    return {
+                        success: false,
+                        message: `No se puede eliminar el producto porque tiene ${cantidadPedidos} pedido(s) registrado(s) en estado(s): ${estados}. Solo se pueden eliminar productos cuyos pedidos estén entregados o cancelados.`
+                    };
+                }
+                console.log(`✅ Validación de pedidos: producto ${id_producto} no tiene pedidos activos, se puede eliminar`);
+            } catch (validacionError) {
+                console.warn("⚠️ Error al validar pedidos del producto:", validacionError);
+                // Si falla la validación, hacer rollback por seguridad
+                await conexion.execute("ROLLBACK");
+                return {
+                    success: false,
+                    message: "Error al validar pedidos asociados al producto. No se pudo completar la eliminación."
+                };
+            }
+
+            // Eliminar TODOS los detalle_pedidos relacionados (solo los de pedidos finalizados)
             // Los pedidos se mantienen, solo se elimina la referencia al producto
             try {
                 const resultDetalles = await conexion.execute(
@@ -626,7 +675,7 @@ export class ProductosModel {
             const productosDir = join(this.UPLOADS_DIR, "productos");
             if (await this.existeDirectorio(productosDir)) {
                 try {
-                    const items = [];
+                    const items: any[] = [];
                     // @ts-ignore - Deno is a global object in Deno runtime
                     for await (const dirEntry of Deno.readDir(productosDir)) {
                         items.push(dirEntry);
@@ -651,14 +700,10 @@ export class ProductosModel {
             return match ? match[1] : 'jpg';
         }
         
-        // Manejar formato data:image;base64,
         if (imagenData.startsWith('data:image;')) {
-            // Intentar detectar el tipo desde el contenido base64 o usar jpg por defecto
-            // Para JPEG, el inicio suele ser /9j/4AAQ
             if (imagenData.includes('/9j/')) {
                 return 'jpg';
             }
-            // Para PNG, el inicio suele ser iVBORw0KGgo
             if (imagenData.includes('iVBORw0KGgo')) {
                 return 'png';
             }
@@ -693,7 +738,6 @@ export class ProductosModel {
                 return Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
             }
             
-            // Manejar formato data:image;base64,
             if (imagenData.startsWith('data:image;')) {
                 const base64Data = imagenData.split(',')[1];
                 if (!base64Data) {
@@ -771,8 +815,6 @@ export class ProductosModel {
             
             console.log(`✅ [ProductosModel.guardarImagen] Imagen guardada exitosamente`);
             
-            // Retornar la ruta relativa normalizada: uploads/productos/5/imagen_xxx.jpg
-            // Usar siempre / como separador para compatibilidad con URLs
             const rutaRelativa = `uploads/productos/${idProducto.toString()}/${nombreArchivo}`.replace(/\\/g, '/');
             console.log(`🔗 [ProductosModel.guardarImagen] Ruta relativa retornada: ${rutaRelativa}`);
             return rutaRelativa;

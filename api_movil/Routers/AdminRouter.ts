@@ -7,6 +7,7 @@ const router = new Router();
 // 📌 Rutas para administración de usuarios
 router.get("/admin/usuarios", AuthMiddleware(['admin']), AdminController.ObtenerTodosLosUsuarios);
 router.post("/admin/usuarios/crear", AuthMiddleware(['admin']), AdminController.CrearUsuario);
+router.get("/admin/usuario/:id_usuario/verificar", AuthMiddleware(['admin']), AdminController.VerificarRegistrosUsuario);
 router.put("/admin/usuario/:id_usuario", AuthMiddleware(['admin']), AdminController.EditarUsuario);
 router.delete("/admin/usuario/:id_usuario", AuthMiddleware(['admin']), AdminController.EliminarUsuario);
 
@@ -30,6 +31,7 @@ router.get("/admin/usuario/:id_usuario/consumidor", AuthMiddleware(['admin']), A
 // 📌 Rutas para administración de pedidos
 router.get("/admin/pedidos", AuthMiddleware(['admin']), AdminController.ObtenerTodosLosPedidos);
 router.put("/admin/pedido/:id_pedido/estado", AuthMiddleware(['admin']), AdminController.CambiarEstadoPedido);
+router.delete("/admin/pedido/:id_pedido", AuthMiddleware(['admin']), AdminController.EliminarPedido);
 
 // 📌 Rutas para administración de categorías
 router.get("/admin/categorias", AuthMiddleware(['admin']), AdminController.ObtenerTodasLasCategorias);

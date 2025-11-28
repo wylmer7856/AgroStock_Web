@@ -6,6 +6,7 @@ import MainLayout from './components/layout/MainLayout';
 import PublicLayout from './components/layout/PublicLayout';
 import PrivateLayout from './components/layout/PrivateLayout';
 import ConsumerLayout from './components/layout/ConsumerLayout';
+import ProductorLayout from './components/layout/ProductorLayout';
 import LoadingScreen from './components/LoadingScreen';
 import MantenimientoScreen from './components/MantenimientoScreen';
 import { useMantenimiento } from './hooks/useMantenimiento';
@@ -24,7 +25,7 @@ import RecursosPage from './pages/RecursosPage';
 import SoportePage from './pages/SoportePage';
 
 // Páginas de consumidor
-import ConsumidorDashboard from './pages/consumidor/Dashboard';
+import ConsumidorDashboard from './Screens/CONSUMIDOR/Dashboard';
 import CarritoPage from './pages/consumidor/CarritoPage';
 import ListaDeseosPage from './pages/consumidor/ListaDeseosPage';
 import PedidosPage from './pages/consumidor/PedidosPage';
@@ -33,7 +34,7 @@ import ConsumidorPerfilPage from './pages/consumidor/PerfilPage';
 import ConsumidorMensajesPage from './pages/consumidor/MensajesPage';
 
 // Páginas de productor
-import ProductorDashboard from './pages/productor/Dashboard';
+import ProductorDashboard from './Screens/PRODUCTOR/Dashboard';
 import ProductorProductosPage from './pages/productor/ProductosPage';
 import ProductorPedidosPage from './pages/productor/PedidosPage';
 import ProductorMensajesPage from './pages/productor/MensajesPage';
@@ -56,7 +57,7 @@ const getDashboardPath = (rol?: string): string => {
     case 'productor':
       return '/productor/dashboard';
     case 'consumidor':
-      return '/'; // Consumidores van al home
+      return '/consumidor/dashboard'; // Consumidores van a su dashboard
     default:
       return '/login';
   }
@@ -187,7 +188,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/soporte" element={<SoportePage />} />
         </Route>
 
-      {/* Rutas de consumidor - Con navbar y sidebar fijo (ConsumerLayout) */}
+      {/* Rutas de consumidor - Todas con el mismo layout (sidebar, sin navbar) */}
       <Route
         path="/consumidor/*"
         element={
@@ -196,6 +197,7 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
+        <Route path="dashboard" element={<ConsumidorDashboard />} />
         <Route path="carrito" element={<CarritoPage />} />
         <Route path="lista-deseos" element={<ListaDeseosPage />} />
         <Route path="pedidos" element={<PedidosPage />} />
@@ -215,35 +217,25 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        
-        {/* Dashboard de consumidor - Sin navbar (PrivateLayout) */}
-        <Route
-          path="/consumidor/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['consumidor', 'admin']}>
-              <ConsumidorDashboard />
-            </ProtectedRoute>
-          }
-        />
+      </Route>
 
-        {/* Rutas de productor */}
-        <Route
-          path="/productor/*"
-          element={
-            <ProtectedRoute allowedRoles={['productor', 'admin']}>
-              <Routes>
-                <Route path="dashboard" element={<ProductorDashboard />} />
-                <Route path="productos" element={<ProductorProductosPage />} />
-                <Route path="productos/nuevo" element={<NuevoProductoPage />} />
-                <Route path="productos/:id/editar" element={<EditarProductoPage />} />
-                <Route path="pedidos" element={<ProductorPedidosPage />} />
-                <Route path="mensajes" element={<ProductorMensajesPage />} />
-                <Route path="estadisticas" element={<ProductorEstadisticasPage />} />
-                <Route path="perfil" element={<PerfilPage />} />
-              </Routes>
-            </ProtectedRoute>
-          }
-        />
+      {/* Rutas de productor - Todas con ProductorLayout (sidebar, sin navbar) */}
+      <Route
+        path="/productor/*"
+        element={
+          <ProtectedRoute allowedRoles={['productor', 'admin']}>
+            <ProductorLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="dashboard" element={<ProductorDashboard />} />
+        <Route path="productos" element={<ProductorProductosPage />} />
+        <Route path="productos/nuevo" element={<NuevoProductoPage />} />
+        <Route path="productos/:id/editar" element={<EditarProductoPage />} />
+        <Route path="pedidos" element={<ProductorPedidosPage />} />
+        <Route path="mensajes" element={<ProductorMensajesPage />} />
+        <Route path="estadisticas" element={<ProductorEstadisticasPage />} />
+        <Route path="perfil" element={<PerfilPage />} />
       </Route>
 
       {/* Rutas de admin - SIN PrivateLayout, usa su propio layout interno */}
@@ -267,13 +259,37 @@ const AppRoutes: React.FC = () => {
         }
       />
 
-      {/* Rutas protegidas con MainLayout (con navbar) - Otras páginas */}
+      {/* Notificaciones para productor - ProductorLayout (sin navbar) */}
+      <Route
+        path="/notificaciones"
+        element={
+          <ProtectedRoute allowedRoles={['productor']}>
+            <ProductorLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<NotificacionesPage />} />
+      </Route>
+
+      {/* Notificaciones para consumidor - ConsumerLayout (sin navbar) */}
+      <Route
+        path="/notificaciones"
+        element={
+          <ProtectedRoute allowedRoles={['consumidor']}>
+            <ConsumerLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<NotificacionesPage />} />
+      </Route>
+
+      {/* Rutas protegidas con MainLayout (con navbar) - Solo para admin */}
       <Route element={<MainLayout />}>
-        {/* Rutas compartidas (productor, consumidor, admin) */}
+        {/* Notificaciones para admin (con navbar) */}
         <Route
           path="/notificaciones"
           element={
-            <ProtectedRoute allowedRoles={['productor', 'consumidor', 'admin']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <NotificacionesPage />
             </ProtectedRoute>
           }

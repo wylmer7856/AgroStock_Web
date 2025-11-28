@@ -143,7 +143,7 @@ const ConsumidorDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="container">
+      <div className="container" style={{ paddingTop: '1rem' }}>
         {/* Tarjetas de estadísticas mejoradas */}
         <div className="row g-4 mb-4">
           <div className="col-md-3 col-sm-6">

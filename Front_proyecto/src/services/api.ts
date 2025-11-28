@@ -91,6 +91,7 @@ class ApiService {
     }
 
     // Normalizar respuesta: algunos endpoints devuelven {success, data} otros {success, categorias, usuarios, etc}
+    // IMPORTANTE: Solo normalizar si NO existe data.data (para no sobrescribir datos existentes)
     if (data.success && !data.data && (data.categorias || data.usuarios || data.productos || data.reportes || data.acciones || data.pedidos || data.notificaciones || data.mensajes)) {
       // Convertir a formato estándar
       const key = data.categorias ? 'categorias' : 
@@ -113,6 +114,12 @@ class ApiService {
           tipo: typeof data.data
         });
       }
+    }
+    
+    // Si ya existe data.data, asegurarse de que sea un array si viene de productos
+    if (data.success && data.data && data.productos && Array.isArray(data.productos) && !Array.isArray(data.data)) {
+      console.log('🔄 [apiService] data.data no es array pero data.productos sí, usando data.productos');
+      data.data = data.productos;
     }
 
     if (!response.ok) {
@@ -148,12 +155,20 @@ class ApiService {
   ): Promise<ApiResponse<T> | any> {
     const url = `${this.baseURL}${endpoint}`;
     
+    // Si hay body, asegurar que tenga Content-Type
+    const headers: HeadersInit = {
+      ...this.getHeaders(includeAuth),
+      ...options.headers,
+    };
+    
+    // Si hay body y es string (JSON), agregar Content-Type
+    if (options.body && typeof options.body === 'string') {
+      headers['Content-Type'] = 'application/json';
+    }
+    
     const config: RequestInit = {
       ...options,
-      headers: {
-        ...this.getHeaders(includeAuth),
-        ...options.headers,
-      },
+      headers,
     };
 
     try {

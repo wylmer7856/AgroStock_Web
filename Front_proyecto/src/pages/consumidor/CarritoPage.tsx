@@ -123,6 +123,16 @@ const CarritoPage: React.FC = () => {
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['carrito', 'pedidos'] });
+      
+      // Si hay URL de pago (PayU), redirigir
+      if (response.data?.pago?.url_pago) {
+        toast.info('Redirigiendo a PayU para completar el pago...');
+        // Redirigir a PayU
+        window.location.href = response.data.pago.url_pago;
+        return;
+      }
+      
+      // Si no hay pago pendiente, mostrar éxito y navegar
       toast.success('¡Pedido realizado exitosamente!');
       navigate('/consumidor/pedidos');
     },

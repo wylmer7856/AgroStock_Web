@@ -3,8 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { notificacionesService, carritoService, listaDeseosService, imagenesService } from '../../services';
-import { carritoLocalService } from '../../services/carritoLocal';
-import { listaDeseosLocalService } from '../../services/listaDeseosLocal';
 import { toast } from 'react-toastify';
 import logoProyecto from '../../assets/logoProyecto.png';
 import './Navbar.css';
@@ -21,27 +19,13 @@ import {
   BiStore,
   BiCategory,
   BiStar,
+  BiReceipt,
+  BiMessageSquare,
 } from 'react-icons/bi';
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
 }
-
-// Estilos inline para forzar transparencia en navbar
-const navLinkStyle: React.CSSProperties = {
-  backgroundColor: 'transparent',
-  background: 'transparent',
-};
-
-const handleNavLinkMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
-  e.currentTarget.style.setProperty('background-color', 'transparent', 'important');
-  e.currentTarget.style.setProperty('background', 'transparent', 'important');
-};
-
-const handleNavLinkMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
-  e.currentTarget.style.setProperty('background-color', 'transparent', 'important');
-  e.currentTarget.style.setProperty('background', 'transparent', 'important');
-};
 
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -52,33 +36,8 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [notificacionesRecientes, setNotificacionesRecientes] = useState<Notification[]>([]);
   const [notificacionesLoading, setNotificacionesLoading] = useState(false);
   const [notificacionesError, setNotificacionesError] = useState<string | null>(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [carritoCount, setCarritoCount] = useState(0);
-  const [listaDeseosCount, setListaDeseosCount] = useState(0);
 
-  // Forzar estilos de navbar - aplicar cada vez que cambie algo
-  useEffect(() => {
-    const forceTransparent = () => {
-      document.querySelectorAll('.navbar .nav-link').forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        htmlEl.style.setProperty('background', 'transparent', 'important');
-        htmlEl.style.setProperty('background-color', 'transparent', 'important');
-      });
-    };
-    
-    forceTransparent();
-    const observer = new MutationObserver(forceTransparent);
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    const interval = setInterval(forceTransparent, 50);
-    
-    return () => {
-      observer.disconnect();
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Query para carrito cuando está autenticado
+  // Query para carrito - SOLO si está autenticado como consumidor
   const { data: carritoData } = useQuery({
     queryKey: ['carrito'],
     queryFn: async () => {
@@ -91,11 +50,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       }
     },
     enabled: isAuthenticated && user?.rol === 'consumidor',
-    refetchInterval: false, // Desactivar refresco automático para evitar recargas constantes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: 30000,
     retry: 1,
   });
 
-  // Query para lista de deseos cuando está autenticado
+  // Query para lista de deseos - SOLO si está autenticado como consumidor
   const { data: listaDeseosData } = useQuery({
     queryKey: ['lista-deseos'],
     queryFn: async () => {
@@ -108,86 +69,49 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       }
     },
     enabled: isAuthenticated && user?.rol === 'consumidor',
-    refetchInterval: false, // Desactivar refresco automático para evitar recargas constantes
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: 30000,
     retry: 1,
   });
 
-  // Actualizar contador de lista de deseos cuando cambian los datos
-  useEffect(() => {
-    if (isAuthenticated && user?.rol === 'consumidor') {
-      if (Array.isArray(listaDeseosData)) {
-        setListaDeseosCount(listaDeseosData.length);
-      } else {
-        setListaDeseosCount(0);
-      }
-    } else {
-      // Usar datos locales
-      const listaDeseos = listaDeseosLocalService.obtenerListaDeseos();
-      setListaDeseosCount(listaDeseos?.length || 0);
-    }
-  }, [listaDeseosData, isAuthenticated, user]);
+  const itemsCarrito = carritoData?.items?.length || 0;
+  const itemsListaDeseos = listaDeseosData?.length || 0;
 
-  // Cargar contadores de carrito
+  // Cargar notificaciones solo si está autenticado
   useEffect(() => {
-    const actualizarContadores = () => {
+    if (!isAuthenticated || !user) {
+      setNotificacionesNoLeidas(0);
+      return;
+    }
+
+    const cargarNotificaciones = async () => {
       try {
-        if (isAuthenticated && user?.rol === 'consumidor') {
-          // Usar datos del servidor
-          setCarritoCount(carritoData?.items?.length || 0);
-        } else {
-          // Usar datos locales
-          const carrito = carritoLocalService.obtenerCarrito();
-          setCarritoCount(carrito?.items?.length || 0);
+        const response = await notificacionesService.contarNoLeidas();
+        if (response.success && typeof response.data === 'number') {
+          setNotificacionesNoLeidas(response.data);
         }
       } catch (error) {
-        console.error('Error actualizando contadores:', error);
-        setCarritoCount(0);
+        console.error('Error cargando notificaciones:', error);
       }
     };
 
-    actualizarContadores();
-    // Actualizar cuando cambia la ruta o los datos
-    const interval = setInterval(actualizarContadores, 2000);
+    cargarNotificaciones();
+    const interval = setInterval(cargarNotificaciones, 30000); // Actualizar cada 30 segundos
     return () => clearInterval(interval);
-  }, [isAuthenticated, user, location.pathname, carritoData]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-
-    const fetchNotifications = () => {
-      cargarNotificacionesNoLeidas();
-      if (showNotifications) {
-        cargarNotificacionesRecientes();
-      }
-    };
-
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // refrescar cada 60s (1 minuto) para evitar refrescos constantes
-    return () => clearInterval(interval);
-  }, [isAuthenticated, user, showNotifications]);
+  }, [isAuthenticated, user]);
 
   // Cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      try {
-        const target = event.target as HTMLElement;
-        if (target && !target.closest('.dropdown')) {
-          setShowUserMenu(false);
-          setShowNotifications(false);
-        }
-      } catch (error) {
-        console.error('Error en handleClickOutside:', error);
+      const target = event.target as HTMLElement;
+      if (target && !target.closest('.dropdown')) {
+        setShowNotifications(false);
       }
     };
 
-    if (typeof document !== 'undefined') {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        if (typeof document !== 'undefined') {
-          document.removeEventListener('mousedown', handleClickOutside);
-        }
-      };
-    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -213,31 +137,16 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     }
   };
 
-  const cargarNotificacionesNoLeidas = async () => {
-    try {
-      const response = await notificacionesService.contarNoLeidas();
-      if (response.success && typeof response.data === 'number') {
-        setNotificacionesNoLeidas(response.data);
-      }
-    } catch (error) {
-      console.error('Error cargando notificaciones:', error);
-    }
-  };
-
   const handleToggleNotifications = () => {
     const nextValue = !showNotifications;
     setShowNotifications(nextValue);
     if (nextValue) {
-      setShowUserMenu(false);
       cargarNotificacionesRecientes();
-      cargarNotificacionesNoLeidas();
     }
   };
 
   const handleNotificationClick = async (notificacion: Notification) => {
     setShowNotifications(false);
-    const navigateTo = '/notificaciones';
-
     if (!notificacion.leida) {
       try {
         await notificacionesService.marcarComoLeida(notificacion.id_notificacion);
@@ -251,8 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         console.error('Error marcando notificación como leída:', error);
       }
     }
-
-    navigate(navigateTo);
+    navigate('/notificaciones');
   };
 
   const handleLogout = async () => {
@@ -306,10 +214,15 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     }
   };
 
+  // No mostrar navbar en rutas del consumidor (tienen su propio layout)
+  if (location.pathname.startsWith('/consumidor/') || location.pathname === '/consumidor') {
+    return null;
+  }
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
       <div className="container-fluid">
-        {/* Logo y Toggle */}
+        {/* Logo */}
         <Link 
           className="navbar-brand d-flex align-items-center fw-bold" 
           to="/"
@@ -334,16 +247,12 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
         {/* Navbar Collapse */}
         <div className="collapse navbar-collapse" id="navbarNav">
-          {/* Links principales */}
+          {/* Links principales - Siempre visibles */}
           <ul className="navbar-nav me-auto">
-            {/* Inicio - Siempre visible */}
             <li className="nav-item">
               <Link 
                 className={`nav-link ${location.pathname === '/' ? 'active fw-bold' : ''}`} 
                 to="/"
-                style={navLinkStyle}
-                onMouseEnter={handleNavLinkMouseEnter}
-                onMouseLeave={handleNavLinkMouseLeave}
                 onClick={(e) => {
                   if (location.pathname === '/') {
                     e.preventDefault();
@@ -356,29 +265,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </Link>
             </li>
 
-            {/* Productos - Siempre visible */}
-            <li className="nav-item">
-              <Link 
-                className={`nav-link ${location.pathname.startsWith('/productos') && !location.pathname.startsWith('/productor/productos') ? 'active fw-bold' : ''}`} 
-                to="/productos"
-                style={navLinkStyle}
-                onMouseEnter={handleNavLinkMouseEnter}
-                onMouseLeave={handleNavLinkMouseLeave}
-              >
-                <BiPackage className="me-1" />
-                Productos
-              </Link>
-            </li>
-
-            {/* Categorías - Solo en inicio, scroll a sección */}
+            {/* Categorías - Solo en inicio */}
             {location.pathname === '/' && (
               <li className="nav-item">
                 <button
                   className="nav-link border-0 bg-transparent text-white"
                   onClick={() => handleScrollToSection('categorias-section')}
-                  style={{ cursor: 'pointer', backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  style={{ cursor: 'pointer' }}
                 >
                   <BiCategory className="me-1" />
                   Categorías
@@ -386,15 +279,24 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </li>
             )}
 
-            {/* Productos Destacados - Solo en inicio, scroll a sección */}
+            {/* Productos */}
+            <li className="nav-item">
+              <Link 
+                className={`nav-link ${location.pathname === '/productos' ? 'active fw-bold' : ''}`} 
+                to="/productos"
+              >
+                <BiPackage className="me-1" />
+                Productos
+              </Link>
+            </li>
+
+            {/* Destacados - Solo en inicio */}
             {location.pathname === '/' && (
               <li className="nav-item">
                 <button
                   className="nav-link border-0 bg-transparent text-white"
                   onClick={() => handleScrollToSection('productos-destacados')}
-                  style={{ cursor: 'pointer', backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  style={{ cursor: 'pointer' }}
                 >
                   <BiStar className="me-1" />
                   Destacados
@@ -408,341 +310,214 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <Link 
                   className={`nav-link ${location.pathname.startsWith('/productor/productos') ? 'active fw-bold' : ''}`} 
                   to="/productor/productos"
-                  style={{ backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <BiPackage className="me-1" />
                   Mis Productos
                 </Link>
               </li>
             )}
-
           </ul>
 
           {/* Items del lado derecho */}
           <ul className="navbar-nav ms-auto align-items-center">
-            {/* Lista de deseos - Oculto en login, inicio (si no es consumidor), y en notificaciones si es productor */}
-            {(location.pathname !== '/login' && 
-              (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor')) &&
-              !(location.pathname === '/notificaciones' && user?.rol === 'productor')) && (
+            {/* Lista de deseos - SOLO si está autenticado como consumidor */}
+            {isAuthenticated && user?.rol === 'consumidor' && (
               <li className="nav-item">
-                {isAuthenticated && user?.rol === 'consumidor' ? (
-                  <Link 
-                    className={`nav-link position-relative ${location.pathname === '/consumidor/lista-deseos' || location.pathname === '/lista-deseos' ? 'active' : ''}`} 
-                    to="/consumidor/lista-deseos"
-                    title="Lista de Deseos"
-                    style={navLinkStyle}
-                    onMouseEnter={handleNavLinkMouseEnter}
-                    onMouseLeave={handleNavLinkMouseLeave}
-                  >
-                    <BiHeart className="fs-5" />
-                    {listaDeseosCount > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                      </span>
-                    )}
-                  </Link>
-                ) : (
-                  <span
-                    className="nav-link position-relative"
-                    style={{ ...navLinkStyle, cursor: 'pointer' }}
-                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
-                    title="Inicia sesión para ver tu lista de deseos"
-                    onMouseEnter={handleNavLinkMouseEnter}
-                    onMouseLeave={handleNavLinkMouseLeave}
-                  >
-                    <BiHeart className="fs-5" />
-                    {listaDeseosCount > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                        {listaDeseosCount > 9 ? '9+' : listaDeseosCount}
-                      </span>
-                    )}
-                  </span>
-                )}
+                <Link 
+                  className="nav-link position-relative"
+                  to="/consumidor/lista-deseos"
+                  title="Lista de Deseos"
+                >
+                  <BiHeart />
+                  {itemsListaDeseos > 0 && (
+                    <span className="badge">
+                      {itemsListaDeseos > 9 ? '9+' : itemsListaDeseos}
+                    </span>
+                  )}
+                </Link>
               </li>
             )}
 
-            {/* Carrito - Oculto en login, inicio (si no es consumidor), y en notificaciones si es productor */}
-            {(location.pathname !== '/login' && 
-              (location.pathname !== '/' || (isAuthenticated && user?.rol === 'consumidor')) &&
-              !(location.pathname === '/notificaciones' && user?.rol === 'productor')) && (
+            {/* Carrito - SOLO si está autenticado como consumidor */}
+            {isAuthenticated && user?.rol === 'consumidor' && (
               <li className="nav-item">
-                {isAuthenticated && user?.rol === 'consumidor' ? (
-                  <Link 
-                    className={`nav-link position-relative ${location.pathname === '/consumidor/carrito' || location.pathname === '/carrito' ? 'active' : ''}`} 
-                    to="/consumidor/carrito"
-                    title="Carrito de Compras"
-                    style={navLinkStyle}
-                    onMouseEnter={handleNavLinkMouseEnter}
-                    onMouseLeave={handleNavLinkMouseLeave}
-                  >
-                    <BiCart className="fs-5" />
-                    {carritoCount > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                        {carritoCount > 9 ? '9+' : carritoCount}
-                      </span>
-                    )}
-                  </Link>
-                ) : (
-                  <span
-                    className="nav-link position-relative"
-                    style={{ ...navLinkStyle, cursor: 'pointer' }}
-                    onClick={() => navigate('/login', { state: { from: location.pathname } })}
-                    title="Inicia sesión para ver tu carrito"
-                    onMouseEnter={handleNavLinkMouseEnter}
-                    onMouseLeave={handleNavLinkMouseLeave}
-                  >
-                    <BiCart className="fs-5" />
-                    {carritoCount > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.65rem' }}>
-                        {carritoCount > 9 ? '9+' : carritoCount}
-                      </span>
-                    )}
-                  </span>
-                )}
+                <Link 
+                  className="nav-link position-relative"
+                  to="/consumidor/carrito"
+                  title="Carrito de Compras"
+                >
+                  <BiCart />
+                  {itemsCarrito > 0 && (
+                    <span className="badge">
+                      {itemsCarrito > 9 ? '9+' : itemsCarrito}
+                    </span>
+                  )}
+                </Link>
               </li>
             )}
 
+            {/* Si está autenticado */}
             {isAuthenticated && user ? (
               <>
-
                 {/* Notificaciones */}
-                <li className="nav-item dropdown" style={{ position: 'relative' }}>
+                <li className="nav-item dropdown">
                   <button
-                    className="nav-link position-relative btn btn-link text-white border-0 p-2"
+                    className="nav-link position-relative btn btn-link text-white border-0"
                     onClick={handleToggleNotifications}
                     type="button"
-                    style={{ backgroundColor: 'transparent' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    title="Notificaciones"
+                    aria-expanded={showNotifications}
                   >
-                    <BiBell className="fs-5" />
+                    <BiBell />
                     {notificacionesNoLeidas > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                      <span className="badge">
                         {notificacionesNoLeidas > 9 ? '9+' : notificacionesNoLeidas}
                       </span>
                     )}
                   </button>
                   {showNotifications && (
-                    <div
-                      className="dropdown-menu dropdown-menu-end show"
-                      style={{
-                        position: 'absolute',
-                        top: '100%',
-                        right: 0,
-                        zIndex: 1050,
-                        minWidth: '320px',
-                        maxWidth: '360px',
-                        marginTop: '0.5rem',
-                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
-                        borderRadius: '0.75rem',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-                        <strong>Notificaciones</strong>
-                        <button
-                          className="btn btn-link btn-sm p-0 text-decoration-none"
-                          onClick={() => {
-                            setShowNotifications(false);
-                            navigate('/notificaciones');
-                          }}
-                        >
-                          Ver todas
-                        </button>
-                      </div>
-                      <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
-                        {notificacionesLoading ? (
-                          <div className="text-center py-4">
-                            <div className="spinner-border text-primary" role="status">
-                              <span className="visually-hidden">Cargando...</span>
+                    <>
+                      <div 
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 1054,
+                          backgroundColor: 'transparent'
+                        }}
+                        onClick={() => setShowNotifications(false)}
+                      />
+                      <div
+                        className="dropdown-menu dropdown-menu-end show"
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 0.5rem)',
+                          right: 0,
+                          zIndex: 1055,
+                          minWidth: '320px',
+                          maxWidth: '400px',
+                          boxShadow: '0 0.5rem 1.5rem rgba(0, 0, 0, 0.25)',
+                          border: '1px solid rgba(0, 0, 0, 0.15)',
+                          borderRadius: '0.5rem',
+                          padding: 0,
+                          maxHeight: '500px',
+                          overflowY: 'auto'
+                        }}
+                      >
+                        <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-primary text-white" style={{ borderRadius: '0.5rem 0.5rem 0 0' }}>
+                          <strong>Notificaciones</strong>
+                          <button
+                            className="btn btn-link btn-sm p-0 text-white text-decoration-none"
+                            onClick={() => {
+                              setShowNotifications(false);
+                              navigate('/notificaciones');
+                            }}
+                          >
+                            Ver todas
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                          {notificacionesLoading ? (
+                            <div className="text-center py-4">
+                              <div className="spinner-border text-primary" role="status">
+                                <span className="visually-hidden">Cargando...</span>
+                              </div>
                             </div>
-                          </div>
-                        ) : notificacionesError ? (
-                          <div className="text-center text-muted small py-3 px-3">
-                            {notificacionesError}
-                          </div>
-                        ) : notificacionesRecientes.length === 0 ? (
-                          <div className="text-center text-muted small py-3 px-3">
-                            No tienes notificaciones recientes
-                          </div>
-                        ) : (
-                          notificacionesRecientes.map((notificacion) => (
-                            <button
-                              key={notificacion.id_notificacion}
-                              className={`dropdown-item text-wrap ${notificacion.leida ? '' : 'fw-semibold'}`}
-                              style={{ whiteSpace: 'normal' }}
-                              onClick={() => handleNotificationClick(notificacion)}
-                            >
-                              <div className="d-flex justify-content-between">
-                                <span>{notificacion.titulo}</span>
-                                <small className="text-muted">
+                          ) : notificacionesError ? (
+                            <div className="text-center text-muted small py-3 px-3">
+                              {notificacionesError}
+                            </div>
+                          ) : notificacionesRecientes.length === 0 ? (
+                            <div className="text-center text-muted small py-4 px-3">
+                              No tienes notificaciones recientes
+                            </div>
+                          ) : (
+                            notificacionesRecientes.map((notificacion) => (
+                              <button
+                                key={notificacion.id_notificacion}
+                                className={`dropdown-item text-wrap ${notificacion.leida ? '' : 'fw-semibold bg-light'}`}
+                                style={{ 
+                                  whiteSpace: 'normal',
+                                  borderLeft: !notificacion.leida ? '3px solid #0d6efd' : 'none',
+                                  padding: '0.75rem 1rem'
+                                }}
+                                onClick={() => handleNotificationClick(notificacion)}
+                              >
+                                <div className="d-flex justify-content-between align-items-start mb-1">
+                                  <div className="flex-grow-1">
+                                    <div className="fw-semibold">{notificacion.titulo}</div>
+                                    <div className="small text-muted mt-1">{notificacion.mensaje}</div>
+                                  </div>
+                                  {!notificacion.leida && (
+                                    <span className="badge bg-primary rounded-pill ms-2">Nueva</span>
+                                  )}
+                                </div>
+                                <div className="small text-muted mt-1">
                                   {new Date(notificacion.fecha_creacion).toLocaleDateString('es-CO', {
                                     day: '2-digit',
-                                    month: 'short'
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
                                   })}
-                                </small>
-                              </div>
-                              <small className="text-muted d-block">
-                                {notificacion.mensaje}
-                              </small>
-                            </button>
-                          ))
-                        )}
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </li>
 
-                {/* Menú de usuario */}
-                <li className="nav-item dropdown" style={{ position: 'relative' }}>
-                  <button
-                    className="nav-link dropdown-toggle d-flex align-items-center text-white border-0 bg-transparent"
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    type="button"
-                    style={{ backgroundColor: 'transparent' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                {/* Perfil - Solo imagen, click directo al dashboard */}
+                <li className="nav-item">
+                  <Link
+                    className="nav-link position-relative"
+                    to={
+                      user?.rol === 'consumidor'
+                        ? '/consumidor/dashboard'
+                        : user?.rol === 'productor'
+                        ? '/productor/dashboard'
+                        : user?.rol === 'admin'
+                        ? '/admin/dashboard'
+                        : '/'
+                    }
+                    title={`Ir a mi Dashboard - ${user.nombre}`}
                   >
                     {user.foto_perfil ? (
-                      <div className="position-relative me-2" style={{ width: '32px', height: '32px' }}>
-                        <img
-                          src={imagenesService.construirUrlImagen(user.foto_perfil) || ''}
-                          alt={user.nombre}
-                          className="rounded-circle"
-                          style={{ width: '32px', height: '32px', objectFit: 'cover' }}
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            console.error('❌ [Navbar] Error cargando imagen de perfil:', {
-                              foto_perfil: user.foto_perfil,
-                              url: img.src,
-                              user: user.nombre
-                            });
-                            img.style.display = 'none';
-                          }}
-                          onLoad={() => {
-                            console.log('✅ [Navbar] Imagen de perfil cargada exitosamente:', {
-                              foto_perfil: user.foto_perfil,
-                              url: imagenesService.construirUrlImagen(user.foto_perfil)
-                            });
-                          }}
-                        />
-                        <div 
-                          className="position-absolute rounded-circle bg-primary d-flex align-items-center justify-content-center"
-                          style={{ 
-                            bottom: '-2px', 
-                            right: '-2px', 
-                            width: '14px', 
-                            height: '14px',
-                            border: '2px solid white'
-                          }}
-                        >
-                          <BiUser style={{ fontSize: '8px', color: 'white' }} />
-                        </div>
-                      </div>
+                      <img
+                        src={imagenesService.construirUrlImagen(user.foto_perfil) || ''}
+                        alt={user.nombre}
+                        className="rounded-circle"
+                        style={{ width: '32px', height: '32px', objectFit: 'cover' }}
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          img.style.display = 'none';
+                        }}
+                      />
                     ) : (
-                      <div className="bg-white bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px' }}>
+                      <div className="bg-white bg-opacity-20 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
                         {getRolIcon()}
                       </div>
                     )}
-                    <span className="d-none d-md-inline">{user.nombre}</span>
-                  </button>
-                  {showUserMenu && (
-                    <ul 
-                      className="dropdown-menu dropdown-menu-end show" 
-                      style={{ 
-                        position: 'absolute', 
-                        top: '100%', 
-                        right: 0,
-                        zIndex: 1050, 
-                        minWidth: '200px',
-                        marginTop: '0.5rem',
-                        boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)'
-                      }}
-                    >
-                      <li>
-                        <h6 className="dropdown-header">
-                          {user?.nombre || 'Usuario'}
-                        </h6>
-                        <small className="dropdown-header text-muted">
-                          {getRolLabel()}
-                        </small>
-                      </li>
-                      <li><hr className="dropdown-divider" /></li>
-                      
-                      {/* Dashboard - Solo para consumidores */}
-                      {user && user.rol === 'consumidor' && (
-                        <li>
-                          <Link 
-                            className="dropdown-item" 
-                            to="/consumidor/dashboard"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <BiStore className="me-2" />
-                            Mi Dashboard
-                          </Link>
-                        </li>
-                      )}
-                      
-                      {/* Perfil */}
-                      <li>
-                        <Link 
-                          className="dropdown-item" 
-                          to={
-                            user?.rol === 'productor' 
-                              ? '/productor/perfil' 
-                              : user?.rol === 'admin'
-                              ? '/admin/perfil'
-                              : '/consumidor/perfil'
-                          }
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          <BiUser className="me-2" />
-                          👤 Mi Perfil
-                        </Link>
-                      </li>
-                      
-                      {/* Panel Admin */}
-                      {user && user.rol === 'admin' && (
-                        <li>
-                          <Link 
-                            className="dropdown-item" 
-                            to="/admin/dashboard"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <BiStore className="me-2" />
-                            Panel Admin
-                          </Link>
-                        </li>
-                      )}
-                      
-                      <li><hr className="dropdown-divider" /></li>
-                      <li>
-                        <button 
-                          className="dropdown-item text-danger" 
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            handleLogout();
-                          }}
-                        >
-                          <BiLogOut className="me-2" />
-                          Cerrar Sesión
-                        </button>
-                      </li>
-                    </ul>
-                  )}
+                  </Link>
                 </li>
               </>
             ) : (
               <>
+                {/* Si NO está autenticado */}
                 <li className="nav-item">
                   <Link className="nav-link" to="/login">
                     Iniciar Sesión
                   </Link>
                 </li>
                 <li className="nav-item">
-                  <Link className="btn btn-light btn-sm ms-2" to="/register">
+                  <Link 
+                    className="btn-register-custom" 
+                    to="/register"
+                  >
                     Registrarse
                   </Link>
                 </li>

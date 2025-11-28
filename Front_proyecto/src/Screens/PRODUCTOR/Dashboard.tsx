@@ -1,873 +1,701 @@
-// 🌾 DASHBOARD DEL PRODUCTOR - GESTIÓN DE PRODUCTOS Y VENTAS
+// DASHBOARD PRINCIPAL DEL PRODUCTOR - Solo contenido (el layout maneja el sidebar)
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { productosService, pedidosService, notificacionesService } from '../../services';
 import { useAuth } from '../../contexts/AuthContext';
-import { Card, Button, Badge, Loading, Toast } from '../../components/ReusableComponents';
-import AgroStockLogo from '../../components/AgroStockLogo';
-import { productosService, pedidosService, productoresService, imagenesService } from '../../services';
-import type { Producto, ProductorProfile } from '../../types';
-import PerfilProductor from './PerfilProductor';
-import ConfirmModal from '../../components/ConfirmModal';
-import { BiLeftArrow, BiRightArrow } from 'react-icons/bi';
-import './ProductorDashboard.css';
+import { toast } from 'react-toastify';
+import { 
+  BiPackage, BiReceipt, BiTrendingUp, BiBell, BiPlus, BiEdit, BiTrash, 
+  BiDollar, BiCheckCircle, BiTime, BiShoppingBag, BiBarChartAlt2,
+  BiCalendar, BiStore, BiRightArrowAlt
+} from 'react-icons/bi';
+import '../../Screens/ADMIN/AdminScreens.css';
+import './ProductorScreens.css';
 
-interface ProductorDashboardProps {
-  onNavigate?: (view: string) => void;
-}
+const ProductorDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<any>(null);
 
-// Componente de tarjeta de producto con galería
-interface ProductoCardConGaleriaProps {
-  producto: Producto;
-  todasLasImagenes: string[];
-  onEditar: () => void;
-  onEliminar: () => void;
-}
+  // Queries para estadísticas
+  const { data: misProductos } = useQuery({
+    queryKey: ['productos', 'productor', user?.id_usuario],
+    queryFn: async () => {
+      if (!user?.id_usuario) return [];
+      const response = await productosService.obtenerProductosPorUsuario(user.id_usuario);
+      return response.data || [];
+    },
+    enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-const ProductoCardConGaleria: React.FC<ProductoCardConGaleriaProps> = ({ 
-  producto, 
-  todasLasImagenes, 
-  onEditar, 
-  onEliminar 
-}) => {
-  const [imagenActualIndex, setImagenActualIndex] = useState(0);
+  const { data: pedidos } = useQuery({
+    queryKey: ['pedidos', 'productor', user?.id_usuario],
+    queryFn: async () => {
+      if (!user?.id_usuario) return [];
+      const response = await pedidosService.obtenerMisPedidos('productor', user.id_usuario);
+      return response.data || [];
+    },
+    enabled: !!user?.id_usuario,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const siguienteImagen = () => {
-    if (todasLasImagenes.length > 0) {
-      setImagenActualIndex((prev) => (prev + 1) % todasLasImagenes.length);
-    }
-  };
+  const { data: notificacionesNoLeidas } = useQuery({
+    queryKey: ['notificaciones', 'contar'],
+    queryFn: async () => {
+      const response = await notificacionesService.contarNoLeidas();
+      return response.data || 0;
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-  const anteriorImagen = () => {
-    if (todasLasImagenes.length > 0) {
-      setImagenActualIndex((prev) => (prev - 1 + todasLasImagenes.length) % todasLasImagenes.length);
-    }
-  };
-
-  return (
-    <Card className="producto-card-detalle">
-      {todasLasImagenes.length > 0 && (
-        <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
-          <img 
-            src={todasLasImagenes[imagenActualIndex]} 
-            alt={producto.nombre}
-            className="producto-imagen"
-            style={{ width: '100%', display: 'block' }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-          {todasLasImagenes.length > 1 && (
-            <>
-              {/* Flecha izquierda - centrada verticalmente */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  anteriorImagen();
-                }}
-                className="btn"
-                style={{ 
-                  position: 'absolute',
-                  left: '15px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'white',
-                  color: '#333',
-                  border: '2px solid rgba(0, 0, 0, 0.1)',
-                  borderRadius: '50%',
-                  width: '50px',
-                  height: '50px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 20,
-                  fontSize: '24px',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                  fontWeight: 'bold',
-                  margin: 0,
-                  padding: 0
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f0f0f0';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.3)';
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.1)';
-                }}
-                title="Imagen anterior"
-              >
-                <BiLeftArrow />
-              </button>
-              
-              {/* Flecha derecha - centrada verticalmente */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  siguienteImagen();
-                }}
-                className="btn"
-                style={{ 
-                  position: 'absolute',
-                  right: '15px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'white',
-                  color: '#333',
-                  border: '2px solid rgba(0, 0, 0, 0.1)',
-                  borderRadius: '50%',
-                  width: '50px',
-                  height: '50px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 20,
-                  fontSize: '24px',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                  fontWeight: 'bold',
-                  margin: 0,
-                  padding: 0
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f0f0f0';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.3)';
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.1)';
-                }}
-                title="Siguiente imagen"
-              >
-                <BiRightArrow />
-              </button>
-              
-              {/* Contador de imágenes */}
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '5px 12px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                zIndex: 10
-              }}>
-                {imagenActualIndex + 1} / {todasLasImagenes.length}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      <div className="producto-detalle">
-        <h3>{producto.nombre}</h3>
-        <p>{producto.descripcion}</p>
-        <div className="producto-meta">
-          <span>💰 ${producto.precio?.toLocaleString()}</span>
-          <span>📦 Stock: {producto.stock} {producto.unidad_medida}</span>
-          <span>⚠️ Mínimo: {producto.stock_minimo}</span>
-        </div>
-        <div className="producto-actions">
-          <Button 
-            variant="secondary" 
-            size="small"
-            onClick={onEditar}
-          >
-            ✏️ Editar
-          </Button>
-          <Button 
-            variant="danger" 
-            size="small"
-            onClick={onEliminar}
-          >
-            🗑️ Eliminar
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-};
-
-// Componente de tarjeta pequeña de producto con galería (para overview)
-interface ProductoCardPequeñoConGaleriaProps {
-  producto: Producto;
-  todasLasImagenes: string[];
-}
-
-const ProductoCardPequeñoConGaleria: React.FC<ProductoCardPequeñoConGaleriaProps> = ({ 
-  producto, 
-  todasLasImagenes
-}) => {
-  const [imagenActualIndex, setImagenActualIndex] = useState(0);
-
-  const siguienteImagen = () => {
-    if (todasLasImagenes.length > 0) {
-      setImagenActualIndex((prev) => (prev + 1) % todasLasImagenes.length);
-    }
-  };
-
-  const anteriorImagen = () => {
-    if (todasLasImagenes.length > 0) {
-      setImagenActualIndex((prev) => (prev - 1 + todasLasImagenes.length) % todasLasImagenes.length);
-    }
-  };
-
-  return (
-    <Card className="producto-card">
-      {todasLasImagenes.length > 0 && (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <img 
-            src={todasLasImagenes[imagenActualIndex]} 
-            alt={producto.nombre}
-            className="producto-imagen-small"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-          {todasLasImagenes.length > 1 && (
-            <>
-              {/* Flecha izquierda */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  anteriorImagen();
-                }}
-                className="btn"
-                style={{ 
-                  position: 'absolute',
-                  left: '5px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  fontSize: '16px',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.9)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-                title="Imagen anterior"
-              >
-                <BiLeftArrow />
-              </button>
-              
-              {/* Flecha derecha */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  siguienteImagen();
-                }}
-                className="btn"
-                style={{ 
-                  position: 'absolute',
-                  right: '5px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  fontSize: '16px',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.9)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-                title="Siguiente imagen"
-              >
-                <BiRightArrow />
-              </button>
-              
-              {/* Contador de imágenes */}
-              <div style={{
-                position: 'absolute',
-                bottom: '5px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '3px 8px',
-                borderRadius: '15px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                zIndex: 10
-              }}>
-                {imagenActualIndex + 1} / {todasLasImagenes.length}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      <div className="producto-info">
-        <h4>{producto.nombre}</h4>
-        <p>Stock: {producto.stock} {producto.unidad_medida}</p>
-        <p>Precio: ${producto.precio?.toLocaleString()}</p>
-      </div>
-      <Badge 
-        variant={producto.disponible ? 'success' : 'warning'}
-      >
-        {producto.disponible ? 'Disponible' : 'Agotado'}
-      </Badge>
-    </Card>
-  );
-};
-
-export const ProductorDashboard: React.FC<ProductorDashboardProps> = ({ onNavigate }) => {
-  const { user, logout } = useAuth();
-  const [currentView, setCurrentView] = useState<'overview' | 'productos' | 'pedidos' | 'nuevo-producto' | 'editar-producto' | 'perfil'>('overview');
-  const [perfilProductor, setPerfilProductor] = useState<ProductorProfile | null>(null);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [pedidos, setPedidos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [productoEditando, setProductoEditando] = useState<number | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState<{ show: boolean; id?: number }>({ show: false });
-
-  const datosCargadosRef = useRef(false);
+  const productosActivos = (misProductos || []).filter((p: any) => p.disponible).length;
+  const productosStockBajo = (misProductos || []).filter((p: any) => p.stock <= p.stock_minimo).length;
+  const pedidosPendientes = (pedidos || []).filter((p: any) => 
+    ['pendiente', 'confirmado'].includes(p.estado)
+  ).length;
+  const pedidosEnPreparacion = (pedidos || []).filter((p: any) => 
+    p.estado === 'en_preparacion'
+  ).length;
+  const pedidosEnCamino = (pedidos || []).filter((p: any) => 
+    p.estado === 'en_camino'
+  ).length;
+  const pedidosEntregados = (pedidos || []).filter((p: any) => 
+    p.estado === 'entregado'
+  ).length;
+  const ventasTotales = (pedidos || []).filter((p: any) => p.estado === 'entregado')
+    .reduce((sum: number, p: any) => sum + (p.total || 0), 0);
+  const totalPedidos = (pedidos || []).length;
   
+  // Calcular porcentaje de productos activos
+  const porcentajeActivos = misProductos && misProductos.length > 0 
+    ? Math.round((productosActivos / misProductos.length) * 100) 
+    : 0;
+
+  // Mutation para eliminar producto con actualización optimista
+  const eliminarMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await productosService.eliminarProducto(id);
+    },
+    onMutate: async (id) => {
+      // Cancelar queries en curso
+      await queryClient.cancelQueries({ queryKey: ['productos', 'productor', user?.id_usuario] });
+      
+      // Snapshot del valor anterior
+      const previousProductos = queryClient.getQueryData(['productos', 'productor', user?.id_usuario]);
+      
+      // Actualización optimista: remover el producto inmediatamente
+      queryClient.setQueryData(['productos', 'productor', user?.id_usuario], (old: any) => {
+        return (old || []).filter((p: any) => p.id_producto !== id);
+      });
+      
+      // Cerrar modal inmediatamente
+      setShowModal(false);
+      
+      return { previousProductos };
+    },
+    onSuccess: async () => {
+      // Invalidar y refetch para actualizar la lista inmediatamente
+      await queryClient.invalidateQueries({ 
+        queryKey: ['productos', 'productor']
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['productos', 'productor']
+      });
+      toast.success('✅ Producto eliminado correctamente');
+    },
+    onError: (error: any, _id, context) => {
+      // Revertir en caso de error
+      if (context?.previousProductos) {
+        queryClient.setQueryData(['productos', 'productor', user?.id_usuario], context.previousProductos);
+      }
+      toast.error(error.message || 'Error al eliminar producto');
+      setShowModal(true); // Reabrir modal si hay error
+    },
+  });
+
+  const handleEliminar = (producto: any) => {
+    setProductoSeleccionado(producto);
+    setShowModal(true);
+  };
+
+  const confirmarEliminar = () => {
+    if (productoSeleccionado) {
+      eliminarMutation.mutate(productoSeleccionado.id_producto);
+    }
+  };
+
+  // Bloquear scroll del body cuando el modal está abierto
   useEffect(() => {
-    // Solo cargar datos una vez cuando el componente se monta
-    if (datosCargadosRef.current) {
-      return;
+    if (showModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
     }
-    datosCargadosRef.current = true;
-    cargarDatos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const cargarDatos = async () => {
-    try {
-      setLoading(true);
-      const userId = user?.id_usuario || user?.id;
-      if (userId) {
-        const [productosRes, pedidosRes, perfilRes] = await Promise.all([
-          productosService.obtenerProductosPorUsuario(userId),
-          pedidosService.obtenerMisPedidos('productor', userId),
-          productoresService.obtenerMiPerfil()
-        ]);
-        
-        if (productosRes.success && productosRes.data) {
-          setProductos(productosRes.data);
-        }
-        
-        if (pedidosRes.success && pedidosRes.data) {
-          setPedidos(pedidosRes.data);
-        }
-
-        if (perfilRes.success && perfilRes.data) {
-          setPerfilProductor(perfilRes.data);
-        }
-      }
-    } catch (error) {
-      mostrarToast('Error cargando datos', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const mostrarToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
-  };
-
-  const handleEliminarProducto = (id: number) => {
-    setShowDeleteModal({ show: true, id });
-  };
-
-  const confirmEliminarProducto = async () => {
-    if (showDeleteModal.id === undefined) return;
-    
-    try {
-      const response = await productosService.eliminarProducto(showDeleteModal.id);
-      if (response.success) {
-        mostrarToast('Producto eliminado exitosamente', 'success');
-        cargarDatos();
-        setShowDeleteModal({ show: false });
-      }
-    } catch (error) {
-      mostrarToast('Error eliminando producto', 'error');
-    }
-  };
-
-  const handleActualizarEstadoPedido = async (id: number, estado: string) => {
-    try {
-      const response = await pedidosService.actualizarEstado(id, estado as any);
-      if (response.success) {
-        mostrarToast('Estado del pedido actualizado', 'success');
-        cargarDatos();
-      }
-    } catch (error) {
-      mostrarToast('Error actualizando pedido', 'error');
-    }
-  };
-
-  const renderOverview = () => {
-    const pedidosPendientes = pedidos.filter(p => p.estado === 'pendiente').length;
-    const pedidosConfirmados = pedidos.filter(p => p.estado === 'confirmado').length;
-    const totalVentas = pedidos
-      .filter(p => p.estado === 'comprado' || p.estado === 'entregado')
-      .reduce((sum, p) => sum + (p.total || 0), 0);
-
-    return (
-      <div className="productor-overview">
-        <div className="overview-header">
-          <h2>📊 Resumen</h2>
-          {!perfilProductor && (
-            <Button onClick={() => setCurrentView('perfil')} variant="primary">
-              ✏️ Completar Perfil
-            </Button>
-          )}
-        </div>
-
-        {perfilProductor && (
-          <Card className="perfil-resumen">
-            <h3>🌾 {perfilProductor.nombre_finca || 'Mi Finca'}</h3>
-            <div className="perfil-info-grid">
-              <div>
-                <strong>Tipo:</strong> {perfilProductor.tipo_productor || 'No especificado'}
-              </div>
-              {perfilProductor.departamento_nombre && (
-                <div>
-                  <strong>Ubicación:</strong> {perfilProductor.vereda ? `${perfilProductor.vereda}, ` : ''}
-                  {perfilProductor.ciudad_nombre}, {perfilProductor.departamento_nombre}
-                </div>
-              )}
-              {perfilProductor.numero_registro_ica && (
-                <div>
-                  <strong>Registro ICA:</strong> {perfilProductor.numero_registro_ica}
-                </div>
-              )}
-              {perfilProductor.certificaciones && (
-                <div>
-                  <strong>Certificaciones:</strong> {perfilProductor.certificaciones}
-                </div>
-              )}
-            </div>
-            <Button onClick={() => setCurrentView('perfil')} variant="secondary" size="small">
-              Editar Perfil
-            </Button>
-          </Card>
-        )}
-        
-        <div className="stats-grid">
-          <Card className="stat-card">
-            <div className="stat-icon">🛍️</div>
-            <div className="stat-value">{productos.length}</div>
-            <div className="stat-label">Productos Activos</div>
-          </Card>
-          
-          <Card className="stat-card">
-            <div className="stat-icon">📦</div>
-            <div className="stat-value">{pedidosPendientes}</div>
-            <div className="stat-label">Pedidos Pendientes</div>
-          </Card>
-          
-          <Card className="stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-value">{pedidosConfirmados}</div>
-            <div className="stat-label">Pedidos Confirmados</div>
-          </Card>
-          
-          <Card className="stat-card">
-            <div className="stat-icon">💰</div>
-            <div className="stat-value">${totalVentas.toLocaleString()}</div>
-            <div className="stat-label">Total Ventas</div>
-          </Card>
-        </div>
-
-        <div className="recent-section">
-          <h3>Productos Recientes</h3>
-          <div className="productos-list">
-            {productos.slice(0, 5).map(producto => {
-              // Construir array de todas las imágenes (principal + adicionales)
-              const todasLasImagenes: string[] = [];
-              
-              // Agregar imagen principal si existe
-              if (producto.imagen_principal) {
-                const imagenPrincipalUrl = producto.imagenUrl || 
-                  (producto.imagen_principal.startsWith('http') 
-                    ? producto.imagen_principal 
-                    : imagenesService.construirUrlImagen(producto.imagen_principal));
-                if (imagenPrincipalUrl) {
-                  todasLasImagenes.push(imagenPrincipalUrl);
-                }
-              }
-              
-              // Agregar imágenes adicionales si existen
-              if (producto.imagenes_adicionales) {
-                let imagenesAdicionales: string[] = [];
-                try {
-                  if (typeof producto.imagenes_adicionales === 'string') {
-                    imagenesAdicionales = JSON.parse(producto.imagenes_adicionales);
-                  } else if (Array.isArray(producto.imagenes_adicionales)) {
-                    imagenesAdicionales = producto.imagenes_adicionales;
-                  }
-                  imagenesAdicionales.forEach((img: string) => {
-                    const imgUrl = imagenesService.construirUrlImagen(img);
-                    if (imgUrl) {
-                      todasLasImagenes.push(imgUrl);
-                    }
-                  });
-                } catch (error) {
-                  console.error('Error parseando imágenes adicionales:', error);
-                }
-              }
-              
-              return (
-                <ProductoCardPequeñoConGaleria 
-                  key={producto.id_producto}
-                  producto={producto}
-                  todasLasImagenes={todasLasImagenes}
-                />
-              );
-            })}
-            {productos.length === 0 && (
-              <p>No tienes productos aún. ¡Crea tu primer producto!</p>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderProductos = () => {
-    return (
-      <div className="productos-view">
-        <div className="view-header">
-          <h2>Mis Productos</h2>
-          <Button onClick={() => setCurrentView('nuevo-producto')}>
-            ➕ Crear Producto
-          </Button>
-        </div>
-
-        <div className="productos-grid">
-          {productos.map(producto => {
-            // Construir array de todas las imágenes (principal + adicionales)
-            const todasLasImagenes: string[] = [];
-            
-            // Agregar imagen principal si existe
-            if (producto.imagen_principal) {
-              const imagenPrincipalUrl = producto.imagenUrl || 
-                (producto.imagen_principal.startsWith('http') 
-                  ? producto.imagen_principal 
-                  : imagenesService.construirUrlImagen(producto.imagen_principal));
-              if (imagenPrincipalUrl) {
-                todasLasImagenes.push(imagenPrincipalUrl);
-              }
-            }
-            
-            // Agregar imágenes adicionales si existen
-            if (producto.imagenes_adicionales) {
-              let imagenesAdicionales: string[] = [];
-              try {
-                if (typeof producto.imagenes_adicionales === 'string') {
-                  imagenesAdicionales = JSON.parse(producto.imagenes_adicionales);
-                } else if (Array.isArray(producto.imagenes_adicionales)) {
-                  imagenesAdicionales = producto.imagenes_adicionales;
-                }
-                imagenesAdicionales.forEach((img: string) => {
-                  const imgUrl = imagenesService.construirUrlImagen(img);
-                  if (imgUrl) {
-                    todasLasImagenes.push(imgUrl);
-                  }
-                });
-              } catch (error) {
-                console.error('Error parseando imágenes adicionales:', error);
-              }
-            }
-            
-            return (
-              <ProductoCardConGaleria 
-                key={producto.id_producto}
-                producto={producto}
-                todasLasImagenes={todasLasImagenes}
-                onEditar={() => {
-                  setProductoEditando(producto.id_producto);
-                  setCurrentView('editar-producto');
-                }}
-                onEliminar={() => handleEliminarProducto(producto.id_producto)}
-              />
-            );
-          })}
-          {productos.length === 0 && (
-            <p>No tienes productos. ¡Crea tu primer producto!</p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderNuevoProducto = () => {
-    return (
-      <div className="nuevo-producto-view">
-        <h2>Crear Nuevo Producto</h2>
-        <p>Funcionalidad en desarrollo...</p>
-        <Button onClick={() => setCurrentView('productos')} variant="secondary">
-          Volver
-        </Button>
-      </div>
-    );
-  };
-
-  const renderEditarProducto = () => {
-    return (
-      <div className="editar-producto-view">
-        <h2>Editar Producto</h2>
-        <p>Funcionalidad en desarrollo...</p>
-        <Button onClick={() => {
-          setCurrentView('productos');
-          setProductoEditando(null);
-        }} variant="secondary">
-          Volver
-        </Button>
-      </div>
-    );
-  };
-
-  const renderPedidos = () => {
-    return (
-      <div className="pedidos-view">
-        <h2>Mis Pedidos</h2>
-        
-        <div className="pedidos-list">
-          {pedidos.map(pedido => (
-            <Card key={pedido.id_pedido} className="pedido-card">
-              <div className="pedido-header">
-                <div>
-                  <h3>Pedido #{pedido.id_pedido}</h3>
-                  <p>Fecha: {new Date(pedido.fecha_pedido || Date.now()).toLocaleDateString()}</p>
-                </div>
-                <Badge variant={
-                  pedido.estado === 'entregado' ? 'success' :
-                  pedido.estado === 'en_camino' ? 'info' :
-                  pedido.estado === 'confirmado' ? 'warning' :
-                  pedido.estado === 'pendiente' ? 'warning' : 'default'
-                }>
-                  {pedido.estado}
-                </Badge>
-              </div>
-              
-              <div className="pedido-info">
-                <p><strong>Total:</strong> ${pedido.total?.toLocaleString()}</p>
-                <p><strong>Dirección:</strong> {pedido.direccion_entrega}</p>
-                <p><strong>Método de pago:</strong> {pedido.metodo_pago}</p>
-                <p><strong>Estado pago:</strong> {pedido.estado_pago || 'pendiente'}</p>
-              </div>
-
-              {pedido.estado === 'pendiente' && (
-                <div className="pedido-actions">
-                  <Button 
-                    variant="success" 
-                    size="small"
-                    onClick={() => handleActualizarEstadoPedido(pedido.id_pedido, 'confirmado')}
-                  >
-                    ✅ Confirmar
-                  </Button>
-                  <Button 
-                    variant="danger" 
-                    size="small"
-                    onClick={() => handleActualizarEstadoPedido(pedido.id_pedido, 'cancelado')}
-                  >
-                    ❌ Rechazar
-                  </Button>
-                </div>
-              )}
-              
-              {pedido.estado === 'confirmado' && (
-                <div className="pedido-actions">
-                  <Button 
-                    variant="info" 
-                    size="small"
-                    onClick={() => handleActualizarEstadoPedido(pedido.id_pedido, 'en_preparacion')}
-                  >
-                    📦 En Preparación
-                  </Button>
-                </div>
-              )}
-              
-              {pedido.estado === 'en_preparacion' && (
-                <div className="pedido-actions">
-                  <Button 
-                    variant="info" 
-                    size="small"
-                    onClick={() => handleActualizarEstadoPedido(pedido.id_pedido, 'en_camino')}
-                  >
-                    🚚 En Camino
-                  </Button>
-                </div>
-              )}
-              
-              {pedido.estado === 'en_camino' && (
-                <div className="pedido-actions">
-                  <Button 
-                    variant="success" 
-                    size="small"
-                    onClick={() => handleActualizarEstadoPedido(pedido.id_pedido, 'entregado')}
-                  >
-                    ✅ Marcar Entregado
-                  </Button>
-                </div>
-              )}
-            </Card>
-          ))}
-          {pedidos.length === 0 && (
-            <p>No tienes pedidos aún.</p>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderPerfil = () => {
-    return (
-      <PerfilProductor
-        onClose={() => {
-          setCurrentView('overview');
-          cargarDatos(); // Recargar datos después de guardar
-        }}
-      />
-    );
-  };
-
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'productos':
-        return renderProductos();
-      case 'pedidos':
-        return renderPedidos();
-      case 'nuevo-producto':
-        return renderNuevoProducto();
-      case 'editar-producto':
-        return renderEditarProducto();
-      case 'perfil':
-        return renderPerfil();
-      case 'overview':
-      default:
-        return renderOverview();
-    }
-  };
-
-  if (loading) {
-    return <Loading message="Cargando dashboard..." />;
-  }
+    return;
+  }, [showModal]);
 
   return (
-    <div className="productor-dashboard">
-      <div className="productor-sidebar">
-        <div className="sidebar-header">
-          <AgroStockLogo size="small" variant="full" />
-          <span className="panel-text">Panel Productor</span>
-        </div>
-        
-        <nav className="sidebar-nav">
-          <button
-            className={`nav-item ${currentView === 'overview' ? 'active' : ''}`}
-            onClick={() => setCurrentView('overview')}
-          >
-            📊 Resumen
-          </button>
-          <button
-            className={`nav-item ${currentView === 'perfil' ? 'active' : ''}`}
-            onClick={() => setCurrentView('perfil')}
-          >
-            🌾 Mi Perfil
-          </button>
-          <button
-            className={`nav-item ${currentView === 'productos' ? 'active' : ''}`}
-            onClick={() => setCurrentView('productos')}
-          >
-            🛍️ Mis Productos
-          </button>
-          <button
-            className={`nav-item ${currentView === 'pedidos' ? 'active' : ''}`}
-            onClick={() => setCurrentView('pedidos')}
-          >
-            📦 Mis Pedidos
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <Button variant="danger" onClick={logout}>
-            🚪 Cerrar Sesión
-          </Button>
-        </div>
-      </div>
-
-      <div className="productor-main">
-        <div className="main-header">
-          <h1>Bienvenido, {user?.nombre}</h1>
-        </div>
-        
-        <main className="main-content">
-          {renderCurrentView()}
-        </main>
-      </div>
-
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
-      <ConfirmModal
-        show={showDeleteModal.show}
-        onClose={() => setShowDeleteModal({ show: false })}
-        onConfirm={confirmEliminarProducto}
-        title="Eliminar Producto"
-        message="¿Estás seguro de eliminar este producto?"
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        variant="danger"
-      />
-    </div>
+    <OverviewScreen 
+      misProductos={misProductos || []}
+      pedidos={pedidos || []}
+      productosActivos={productosActivos}
+      productosStockBajo={productosStockBajo}
+      pedidosPendientes={pedidosPendientes}
+      pedidosEnPreparacion={pedidosEnPreparacion}
+      pedidosEnCamino={pedidosEnCamino}
+      pedidosEntregados={pedidosEntregados}
+      ventasTotales={ventasTotales}
+      totalPedidos={totalPedidos}
+      porcentajeActivos={porcentajeActivos}
+      notificacionesNoLeidas={notificacionesNoLeidas || 0}
+      onEliminar={handleEliminar}
+      showModal={showModal}
+      productoSeleccionado={productoSeleccionado}
+      onCloseModal={() => setShowModal(false)}
+      onConfirmarEliminar={confirmarEliminar}
+      isEliminando={eliminarMutation.isPending}
+    />
   );
 };
 
 export default ProductorDashboard;
 
+// ===== PANTALLA DE RESUMEN (OVERVIEW) =====
+interface OverviewScreenProps {
+  misProductos: any[];
+  pedidos: any[];
+  productosActivos: number;
+  productosStockBajo: number;
+  pedidosPendientes: number;
+  pedidosEnPreparacion: number;
+  pedidosEnCamino: number;
+  pedidosEntregados: number;
+  ventasTotales: number;
+  totalPedidos: number;
+  porcentajeActivos: number;
+  notificacionesNoLeidas: number;
+  onEliminar: (producto: any) => void;
+  showModal: boolean;
+  productoSeleccionado: any;
+  onCloseModal: () => void;
+  onConfirmarEliminar: () => void;
+  isEliminando: boolean;
+}
 
+const OverviewScreen: React.FC<OverviewScreenProps> = ({
+  misProductos,
+  pedidos,
+  productosActivos,
+  productosStockBajo,
+  pedidosPendientes,
+  pedidosEnPreparacion,
+  pedidosEnCamino,
+  pedidosEntregados,
+  ventasTotales,
+  totalPedidos,
+  porcentajeActivos,
+  notificacionesNoLeidas,
+  onEliminar,
+  showModal,
+  productoSeleccionado,
+  onCloseModal,
+  onConfirmarEliminar,
+  isEliminando
+}) => {
+  return (
+    <div className="admin-overview-screen">
+      <div className="admin-overview-header">
+        <div className="admin-overview-header-content">
+          <h1 className="admin-overview-title">📊 Resumen</h1>
+          <p className="admin-overview-subtitle">Vista general de tu actividad como productor</p>
+        </div>
+        <div className="admin-overview-actions">
+          <Link to="/productor/productos/nuevo" className="btn btn-primary">
+            <BiPlus className="me-2" />
+            Nuevo Producto
+          </Link>
+        </div>
+      </div>
+
+      {/* Métricas principales */}
+      <div className="metrics-grid overview-stats">
+        <Link to="/productor/productos" className="metric-card primary stat-card">
+          <div className="metric-content stat-content">
+            <div className="metric-icon stat-icon">🛍️</div>
+            <div className="metric-info">
+              <div className="metric-number stat-value">{misProductos.length}</div>
+              <div className="metric-label stat-label">Mis Productos</div>
+              <div className="metric-sublabel">{productosActivos} activos • {porcentajeActivos}%</div>
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/productor/pedidos" className="metric-card warning stat-card">
+          <div className="metric-content stat-content">
+            <div className="metric-icon stat-icon">📦</div>
+            <div className="metric-info">
+              <div className="metric-number stat-value">{pedidosPendientes}</div>
+              <div className="metric-label stat-label">Pedidos Pendientes</div>
+              <div className="metric-sublabel">{totalPedidos} total • {pedidosEnPreparacion} en preparación</div>
+            </div>
+          </div>
+        </Link>
+
+        <div className="metric-card success stat-card">
+          <div className="metric-content stat-content">
+            <div className="metric-icon stat-icon">💰</div>
+            <div className="metric-info">
+              <div className="metric-number stat-value">${ventasTotales.toLocaleString()}</div>
+              <div className="metric-label stat-label">Ventas Totales</div>
+              <div className="metric-sublabel">{pedidosEntregados} pedidos entregados</div>
+            </div>
+          </div>
+        </div>
+
+        <Link to="/notificaciones" className="metric-card info stat-card">
+          <div className="metric-content stat-content">
+            <div className="metric-icon stat-icon">🔔</div>
+            <div className="metric-info">
+              <div className="metric-number stat-value">{notificacionesNoLeidas}</div>
+              <div className="metric-label stat-label">Notificaciones</div>
+              <div className="metric-sublabel">Sin leer</div>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Estadísticas secundarias */}
+      <div className="row g-3 mb-4">
+        <div className="col-md-3">
+          <div className="card border-0 shadow-sm h-100" style={{ borderLeft: '4px solid #28a745' }}>
+            <div className="card-body text-center">
+              <BiCheckCircle className="fs-3 mb-2" style={{ color: '#28a745' }} />
+              <h5 className="fw-bold mb-0" style={{ color: '#28a745' }}>{pedidosEntregados}</h5>
+              <small className="text-muted">Entregados</small>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-3">
+          <div className="card border-0 shadow-sm h-100" style={{ borderLeft: '4px solid #8b6914' }}>
+            <div className="card-body text-center">
+              <BiTime className="fs-3 mb-2" style={{ color: '#8b6914' }} />
+              <h5 className="fw-bold mb-0" style={{ color: '#8b6914' }}>{pedidosEnPreparacion}</h5>
+              <small className="text-muted">En Preparación</small>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-3">
+          <div className="card border-0 shadow-sm h-100" style={{ borderLeft: '4px solid #2d7a3f' }}>
+            <div className="card-body text-center">
+              <BiPackage className="fs-3 mb-2" style={{ color: '#2d7a3f' }} />
+              <h5 className="fw-bold mb-0" style={{ color: '#2d7a3f' }}>{pedidosEnCamino}</h5>
+              <small className="text-muted">En Camino</small>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-3">
+          <div className="card border-0 shadow-sm h-100" style={{ borderLeft: '4px solid #d4a853' }}>
+            <div className="card-body text-center">
+              <BiBarChartAlt2 className="fs-3 mb-2" style={{ color: '#d4a853' }} />
+              <h5 className="fw-bold mb-0" style={{ color: '#d4a853' }}>{productosStockBajo}</h5>
+              <small className="text-muted">Stock Bajo</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alertas */}
+      {productosStockBajo > 0 && (
+        <div className="alert border-0 shadow-sm mb-4 d-flex align-items-center justify-content-between" style={{ 
+          background: 'linear-gradient(135deg, #fff8e1 0%, #ffe082 100%)',
+          borderRadius: '12px',
+          borderLeft: '4px solid #d4a853'
+        }}>
+          <div className="d-flex align-items-center">
+            <div className="rounded-circle p-2 me-3" style={{ backgroundColor: '#d4a853' }}>
+              <BiPackage className="fs-4 text-white" />
+            </div>
+            <div>
+              <strong className="d-block" style={{ color: '#6b4423' }}>⚠️ Alerta de Stock Bajo</strong>
+              <span className="small" style={{ color: '#8b6914' }}>Tienes {productosStockBajo} producto(s) que requieren atención inmediata.</span>
+            </div>
+          </div>
+          <Link to="/productor/productos" className="btn btn-sm fw-bold" style={{ 
+            backgroundColor: '#8b6914', 
+            borderColor: '#8b6914',
+            color: 'white'
+          }}>
+            Revisar Ahora
+          </Link>
+        </div>
+      )}
+
+      <div className="row g-4">
+        {/* Mis Productos */}
+        <div className="col-lg-8">
+          <div className="card border-0 shadow-lg">
+            <div className="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3" style={{ borderRadius: '12px 12px 0 0' }}>
+              <h5 className="mb-0 fw-bold d-flex align-items-center">
+                <div className="bg-primary bg-opacity-10 rounded-circle p-2 me-2">
+                  <BiPackage className="text-primary" />
+                </div>
+                Mis Productos
+                {misProductos.length > 0 && (
+                  <span className="badge bg-primary ms-2">{misProductos.length}</span>
+                )}
+              </h5>
+              <Link 
+                to="/productor/productos/nuevo?from=dashboard" 
+                className="btn btn-primary btn-sm fw-bold"
+                style={{ borderRadius: '8px' }}
+              >
+                <BiPlus className="me-1" />
+                Nuevo Producto
+              </Link>
+            </div>
+            <div className="card-body">
+              {misProductos.length > 0 ? (
+                <div className="table-responsive">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ borderTop: 'none' }}>Producto</th>
+                        <th style={{ borderTop: 'none' }}>Precio</th>
+                        <th style={{ borderTop: 'none' }}>Stock</th>
+                        <th style={{ borderTop: 'none' }}>Estado</th>
+                        <th style={{ borderTop: 'none', width: '120px' }}>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {misProductos.slice(0, 5).map((producto: any) => {
+                        const imagenUrl = producto.imagenUrl || 
+                          (producto.imagen_principal 
+                            ? (producto.imagen_principal.startsWith('http') 
+                                ? producto.imagen_principal 
+                                : `http://localhost:8000/${producto.imagen_principal.replace(/^\/+/, '')}`)
+                            : null);
+                        
+                        const stockBajo = producto.stock <= producto.stock_minimo;
+                        
+                        return (
+                          <tr key={producto.id_producto} style={{ transition: 'background-color 0.2s' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                            <td>
+                              <div className="d-flex align-items-center">
+                                {imagenUrl ? (
+                                  <img
+                                    src={imagenUrl}
+                                    className="rounded me-3 shadow-sm"
+                                    alt={producto.nombre}
+                                    style={{ 
+                                      width: '50px', 
+                                      height: '50px', 
+                                      objectFit: 'cover',
+                                      border: '2px solid #e9ecef'
+                                    }}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div 
+                                    className="rounded me-3 bg-light d-flex align-items-center justify-content-center shadow-sm"
+                                    style={{ 
+                                      width: '50px', 
+                                      height: '50px',
+                                      border: '2px solid #e9ecef'
+                                    }}
+                                  >
+                                    <BiPackage className="text-muted fs-5" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="fw-bold mb-1" style={{ color: '#2c3e50' }}>
+                                    {producto.nombre}
+                                  </div>
+                                  <small className="text-muted d-flex align-items-center">
+                                    <BiBarChartAlt2 className="me-1" style={{ fontSize: '0.7rem' }} />
+                                    {producto.categoria_nombre || producto.categoria || 'Sin categoría'}
+                                  </small>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="fw-bold text-success fs-6">
+                                ${producto.precio?.toLocaleString()}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="d-flex align-items-center gap-2">
+                                <span className={`badge ${stockBajo ? 'bg-warning text-dark' : 'bg-success'} px-3 py-2`}>
+                                  {producto.stock}
+                                </span>
+                                {stockBajo && (
+                                  <small className="text-warning fw-bold">⚠️ Bajo</small>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`badge ${producto.disponible ? 'bg-success' : 'bg-danger'} px-3 py-2`}>
+                                {producto.disponible ? '✓ Disponible' : '✗ No disponible'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="d-flex gap-2">
+                                <Link
+                                  to={`/productor/productos/${producto.id_producto}/editar?from=dashboard`}
+                                  className="btn btn-sm btn-outline-primary"
+                                  title="Editar"
+                                  style={{ borderRadius: '6px' }}
+                                >
+                                  <BiEdit />
+                                </Link>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={() => onEliminar(producto)}
+                                  title="Eliminar"
+                                  style={{ borderRadius: '6px' }}
+                                >
+                                  <BiTrash />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {misProductos.length > 5 && (
+                    <div className="card-footer bg-transparent border-0 text-center py-3">
+                      <Link to="/productor/productos" className="btn btn-outline-primary btn-sm">
+                        Ver todos los productos ({misProductos.length})
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-5">
+                  <div className="bg-light rounded-circle d-inline-flex p-4 mb-3">
+                    <BiPackage className="display-4 text-muted" />
+                  </div>
+                  <h5 className="fw-bold mb-2">No tienes productos aún</h5>
+                  <p className="text-muted mb-4">Comienza agregando tu primer producto</p>
+                  <Link 
+                    to="/productor/productos/nuevo?from=dashboard" 
+                    className="btn btn-primary btn-lg fw-bold"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <BiPlus className="me-2" />
+                    Crear Primer Producto
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Pedidos Recientes */}
+        <div className="col-lg-4">
+          <div className="card border-0 shadow-lg h-100">
+            <div className="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3" style={{ borderRadius: '12px 12px 0 0' }}>
+              <h5 className="mb-0 fw-bold d-flex align-items-center">
+                <div className="bg-warning bg-opacity-10 rounded-circle p-2 me-2">
+                  <BiReceipt className="text-warning" />
+                </div>
+                Pedidos Recientes
+                {pedidos.length > 0 && (
+                  <span className="badge bg-warning ms-2">{pedidos.length}</span>
+                )}
+              </h5>
+              <Link to="/productor/pedidos" className="btn btn-sm btn-outline-warning fw-bold">
+                Ver Todos
+              </Link>
+            </div>
+            <div className="card-body p-0">
+              {pedidos.length > 0 ? (
+                <div className="list-group list-group-flush">
+                  {pedidos.slice(0, 5).map((pedido: any, index: number) => {
+                    const getEstadoColor = (estado: string) => {
+                      switch(estado) {
+                        case 'entregado': return 'success';
+                        case 'cancelado': return 'danger';
+                        case 'en_preparacion': return 'info';
+                        case 'en_camino': return 'primary';
+                        default: return 'warning';
+                      }
+                    };
+                    
+                    const getEstadoIcon = (estado: string) => {
+                      switch(estado) {
+                        case 'entregado': return <BiCheckCircle />;
+                        case 'cancelado': return <BiTrash />;
+                        case 'en_preparacion': return <BiTime />;
+                        case 'en_camino': return <BiPackage />;
+                        default: return <BiTime />;
+                      }
+                    };
+                    
+                    return (
+                      <Link
+                        key={pedido.id_pedido}
+                        to="/productor/pedidos"
+                        className="list-group-item list-group-item-action border-0 px-3 py-3"
+                        style={{ 
+                          transition: 'all 0.2s',
+                          borderBottom: index < Math.min(pedidos.length, 5) - 1 ? '1px solid #e9ecef' : 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f8f9fa';
+                          e.currentTarget.style.transform = 'translateX(5px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }}
+                      >
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div className="flex-grow-1">
+                            <div className="d-flex align-items-center mb-2">
+                              <h6 className="mb-0 fw-bold me-2" style={{ color: '#2c3e50' }}>
+                                Pedido #{pedido.id_pedido}
+                              </h6>
+                            </div>
+                            <div className="d-flex align-items-center gap-3">
+                              <span className="fw-bold text-success fs-6">
+                                ${pedido.total?.toLocaleString()}
+                              </span>
+                              <small className="text-muted">
+                                <BiCalendar className="me-1" />
+                                {pedido.fecha_pedido 
+                                  ? new Date(pedido.fecha_pedido).toLocaleDateString('es-ES', { 
+                                      day: 'numeric', 
+                                      month: 'short' 
+                                    })
+                                  : 'Reciente'}
+                              </small>
+                            </div>
+                          </div>
+                          <span className={`badge bg-${getEstadoColor(pedido.estado)} px-3 py-2 ms-2`}>
+                            {getEstadoIcon(pedido.estado)}
+                            <span className="ms-1 d-none d-sm-inline">
+                              {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
+                            </span>
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-5">
+                  <div className="bg-light rounded-circle d-inline-flex p-4 mb-3">
+                    <BiReceipt className="display-4 text-muted" />
+                  </div>
+                  <h6 className="fw-bold mb-2">No tienes pedidos aún</h6>
+                  <p className="text-muted small mb-0">Los pedidos aparecerán aquí</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de Confirmación de Eliminación */}
+      {showModal && (
+        <div 
+          style={{ 
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            zIndex: 1055,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              onCloseModal();
+            }
+          }}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h5 className="modal-title">
+                <BiTrash className="me-2" />
+                Confirmar Eliminación
+              </h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={onCloseModal}
+                disabled={isEliminando}
+              />
+            </div>
+            <div className="modal-body">
+              <p>
+                ¿Estás seguro de que deseas eliminar el producto{' '}
+                <strong>{productoSeleccionado?.nombre}</strong>?
+              </p>
+              <p className="text-muted small mb-0">
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onCloseModal}
+                disabled={isEliminando}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={onConfirmarEliminar}
+                disabled={isEliminando}
+              >
+                {isEliminando ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <BiTrash className="me-2" />
+                    Eliminar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

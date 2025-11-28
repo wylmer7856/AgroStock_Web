@@ -110,9 +110,27 @@ class CarritoService {
     id_ciudad_entrega?: number;
     notas?: string;
     metodo_pago: 'efectivo' | 'transferencia' | 'nequi' | 'daviplata' | 'pse' | 'tarjeta';
-  }): Promise<ApiResponse<{ pedido_id: number; total_precio: number }>> {
+  }): Promise<ApiResponse<{ 
+    pedido_id: number; 
+    total_precio: number;
+    pago?: {
+      id_pago?: number;
+      url_pago?: string;
+      estado_pago?: string;
+      referencia_pago?: string;
+    };
+  }>> {
     try {
-      const response = await apiService.post<{ pedido_id: number; total_precio: number }>(
+      const response = await apiService.post<{ 
+        pedido_id: number; 
+        total_precio: number;
+        pago?: {
+          id_pago?: number;
+          url_pago?: string;
+          estado_pago?: string;
+          referencia_pago?: string;
+        };
+      }>(
         '/cart/checkout',
         datosEntrega
       );
