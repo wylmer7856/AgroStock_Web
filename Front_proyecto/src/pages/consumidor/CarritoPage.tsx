@@ -122,13 +122,18 @@ const CarritoPage: React.FC = () => {
       return await carritoService.checkout(data);
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['carrito', 'pedidos'] });
+      // Invalidar y limpiar el carrito inmediatamente después del checkout exitoso
+      queryClient.invalidateQueries({ queryKey: ['carrito'] });
+      queryClient.setQueryData(['carrito'], null);
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       
       // Si hay URL de pago (PayU), redirigir
       if (response.data?.pago?.url_pago) {
         toast.info('Redirigiendo a PayU para completar el pago...');
-        // Redirigir a PayU
-        window.location.href = response.data.pago.url_pago;
+        // Pequeño delay para asegurar que el carrito se limpie antes de redirigir
+        setTimeout(() => {
+          window.location.href = response.data.pago.url_pago;
+        }, 100);
         return;
       }
       

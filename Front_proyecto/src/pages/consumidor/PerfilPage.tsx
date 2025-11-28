@@ -24,6 +24,7 @@ const ConsumidorPerfilPage: React.FC = () => {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [loadingCiudades, setLoadingCiudades] = useState(false);
+  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<PerfilFormData>({
@@ -60,27 +61,60 @@ const ConsumidorPerfilPage: React.FC = () => {
     cargarDepartamentos();
   }, []);
 
-  // Cargar ciudades solo cuando se habilita la edición (y no se han cargado antes)
+  // Cargar departamento y ciudades cuando se habilita la edición y el usuario tiene ciudad
   useEffect(() => {
-    if (!isEditing || ciudadesCargadasRef.current) return;
-    ciudadesCargadasRef.current = true;
+    if (!isEditing || !user?.id_ciudad) return;
     
-    const cargarCiudades = async () => {
+    const cargarDepartamentoDeCiudad = async () => {
       try {
         setLoadingCiudades(true);
-        const response = await ubicacionesService.listarCiudades();
-        if (response.success && response.data) {
-          setCiudades(response.data);
+        const ciudadRes = await ubicacionesService.obtenerCiudad(user.id_ciudad!);
+        if (ciudadRes.success && ciudadRes.data && ciudadRes.data.id_departamento) {
+          setDepartamentoSeleccionado(ciudadRes.data.id_departamento);
+          // Cargar ciudades del departamento
+          const ciudadesRes = await ubicacionesService.listarCiudades(ciudadRes.data.id_departamento);
+          if (ciudadesRes.success && ciudadesRes.data) {
+            setCiudades(ciudadesRes.data);
+          }
         }
       } catch (error) {
-        console.error('Error cargando ciudades:', error);
+        console.error('Error cargando departamento de ciudad:', error);
       } finally {
         setLoadingCiudades(false);
       }
     };
     
-    cargarCiudades();
-  }, [isEditing]);
+    cargarDepartamentoDeCiudad();
+  }, [isEditing, user?.id_ciudad]);
+  
+  // Función para manejar cambio de departamento
+  const handleDepartamentoChange = async (idDepartamento: number | null) => {
+    setDepartamentoSeleccionado(idDepartamento);
+    // Resetear ciudad seleccionada cuando cambia el departamento
+    reset({
+      ...watch(),
+      id_ciudad: ''
+    });
+    
+    if (idDepartamento) {
+      try {
+        setLoadingCiudades(true);
+        const response = await ubicacionesService.listarCiudades(idDepartamento);
+        if (response.success && response.data) {
+          setCiudades(response.data);
+        } else {
+          setCiudades([]);
+        }
+      } catch (error) {
+        console.error('Error cargando ciudades:', error);
+        setCiudades([]);
+      } finally {
+        setLoadingCiudades(false);
+      }
+    } else {
+      setCiudades([]);
+    }
+  };
 
   // Actualizar formulario cuando cambia el usuario
   useEffect(() => {
@@ -199,7 +233,7 @@ const ConsumidorPerfilPage: React.FC = () => {
   };
 
   const ciudadSeleccionada = ciudades.find(c => c.id_ciudad.toString() === idCiudadSeleccionada);
-  const departamentoSeleccionado = ciudadSeleccionada?.departamento;
+  const departamentoDeCiudad = ciudadSeleccionada?.departamento;
 
   return (
     <div className="container py-5">
@@ -301,7 +335,7 @@ const ConsumidorPerfilPage: React.FC = () => {
                       <strong>Ciudad:</strong>
                       <span className={`profile-info-value ms-2 ${!ciudadSeleccionada ? 'profile-info-empty' : ''}`}>
                         {ciudadSeleccionada 
-                          ? `${ciudadSeleccionada.nombre}${departamentoSeleccionado ? `, ${departamentoSeleccionado.nombre}` : ''}`
+                          ? `${ciudadSeleccionada.nombre}${departamentoDeCiudad ? `, ${departamentoDeCiudad.nombre}` : ''}`
                           : 'No especificada'}
                       </span>
                     </div>
@@ -380,17 +414,45 @@ const ConsumidorPerfilPage: React.FC = () => {
                   <div className="profile-form-group">
                     <label className="profile-form-label">
                       <BiMapPin />
+                      Departamento
+                    </label>
+                    <select
+                      className="profile-form-control"
+                      value={departamentoSeleccionado || ''}
+                      onChange={(e) => {
+                        const deptoId = e.target.value ? Number(e.target.value) : null;
+                        handleDepartamentoChange(deptoId);
+                      }}
+                    >
+                      <option value="">Seleccione un departamento</option>
+                      {departamentos.map((depto) => (
+                        <option key={depto.id_departamento} value={depto.id_departamento}>
+                          {depto.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="profile-form-group">
+                    <label className="profile-form-label">
+                      <BiMapPin />
                       Ciudad
                     </label>
                     <select
                       className="profile-form-control"
                       {...register('id_ciudad')}
-                      disabled={loadingCiudades}
+                      disabled={loadingCiudades || !departamentoSeleccionado}
                     >
-                      <option value="">Seleccione una ciudad</option>
+                      <option value="">
+                        {!departamentoSeleccionado 
+                          ? 'Primero selecciona un departamento' 
+                          : ciudades.length === 0 
+                          ? 'Cargando ciudades...' 
+                          : 'Seleccione una ciudad'}
+                      </option>
                       {ciudades.map((ciudad) => (
                         <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
-                          {ciudad.nombre} - {ciudad.departamento?.nombre || ''}
+                          {ciudad.nombre}
                         </option>
                       ))}
                     </select>

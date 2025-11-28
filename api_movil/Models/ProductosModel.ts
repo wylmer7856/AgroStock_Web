@@ -438,7 +438,7 @@ export class ProductosModel {
         }
     }
 
-    public async EliminarProducto(id_producto: number): Promise<{ success: boolean; message: string }> {
+    public async EliminarProducto(id_producto: number): Promise<{ success: boolean; message: string; errorCode?: string }> {
         try {
             await conexion.execute("START TRANSACTION");
 
@@ -452,8 +452,57 @@ export class ProductosModel {
                 };
             }
 
-            // Eliminar TODOS los detalle_pedidos relacionados (son registros históricos)
-            // Los pedidos se mantienen, solo se elimina la referencia al producto
+            // VALIDACIÓN: Verificar si el producto tiene relaciones que impiden su eliminación
+            // 1. Verificar pedidos registrados (relación crítica - no se puede eliminar)
+            const pedidosAsociados = await conexion.query(
+                `SELECT COUNT(DISTINCT dp.id_pedido) as total_pedidos 
+                 FROM detalle_pedidos dp
+                 INNER JOIN pedidos p ON dp.id_pedido = p.id_pedido
+                 WHERE dp.id_producto = ?`,
+                [id_producto]
+            ) as Array<{ total_pedidos: number | string }>;
+
+            const totalPedidos = typeof pedidosAsociados[0]?.total_pedidos === 'string' 
+                ? parseInt(pedidosAsociados[0].total_pedidos, 10) 
+                : (pedidosAsociados[0]?.total_pedidos || 0);
+            
+            console.log(`[ProductosModel] Validación de pedidos para producto ${id_producto}: ${totalPedidos} pedido(s) encontrado(s)`);
+
+            if (totalPedidos > 0) {
+                await conexion.execute("ROLLBACK");
+                return {
+                    success: false,
+                    message: `No se puede eliminar el producto porque tiene ${totalPedidos} pedido(s) registrado(s). Los productos con pedidos no pueden ser eliminados para mantener la integridad de los registros históricos.`,
+                    errorCode: "HAS_ORDERS"
+                };
+            }
+
+            // 2. Verificar reseñas asociadas a pedidos (también bloquean eliminación)
+            const resenasConPedidos = await conexion.query(
+                `SELECT COUNT(*) as total_resenas 
+                 FROM reseñas r
+                 INNER JOIN pedidos p ON r.id_pedido = p.id_pedido
+                 WHERE r.id_producto = ?`,
+                [id_producto]
+            ) as Array<{ total_resenas: number | string }>;
+
+            const totalResenasConPedidos = typeof resenasConPedidos[0]?.total_resenas === 'string' 
+                ? parseInt(resenasConPedidos[0].total_resenas, 10) 
+                : (resenasConPedidos[0]?.total_resenas || 0);
+            
+            console.log(`[ProductosModel] Validación de reseñas con pedidos para producto ${id_producto}: ${totalResenasConPedidos} reseña(s) encontrada(s)`);
+
+            if (totalResenasConPedidos > 0) {
+                await conexion.execute("ROLLBACK");
+                return {
+                    success: false,
+                    message: `No se puede eliminar el producto porque tiene ${totalResenasConPedidos} reseña(s) asociada(s) a pedidos. Los productos con reseñas de pedidos no pueden ser eliminados para mantener la integridad de los registros históricos.`,
+                    errorCode: "HAS_REVIEWS_WITH_ORDERS"
+                };
+            }
+
+            // Si no hay pedidos, proceder con la eliminación
+            // Eliminar TODOS los detalle_pedidos relacionados (si existen sin pedidos activos)
             try {
                 const resultDetalles = await conexion.execute(
                     "DELETE FROM detalle_pedidos WHERE id_producto = ?",

@@ -7,7 +7,7 @@ import adminService from '../../services/admin';
 import ubicacionesService from '../../services/ubicaciones';
 import imagenesService from '../../services/imagenes';
 import { Card, Button, Input, Modal, Loading, Badge } from '../../components/ReusableComponents';
-import type { UsuarioAdmin, Ciudad } from '../../types';
+import type { UsuarioAdmin, Ciudad, Departamento } from '../../types';
 import Swal from 'sweetalert2';
 import { 
   BarChart, 
@@ -860,14 +860,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
     rol: 'consumidor' as 'admin' | 'consumidor' | 'productor'
   });
   const [loading, setLoading] = useState(false);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [loadingCiudades, setLoadingCiudades] = useState(false);
+  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null);
 
   useEffect(() => {
     console.log('[CreateUserModal] isOpen cambió a:', isOpen);
     if (isOpen) {
-      console.log('[CreateUserModal] Modal abierto, cargando ciudades...');
-      cargarCiudades();
+      console.log('[CreateUserModal] Modal abierto, cargando departamentos...');
+      cargarDepartamentos();
     } else {
       console.log('[CreateUserModal] Modal cerrado, limpiando formulario...');
       // Limpiar formulario cuando se cierra
@@ -880,6 +882,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
         id_ciudad: '',
         rol: 'consumidor'
       });
+      setDepartamentoSeleccionado(null);
+      setCiudades([]);
     }
   }, [isOpen]);
   
@@ -890,15 +894,29 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
     }
   }, [isOpen]);
 
-  const cargarCiudades = async () => {
+  const cargarDepartamentos = async () => {
+    try {
+      const response = await ubicacionesService.listarDepartamentos();
+      if (response.success && response.data) {
+        setDepartamentos(response.data);
+      }
+    } catch (err) {
+      console.error('Error cargando departamentos:', err);
+    }
+  };
+
+  const cargarCiudades = async (idDepartamento: number) => {
     try {
       setLoadingCiudades(true);
-      const response = await ubicacionesService.listarCiudades();
+      const response = await ubicacionesService.listarCiudades(idDepartamento);
       if (response.success && response.data) {
         setCiudades(response.data);
+      } else {
+        setCiudades([]);
       }
     } catch (err) {
       console.error('Error cargando ciudades:', err);
+      setCiudades([]);
     } finally {
       setLoadingCiudades(false);
     }
@@ -1109,6 +1127,42 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
           </div>
 
           <div className="col-md-6">
+            <label htmlFor="departamento" className="form-label">
+              <i className="bi bi-geo-alt-fill me-2 text-primary"></i>
+              Departamento <span className="text-danger">*</span>
+            </label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                <i className="bi bi-geo-alt-fill text-primary"></i>
+              </span>
+            <select
+                className="form-select"
+                id="departamento"
+              value={departamentoSeleccionado || ''}
+              onChange={async (e) => {
+                const deptoId = e.target.value ? Number(e.target.value) : null;
+                setDepartamentoSeleccionado(deptoId);
+                setFormData({ ...formData, id_ciudad: '' });
+                
+                if (deptoId) {
+                  await cargarCiudades(deptoId);
+                } else {
+                  setCiudades([]);
+                }
+              }}
+              required
+            >
+              <option value="">Selecciona un departamento</option>
+              {departamentos.map((depto) => (
+                <option key={depto.id_departamento} value={depto.id_departamento}>
+                  {depto.nombre}
+                </option>
+              ))}
+            </select>
+            </div>
+          </div>
+
+          <div className="col-md-6">
             <label htmlFor="ciudad" className="form-label">
               <i className="bi bi-geo-fill me-2 text-primary"></i>
               Ciudad <span className="text-danger">*</span>
@@ -1123,9 +1177,17 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               value={formData.id_ciudad}
               onChange={(e) => setFormData({ ...formData, id_ciudad: e.target.value })}
               required
-              disabled={loadingCiudades}
+              disabled={loadingCiudades || !departamentoSeleccionado}
             >
-              <option value="">{loadingCiudades ? 'Cargando ciudades...' : 'Selecciona una ciudad'}</option>
+              <option value="">
+                {!departamentoSeleccionado 
+                  ? 'Primero selecciona un departamento' 
+                  : loadingCiudades 
+                  ? 'Cargando ciudades...' 
+                  : ciudades.length === 0
+                  ? 'No hay ciudades disponibles'
+                  : 'Selecciona una ciudad'}
+              </option>
               {ciudades.map((ciudad) => (
                 <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
                   {ciudad.nombre}

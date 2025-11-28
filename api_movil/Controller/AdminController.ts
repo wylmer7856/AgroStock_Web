@@ -607,8 +607,13 @@ export class AdminController {
         };
         return;
       } else {
+        // Si el error es por pedidos asociados, devolver código específico
         ctx.response.status = 400;
-        ctx.response.body = result;
+        ctx.response.body = {
+          success: false,
+          message: result.message,
+          errorCode: result.errorCode || 'UNKNOWN_ERROR'
+        };
         return;
       }
     } catch (error) {

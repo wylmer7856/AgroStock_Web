@@ -3,13 +3,14 @@ import { z } from "../Dependencies/dependencias.ts";
 import { Resena } from "../Models/ReseñasModel.ts";
 
 // 📌 Validaciones con Zod - Adaptado a la estructura de BD
+// id_pedido e id_consumidor son opcionales - se obtienen automáticamente
 const resenaSchema = z.object({
-  id_pedido: z.number().int().positive(),
+  id_pedido: z.number().int().positive().nullable().optional(),
   id_producto: z.number().int().positive(),
-  id_consumidor: z.number().int().positive(),
-  id_productor: z.number().int().positive(),
-  calificacion: z.number().min(1).max(5),
-  comentario: z.string().optional().nullable(),
+  id_consumidor: z.number().int().positive().optional(), // Se obtiene del usuario autenticado
+  id_productor: z.number().int().positive().optional(), // Se obtiene del producto si no se proporciona
+  calificacion: z.number().int().min(1).max(5),
+  comentario: z.string().nullable().optional(),
 });
 
 const resenaSchemaUpdate = z.object({
@@ -42,15 +43,83 @@ export const getResenas = async (ctx: Context) => {
 // 📌 Insertar reseña
 export const postResena = async (ctx: Context) => {
   try {
+    const user = ctx.state.user;
+    if (!user) {
+      ctx.response.status = 401;
+      ctx.response.body = {
+        success: false,
+        message: "Debes estar autenticado para agregar una reseña.",
+      };
+      return;
+    }
+
     const body = await ctx.request.body.json();
-    const validated = resenaSchema.parse(body);
+    
+    // Log para debugging
+    console.log("[ReseñasController] Datos recibidos:", JSON.stringify(body, null, 2));
+    
+    // Validar con Zod - usar safeParse para mejor manejo de errores
+    const validationResult = resenaSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      console.error("[ReseñasController] Errores de validación:", validationResult.error.errors);
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "Datos inválidos.",
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      };
+      return;
+    }
+    
+    const validated = validationResult.data;
+    console.log("[ReseñasController] Datos validados:", JSON.stringify(validated, null, 2));
+
+    // Obtener id_productor del producto si no se proporciona
+    let id_productor = validated.id_productor;
+    if (!id_productor) {
+      const { conexion } = await import("../Models/Conexion.ts");
+      const [producto] = await conexion.query(
+        "SELECT id_usuario FROM productos WHERE id_producto = ?",
+        [validated.id_producto]
+      ) as Array<{ id_usuario: number }>;
+      
+      if (!producto || !producto.id_usuario) {
+        ctx.response.status = 404;
+        ctx.response.body = {
+          success: false,
+          message: "Producto no encontrado.",
+        };
+        return;
+      }
+      id_productor = producto.id_usuario;
+    }
+
+    // Verificar que el usuario no haya reseñado este producto antes
+    const { conexion } = await import("../Models/Conexion.ts");
+    const [resenaExistente] = await conexion.query(
+      "SELECT id_resena FROM reseñas WHERE id_producto = ? AND id_consumidor = ?",
+      [validated.id_producto, user.id]
+    ) as Array<{ id_resena: number }>;
+
+    if (resenaExistente) {
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "Ya has reseñado este producto. Puedes editarla desde tu perfil.",
+      };
+      return;
+    }
 
     const resenaData = {
       id_resena: null,
-      id_pedido: validated.id_pedido,
+      id_pedido: validated.id_pedido || null,
       id_producto: validated.id_producto,
-      id_consumidor: validated.id_consumidor,
-      id_productor: validated.id_productor,
+      id_consumidor: user.id, // Usar el ID del usuario autenticado
+      id_productor: id_productor,
       calificacion: validated.calificacion,
       comentario: validated.comentario || null,
       fecha_resena: null, // Se establece automáticamente por la BD
@@ -66,10 +135,26 @@ export const postResena = async (ctx: Context) => {
       data: result.resena,
     };
   } catch (error) {
+    console.error("[ReseñasController] Error al insertar reseña:", error);
+    
+    if (error instanceof z.ZodError) {
+      console.error("[ReseñasController] Errores de validación:", error.errors);
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "Datos inválidos.",
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      };
+      return;
+    }
+    
     ctx.response.status = 400;
     ctx.response.body = {
       success: false,
-      message: error instanceof z.ZodError ? "Datos inválidos." : "Error al insertar la reseña.",
+      message: error instanceof Error ? error.message : "Error al insertar la reseña.",
     };
   }
 };
@@ -152,18 +237,60 @@ export const getResenasByProducto = async (ctx: RouterContext<"/resenas/producto
       ctx.response.body = {
         success: false,
         message: "ID de producto inválido.",
+        data: [],
+        promedio: 0,
+        total: 0
       };
       return;
     }
 
     const objResena = new Resena();
     const lista = await objResena.BuscarPorProducto(id_producto);
+    const promedio = await objResena.obtenerPromedioCalificacion(id_producto);
 
-    ctx.response.status = lista.length > 0 ? 200 : 404;
+    console.log(`[ReseñasController] getResenasByProducto - ID: ${id_producto}, Reseñas encontradas: ${lista.length}, Promedio: ${promedio.promedio}, Total: ${promedio.total}`);
+
+    ctx.response.status = 200;
     ctx.response.body = {
-      success: lista.length > 0,
+      success: true,
       message: lista.length > 0 ? "Reseñas encontradas para el producto." : "No se encontraron reseñas para este producto.",
-      data: lista,
+      data: Array.isArray(lista) ? lista : [],
+      promedio: typeof promedio.promedio === 'number' ? promedio.promedio : 0,
+      total: typeof promedio.total === 'number' ? promedio.total : 0
+    };
+  } catch (error) {
+    console.error("[ReseñasController] Error al obtener reseñas por producto:", error);
+    ctx.response.status = 500;
+    ctx.response.body = {
+      success: false,
+      message: "Error interno del servidor.",
+      data: [],
+      promedio: 0,
+      total: 0
+    };
+  }
+};
+
+// 📌 Obtener promedio de calificaciones de un producto
+export const getPromedioCalificacion = async (ctx: RouterContext<"/resenas/producto/:id/promedio">) => {
+  try {
+    const id_producto = Number(ctx.params.id);
+    if (isNaN(id_producto) || id_producto <= 0) {
+      ctx.response.status = 400;
+      ctx.response.body = {
+        success: false,
+        message: "ID de producto inválido.",
+      };
+      return;
+    }
+
+    const objResena = new Resena();
+    const promedio = await objResena.obtenerPromedioCalificacion(id_producto);
+
+    ctx.response.status = 200;
+    ctx.response.body = {
+      success: true,
+      data: promedio
     };
   } catch (_error) {
     ctx.response.status = 500;

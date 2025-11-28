@@ -41,19 +41,26 @@ const NotificacionesPage: React.FC = () => {
     };
   }, [user?.rol]);
 
-  // Query para obtener notificaciones
-  const { data: notificaciones, isLoading } = useQuery({
-    queryKey: ['notificaciones', filter],
+  // Query para obtener todas las notificaciones (siempre obtenemos todas para tener el total correcto)
+  const { data: todasLasNotificaciones, isLoading, refetch } = useQuery({
+    queryKey: ['notificaciones', 'todas', user?.id_usuario],
     queryFn: async () => {
       const response = await notificacionesService.obtenerMisNotificaciones(
         100,
-        filter === 'noLeidas'
+        false // Siempre obtener todas
       );
       return response.data || [];
     },
     enabled: !!user?.id_usuario,
     refetchInterval: false, // Desactivar refresco automático para evitar parpadeos
+    refetchOnMount: true, // Refrescar al montar el componente
+    refetchOnWindowFocus: false,
   });
+
+  // Filtrar notificaciones según el filtro seleccionado
+  const notificaciones = filter === 'noLeidas' 
+    ? (todasLasNotificaciones || []).filter(n => !n.leida)
+    : (todasLasNotificaciones || []);
 
   // Mutation para marcar como leída
   const markAsReadMutation = useMutation({
@@ -62,7 +69,8 @@ const NotificacionesPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
-      queryClient.invalidateQueries({ queryKey: ['notificaciones', 'contar'] });
+      queryClient.invalidateQueries({ queryKey: ['notificacionesNoLeidas'] });
+      refetch(); // Refrescar las notificaciones actuales
     },
   });
 
@@ -74,7 +82,8 @@ const NotificacionesPage: React.FC = () => {
     onSuccess: (response) => {
       toast.success(`${response.data?.actualizadas || 0} notificaciones marcadas como leídas`);
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
-      queryClient.invalidateQueries({ queryKey: ['notificaciones', 'contar'] });
+      queryClient.invalidateQueries({ queryKey: ['notificacionesNoLeidas'] });
+      refetch(); // Refrescar las notificaciones actuales
     },
     onError: () => {
       toast.error('Error al marcar todas las notificaciones como leídas');
@@ -89,7 +98,8 @@ const NotificacionesPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Notificación eliminada');
       queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
-      queryClient.invalidateQueries({ queryKey: ['notificaciones', 'contar'] });
+      queryClient.invalidateQueries({ queryKey: ['notificacionesNoLeidas'] });
+      refetch(); // Refrescar las notificaciones actuales
     },
     onError: () => {
       toast.error('Error al eliminar la notificación');
@@ -130,7 +140,7 @@ const NotificacionesPage: React.FC = () => {
     }
   };
 
-  const notificacionesNoLeidas = (notificaciones || []).filter(n => !n.leida).length;
+  const notificacionesNoLeidas = (todasLasNotificaciones || []).filter(n => !n.leida).length;
 
   return (
     <div className="container-fluid py-4">
@@ -139,7 +149,17 @@ const NotificacionesPage: React.FC = () => {
           <div className="d-flex align-items-center gap-3 mb-3">
             <button
               className="btn btn-outline-secondary"
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                if (user?.rol === 'productor') {
+                  navigate('/productor/dashboard');
+                } else if (user?.rol === 'consumidor') {
+                  navigate('/consumidor/dashboard');
+                } else if (user?.rol === 'admin') {
+                  navigate('/admin/dashboard');
+                } else {
+                  navigate(-1);
+                }
+              }}
             >
               <BiArrowBack className="me-1" />
               Volver
@@ -165,7 +185,7 @@ const NotificacionesPage: React.FC = () => {
                     className={`btn ${filter === 'todas' ? 'btn-primary' : 'btn-outline-primary'}`}
                     onClick={() => setFilter('todas')}
                   >
-                    Todas ({notificaciones?.length || 0})
+                    Todas ({todasLasNotificaciones?.length || 0})
                   </button>
                   <button
                     type="button"

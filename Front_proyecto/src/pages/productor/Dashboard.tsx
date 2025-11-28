@@ -115,7 +115,9 @@ const ProductorDashboard: React.FC = React.memo(() => {
       if (context?.previousProductos) {
         queryClient.setQueryData(['productos', 'productor', user?.id_usuario], context.previousProductos);
       }
-      toast.error(error.message || 'Error al eliminar producto');
+      // Mostrar el mensaje del error (el servicio de API ya extrae el mensaje del backend)
+      const errorMessage = error.message || 'Error al eliminar producto';
+      toast.error(errorMessage, { autoClose: 5000 });
       setShowModal(true); // Reabrir modal si hay error
     },
   });

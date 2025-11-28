@@ -279,16 +279,18 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </li>
             )}
 
-            {/* Productos */}
-            <li className="nav-item">
-              <Link 
-                className={`nav-link ${location.pathname === '/productos' ? 'active fw-bold' : ''}`} 
-                to="/productos"
-              >
-                <BiPackage className="me-1" />
-                Productos
-              </Link>
-            </li>
+            {/* Productos - Oculto en login y register */}
+            {location.pathname !== '/login' && location.pathname !== '/register' && (
+              <li className="nav-item">
+                <Link 
+                  className={`nav-link ${location.pathname === '/productos' ? 'active fw-bold' : ''}`} 
+                  to="/productos"
+                >
+                  <BiPackage className="me-1" />
+                  Productos
+                </Link>
+              </li>
+            )}
 
             {/* Destacados - Solo en inicio */}
             {location.pathname === '/' && (

@@ -182,11 +182,7 @@ export class PaymentController {
       const { referenceCode, transactionState, value, currency, signature } = body;
 
       // Validar firma
-      // @ts-ignore
-      const apiKey = Deno.env.get("PAYU_API_KEY") || "";
-      // @ts-ignore
-      const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
-      const expectedSignature = this.generarFirmaPayU(referenceCode, Number(value), currency);
+      const expectedSignature = await this.generarFirmaPayU(referenceCode, Number(value), currency);
 
       if (signature !== expectedSignature) {
         console.error("Firma de PayU inválida");
@@ -287,25 +283,16 @@ export class PaymentController {
   /**
    * Generar firma PayU (helper)
    */
-  private static generarFirmaPayU(referenceCode: string, amount: number, currency: string): string {
-    // @ts-ignore
+  private static async generarFirmaPayU(referenceCode: string, amount: number, currency: string): Promise<string> {
+    // @ts-ignore: Deno.env es global en runtime de Deno
     const apiKey = Deno.env.get("PAYU_API_KEY") || "";
-    // @ts-ignore
-    const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
+    // @ts-ignore: Deno.env es global en runtime de Deno
+    const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "508029"; // Sandbox default
     const cadena = `${apiKey}~${merchantId}~${referenceCode}~${amount}~${currency}`;
     
-    if (!apiKey) {
-      return 'test_signature_' + Date.now();
-    }
-
-    // Implementación simple de hash (en producción usar MD5 real)
-    let hash = 0;
-    for (let i = 0; i < cadena.length; i++) {
-      const char = cadena.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).padStart(32, '0');
+    // Usar la implementación MD5 del PaymentService
+    const { PaymentService } = await import("../Services/PaymentService.ts");
+    return PaymentService.md5(cadena);
   }
 
   /**

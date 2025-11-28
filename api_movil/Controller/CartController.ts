@@ -15,10 +15,11 @@ const updateCartItemSchema = z.object({
 });
 
 const checkoutSchema = z.object({
-  direccionEntrega: z.string().min(10).max(500),
+  direccionEntrega: z.string().min(1).max(500), // Reducido mínimo a 1 para permitir direcciones cortas
   notas: z.string().max(1000).optional(),
-  metodo_pago: z.enum(['efectivo', 'transferencia', 'tarjeta']),
-  cupon_codigo: z.string().optional()
+  metodo_pago: z.enum(['efectivo', 'transferencia', 'tarjeta', 'nequi', 'daviplata', 'pse']),
+  cupon_codigo: z.string().optional(),
+  id_ciudad_entrega: z.number().int().positive().optional()
 });
 
 export class CartController {
@@ -364,11 +365,20 @@ export class CartController {
 
         const totalPrecio = validation.items_validated.reduce((sum, item) => sum + item.precio_total, 0);
 
+        console.log(`[Checkout] Pedido creado exitosamente:`, {
+          pedido_id: result.pedido_id,
+          total_precio: totalPrecio,
+          metodo_pago: validated.metodo_pago,
+          items: validation.items_validated.length
+        });
+
         // Si el método de pago requiere PayU, procesar el pago
-        const requierePayU = ['tarjeta', 'pse', 'nequi', 'daviplata'].includes(validated.metodo_pago);
+        // Todos los métodos excepto efectivo usan PayU
+        const requierePayU = validated.metodo_pago !== 'efectivo';
         let pagoResponse = null;
 
         if (requierePayU) {
+          console.log(`[Checkout] Procesando pago con PayU para pedido ${result.pedido_id}`);
           const { PaymentService } = await import("../Services/PaymentService.ts");
           pagoResponse = await PaymentService.crearPago({
             id_pedido: result.pedido_id!,
@@ -376,6 +386,13 @@ export class CartController {
             monto: totalPrecio,
             metodo_pago: validated.metodo_pago as any,
             pasarela: 'payu'
+          });
+          
+          console.log(`[Checkout] Respuesta de PayU:`, {
+            success: pagoResponse.success,
+            url_pago: pagoResponse.url_pago ? pagoResponse.url_pago.substring(0, 100) + "..." : null,
+            estado_pago: pagoResponse.estado_pago,
+            error: pagoResponse.error
           });
         }
 
@@ -426,14 +443,32 @@ export class CartController {
         ctx.response.body = {
           success: true,
           message: requierePayU && pagoResponse?.url_pago 
-            ? "Pedido creado. Redirigiendo a PayU para completar el pago..." 
-            : result.message,
+            ? "Pedido creado exitosamente. El carrito ha sido vaciado. Redirigiendo a PayU para completar el pago..." 
+            : "Pedido creado exitosamente. El carrito ha sido vaciado.",
           data: {
-            pedido_id: result.pedido_id,
-            total_items: validation.items_validated.length,
-            total_precio: totalPrecio,
-            metodo_pago: validated.metodo_pago,
-            direccion_entrega: validated.direccionEntrega,
+            pedido: {
+              id_pedido: result.pedido_id,
+              estado: pedido[0]?.estado || 'pendiente',
+              total: totalPrecio,
+              total_items: validation.items_validated.length,
+              metodo_pago: validated.metodo_pago,
+              direccion_entrega: validated.direccionEntrega,
+              fecha_pedido: pedido[0]?.fecha_pedido || new Date().toISOString(),
+              productos: productos.map((p: any) => ({
+                id_producto: p.id_producto,
+                nombre: p.nombre,
+                cantidad: p.cantidad,
+                precio_unitario: p.precio_unitario,
+                subtotal: p.subtotal,
+                unidad_medida: p.unidad_medida
+              }))
+            },
+            carrito_vaciado: true,
+            confirmacion: {
+              pedido_creado: true,
+              carrito_limpiado: true,
+              mensaje: "Tu pedido ha sido procesado correctamente y tu carrito ha sido vaciado."
+            },
             pago: requierePayU ? {
               id_pago: pagoResponse?.id_pago,
               url_pago: pagoResponse?.url_pago,

@@ -7,7 +7,7 @@ import { authService } from '../services/auth';
 import { ubicacionesService } from '../services';
 import { useAuth } from '../contexts/AuthContext';
 import { Toast } from '../components/ReusableComponents';
-import type { Ciudad } from '../types';
+import type { Ciudad, Departamento } from '../types';
 import './AuthScreen.css';
 
 interface AuthScreenProps {
@@ -38,26 +38,52 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onNavigate }) => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [loadingCiudades, setLoadingCiudades] = useState(false);
+  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null);
 
-  // Cargar ciudades al montar
+  // Cargar departamentos al montar
   useEffect(() => {
+    const cargarDepartamentos = async () => {
+      try {
+        const response = await ubicacionesService.listarDepartamentos();
+        if (response.success && response.data) {
+          setDepartamentos(response.data);
+        }
+      } catch (error) {
+        console.error('Error cargando departamentos:', error);
+      }
+    };
+    cargarDepartamentos();
+  }, []);
+
+  // Cargar ciudades cuando se seleccione un departamento
+  useEffect(() => {
+    if (!departamentoSeleccionado) {
+      setCiudades([]);
+      setRegisterData(prev => ({ ...prev, id_ciudad: null }));
+      return;
+    }
+
     const cargarCiudades = async () => {
       try {
         setLoadingCiudades(true);
-        const response = await ubicacionesService.listarCiudades();
+        const response = await ubicacionesService.listarCiudades(departamentoSeleccionado);
         if (response.success && response.data) {
           setCiudades(response.data);
+        } else {
+          setCiudades([]);
         }
       } catch (error) {
         console.error('Error cargando ciudades:', error);
+        setCiudades([]);
       } finally {
         setLoadingCiudades(false);
       }
     };
     cargarCiudades();
-  }, []);
+  }, [departamentoSeleccionado]);
 
   // Manejar login
   const handleLogin = async (e: React.FormEvent) => {
@@ -411,6 +437,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onNavigate }) => {
             </div>
 
             <div className="form-field">
+              <label htmlFor="register-departamento" className="form-label">
+                Departamento
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon">🗺️</span>
+                <select
+                  id="register-departamento"
+                  value={departamentoSeleccionado || ''}
+                  onChange={(e) => {
+                    const deptoId = e.target.value ? Number(e.target.value) : null;
+                    setDepartamentoSeleccionado(deptoId);
+                    setRegisterData({ ...registerData, id_ciudad: null });
+                  }}
+                  className={`form-select ${errors.id_ciudad && !departamentoSeleccionado ? 'error' : ''}`}
+                  required
+                  disabled={loading}
+                >
+                  <option value="">Selecciona un departamento</option>
+                  {departamentos.map((depto) => (
+                    <option key={depto.id_departamento} value={depto.id_departamento}>
+                      {depto.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-field">
               <label htmlFor="register-ciudad" className="form-label">
                 Ciudad
               </label>
@@ -422,9 +476,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onNavigate }) => {
                   onChange={(e) => setRegisterData({ ...registerData, id_ciudad: e.target.value ? Number(e.target.value) : null })}
                   className={`form-select ${errors.id_ciudad ? 'error' : ''}`}
                   required
-                  disabled={loading || loadingCiudades}
+                  disabled={loading || loadingCiudades || !departamentoSeleccionado}
                 >
-                  <option value="">{loadingCiudades ? 'Cargando ciudades...' : 'Selecciona tu ciudad'}</option>
+                  <option value="">
+                    {!departamentoSeleccionado 
+                      ? 'Primero selecciona un departamento' 
+                      : loadingCiudades 
+                      ? 'Cargando ciudades...' 
+                      : ciudades.length === 0
+                      ? 'No hay ciudades disponibles'
+                      : 'Selecciona tu ciudad'}
+                  </option>
                   {ciudades.map((ciudad) => (
                     <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
                       {ciudad.nombre}

@@ -20,9 +20,15 @@ class NotificacionesService {
       
       // El backend retorna { success: true, notificaciones: [...], total: number }
       // Necesitamos extraer las notificaciones de la respuesta
-      const notificaciones = Array.isArray(response.data) 
-        ? response.data 
-        : (response as any).notificaciones || [];
+      let notificaciones: Notification[] = [];
+      
+      if (Array.isArray(response.data)) {
+        notificaciones = response.data;
+      } else if ((response as any).notificaciones && Array.isArray((response as any).notificaciones)) {
+        notificaciones = (response as any).notificaciones;
+      } else if (response.data && typeof response.data === 'object' && (response.data as any).notificaciones) {
+        notificaciones = (response.data as any).notificaciones;
+      }
       
       return {
         success: response.success,
