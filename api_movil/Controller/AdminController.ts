@@ -16,23 +16,62 @@ export class AdminController {
   static async ObtenerTodosLosUsuarios(ctx: Context) {
     try {
       const rol = ctx.request.url.searchParams.get('rol');
+      const activo = ctx.request.url.searchParams.get('activo');
       const ciudad = ctx.request.url.searchParams.get('ciudad');
       const departamento = ctx.request.url.searchParams.get('departamento');
       const region = ctx.request.url.searchParams.get('region');
       const usuarioModel = new Usuario();
 
+      console.log('🔍 [AdminController] Filtros recibidos:', { rol, activo, ciudad, departamento, region });
+
       let usuarios;
       if (rol) {
         usuarios = await usuarioModel.ListarUsuarios();
         usuarios = usuarios.filter(u => u.rol === rol);
+        console.log(`📊 [AdminController] Usuarios filtrados por rol "${rol}": ${usuarios.length}`);
       } else if (ciudad) {
         usuarios = await usuarioModel.FiltrarPorCiudad(parseInt(ciudad));
+        console.log(`📊 [AdminController] Usuarios filtrados por ciudad: ${usuarios.length}`);
       } else if (departamento) {
         usuarios = await usuarioModel.FiltrarPorDepartamento(parseInt(departamento));
+        console.log(`📊 [AdminController] Usuarios filtrados por departamento: ${usuarios.length}`);
       } else if (region) {
         usuarios = await usuarioModel.FiltrarPorRegion(parseInt(region));
+        console.log(`📊 [AdminController] Usuarios filtrados por región: ${usuarios.length}`);
       } else {
         usuarios = await usuarioModel.ListarUsuarios();
+        console.log(`📊 [AdminController] Todos los usuarios: ${usuarios.length}`);
+      }
+
+      // Filtrar por estado activo si se proporciona (este filtro se aplica SIEMPRE si está presente)
+      if (activo !== null && activo !== undefined && activo !== '') {
+        // Manejar diferentes formatos: 'true', 'false', '1', '0', true, false
+        let activoBool: boolean;
+        if (typeof activo === 'string') {
+          activoBool = activo.toLowerCase() === 'true' || activo === '1' || activo === '1.0';
+        } else {
+          activoBool = Boolean(activo);
+        }
+        
+        const cantidadAntes = usuarios.length;
+        console.log(`🔍 [AdminController] Aplicando filtro activo=${activoBool} (valor recibido: "${activo}")`);
+        console.log(`🔍 [AdminController] Ejemplo de usuario antes del filtro:`, usuarios[0] ? { id: usuarios[0].id_usuario, nombre: usuarios[0].nombre, activo: usuarios[0].activo, tipoActivo: typeof usuarios[0].activo } : 'No hay usuarios');
+        
+        // Normalizar el campo activo del usuario (puede venir como número 0/1 o booleano)
+        usuarios = usuarios.filter(u => {
+          // Normalizar activo del usuario: convertir número a booleano si es necesario
+          const usuarioActivo = typeof u.activo === 'number' ? u.activo === 1 : Boolean(u.activo);
+          const coincide = usuarioActivo === activoBool;
+          if (!coincide && usuarios.length <= 5) {
+            console.log(`❌ [AdminController] Usuario ${u.id_usuario} (${u.nombre}) no coincide: activo=${usuarioActivo} (tipo: ${typeof u.activo}) vs filtro=${activoBool}`);
+          }
+          return coincide;
+        });
+        
+        console.log(`✅ [AdminController] Filtro por activo=${activoBool} (${activo}): ${cantidadAntes} -> ${usuarios.length} usuarios`);
+        if (usuarios.length > 0) {
+          console.log(`✅ [AdminController] Ejemplo de usuario después del filtro:`, { id: usuarios[0].id_usuario, nombre: usuarios[0].nombre, activo: usuarios[0].activo });
+        }
       }
 
       // Obtener información adicional de cada usuario
@@ -61,8 +100,14 @@ export class AdminController {
 
           // ✅ Remover password antes de enviar al frontend
           const { password: _password, ...usuarioSinPassword } = usuario;
-          return {
+          // Asegurar que activo sea siempre booleano
+          const usuarioNormalizado = {
             ...usuarioSinPassword,
+            activo: typeof usuario.activo === 'number' ? usuario.activo === 1 : Boolean(usuario.activo),
+            email_verificado: typeof usuario.email_verificado === 'number' ? usuario.email_verificado === 1 : Boolean(usuario.email_verificado),
+          };
+          return {
+            ...usuarioNormalizado,
             ubicacion: ciudad[0] ? {
               ciudad: ciudad[0].ciudad,
               departamento: ciudad[0].departamento,
@@ -74,8 +119,14 @@ export class AdminController {
           console.error(`Error procesando usuario ${usuario.id_usuario}:`, err);
           // ✅ Remover password antes de enviar al frontend
           const { password: _password, ...usuarioSinPassword } = usuario;
-          return {
+          // Asegurar que activo sea siempre booleano
+          const usuarioNormalizado = {
             ...usuarioSinPassword,
+            activo: typeof usuario.activo === 'number' ? usuario.activo === 1 : Boolean(usuario.activo),
+            email_verificado: typeof usuario.email_verificado === 'number' ? usuario.email_verificado === 1 : Boolean(usuario.email_verificado),
+          };
+          return {
+            ...usuarioNormalizado,
             ubicacion: null,
             estadisticas: { total_productos: 0, total_mensajes_recibidos: 0, total_pedidos_recibidos: 0 }
           };
@@ -205,25 +256,36 @@ export class AdminController {
         return;
       }
 
-      // ✅ Hashear password si se proporciona y no está vacío
-      let hashedPassword: string | undefined = undefined;
-      if (password && password.trim() !== '') {
-        const { securityService } = await import("../Services/SecurityService.ts");
-        hashedPassword = await securityService.hashPassword(password);
+      // Obtener el usuario actual para mantener el password si no se proporciona uno nuevo
+      const usuarioActual = await conexion.query("SELECT password FROM usuarios WHERE id_usuario = ?", [parseInt(id_usuario)]);
+      if (!usuarioActual || usuarioActual.length === 0) {
+        ctx.response.status = 404;
+        ctx.response.body = { 
+          success: false,
+          error: "USER_NOT_FOUND",
+          message: "Usuario no encontrado" 
+        };
+        return;
       }
 
-      // ✅ Manejar campos opcionales correctamente
+      // ✅ Hashear password si se proporciona y no está vacío, sino usar el existente
+      let passwordFinal: string = usuarioActual[0].password; // Password actual por defecto
+      if (password && password.trim() !== '') {
+        const { securityService } = await import("../Services/SecurityService.ts");
+        passwordFinal = await securityService.hashPassword(password);
+      }
+
       const usuarioData = {
         id_usuario: parseInt(id_usuario),
         nombre: nombre.trim(),
         email: email.toLowerCase().trim(),
-        password: hashedPassword, // Solo incluir si se proporciona
+        password: passwordFinal,
         telefono: telefono ? telefono.trim() : null,
         direccion: direccion ? direccion.trim() : null,
-        id_ciudad: id_ciudad ? parseInt(id_ciudad) : null, // Permitir null si no se especifica
-        rol: rol || undefined,
-        activo: activo !== undefined ? (activo === true || activo === 1 || activo === 'true') : undefined, // Manejar boolean, number y string
-        email_verificado: email_verificado !== undefined ? (email_verificado === true || email_verificado === 1 || email_verificado === 'true') : undefined
+        id_ciudad: id_ciudad ? parseInt(id_ciudad) : null, 
+        rol: rol || 'consumidor',
+        activo: activo !== undefined ? (activo === true || activo === 1 || activo === 'true') : true,
+        email_verificado: email_verificado !== undefined ? (email_verificado === true || email_verificado === 1 || email_verificado === 'true') : false
       };
 
       console.log('📝 [AdminController.EditarUsuario] Datos procesados:', {
@@ -256,6 +318,81 @@ export class AdminController {
         success: false,
         error: "INTERNAL_ERROR",
         message: error instanceof Error ? error.message : "Error interno del servidor" 
+      };
+    }
+  }
+
+  // 📌 Verificar si un usuario tiene registros relacionados
+  static async VerificarRegistrosUsuario(ctx: RouterContext<"/admin/usuario/:id_usuario/verificar">) {
+    try {
+      const { id_usuario } = ctx.params;
+
+      if (!id_usuario) {
+        ctx.response.status = 400;
+        ctx.response.body = { 
+          success: false,
+          error: "MISSING_ID",
+          message: "ID del usuario requerido" 
+        };
+        return;
+      }
+
+      const { conexion } = await import("../Models/Conexion.ts");
+      const id = parseInt(id_usuario);
+
+      // Verificar registros en diferentes tablas
+      const verificaciones = await Promise.allSettled([
+        conexion.query("SELECT COUNT(*) as count FROM productos WHERE id_usuario = ?", [id]),
+        conexion.query("SELECT COUNT(*) as count FROM pedidos WHERE id_consumidor = ? OR id_productor = ?", [id, id]),
+        conexion.query("SELECT COUNT(*) as count FROM mensajes WHERE id_remitente = ? OR id_destinatario = ?", [id, id]),
+        conexion.query("SELECT COUNT(*) as count FROM carrito WHERE id_usuario = ?", [id]),
+        conexion.query("SELECT COUNT(*) as count FROM lista_deseos WHERE id_usuario = ?", [id]),
+        conexion.query("SELECT COUNT(*) as count FROM reseñas WHERE id_consumidor = ? OR id_productor = ?", [id, id]),
+        conexion.query("SELECT COUNT(*) as count FROM notificaciones WHERE id_usuario = ?", [id]),
+      ]);
+
+      const totales: Record<string, number> = {};
+      const nombres: Record<string, string> = {
+        'productos': 'Productos',
+        'pedidos': 'Pedidos',
+        'mensajes': 'Mensajes',
+        'carrito': 'Items en carrito',
+        'lista_deseos': 'Items en lista de deseos',
+        'reseñas': 'Reseñas',
+        'notificaciones': 'Notificaciones'
+      };
+
+      verificaciones.forEach((result, index) => {
+        const keys = Object.keys(nombres);
+        const key = keys[index];
+        if (result.status === 'fulfilled' && result.value && Array.isArray(result.value) && result.value[0]) {
+          const count = result.value[0].count || 0;
+          if (count > 0) {
+            totales[key] = count;
+          }
+        }
+      });
+
+      const tieneRegistros = Object.keys(totales).length > 0;
+      const totalRegistros = Object.values(totales).reduce((sum, val) => sum + val, 0);
+
+      ctx.response.status = 200;
+      ctx.response.body = {
+        success: true,
+        tieneRegistros,
+        totalRegistros,
+        detalles: totales,
+        message: tieneRegistros 
+          ? `El usuario tiene ${totalRegistros} registro(s) relacionado(s) en ${Object.keys(totales).length} tabla(s)`
+          : 'El usuario no tiene registros relacionados'
+      };
+    } catch (error: any) {
+      console.error("Error verificando registros del usuario:", error);
+      ctx.response.status = 500;
+      ctx.response.body = { 
+        success: false,
+        error: "INTERNAL_ERROR",
+        message: error?.message || "Error interno del servidor" 
       };
     }
   }
@@ -323,6 +460,7 @@ export class AdminController {
     try {
       const { conexion } = await import("../Models/Conexion.ts");
       
+      // Primero obtener todos los productos
       const productos = await conexion.query(`
         SELECT 
           p.*,
@@ -334,19 +472,85 @@ export class AdminController {
           r.nombre as region_origen
         FROM productos p
         INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-        INNER JOIN ciudades c ON p.id_ciudad_origen = c.id_ciudad
-        INNER JOIN departamentos d ON c.id_departamento = d.id_departamento
-        INNER JOIN regiones r ON d.id_region = r.id_region
+        LEFT JOIN ciudades c ON p.id_ciudad_origen = c.id_ciudad
+        LEFT JOIN departamentos d ON c.id_departamento = d.id_departamento
+        LEFT JOIN regiones r ON d.id_region = r.id_region
         ORDER BY p.id_producto DESC
       `);
+
+      // Ahora obtener las categorías para cada producto que tenga id_categoria
+      console.log('🔍 [AdminController] Obteniendo categorías para productos...');
+      for (const producto of productos) {
+        const idCategoria = producto.id_categoria;
+        console.log(`🔍 [AdminController] Producto ${producto.id_producto}: id_categoria=${idCategoria}`);
+        
+        if (idCategoria && idCategoria !== null && idCategoria !== undefined) {
+          try {
+            const categoriaResult = await conexion.query(
+              'SELECT nombre FROM categorias WHERE id_categoria = ?',
+              [idCategoria]
+            );
+            console.log(`🔍 [AdminController] Resultado categoría para id_categoria=${idCategoria}:`, categoriaResult);
+            
+            if (categoriaResult && categoriaResult.length > 0 && categoriaResult[0].nombre) {
+              const nombreCategoria = categoriaResult[0].nombre;
+              producto.categoria_nombre = nombreCategoria;
+              producto.nombre_categoria = nombreCategoria;
+              console.log(`✅ [AdminController] Categoría asignada: ${nombreCategoria} para producto ${producto.id_producto}`);
+            } else {
+              producto.categoria_nombre = 'Sin categoría';
+              producto.nombre_categoria = 'Sin categoría';
+              console.warn(`⚠️ [AdminController] Categoría no encontrada para id_categoria=${idCategoria}`);
+            }
+          } catch (error) {
+            console.error(`❌ [AdminController] Error obteniendo categoría para producto ${producto.id_producto}:`, error);
+            producto.categoria_nombre = 'Sin categoría';
+            producto.nombre_categoria = 'Sin categoría';
+          }
+        } else {
+          producto.categoria_nombre = 'Sin categoría';
+          producto.nombre_categoria = 'Sin categoría';
+          console.log(`ℹ️ [AdminController] Producto ${producto.id_producto} no tiene id_categoria`);
+        }
+      }
+      
+      console.log('✅ [AdminController] Categorías asignadas a todos los productos');
+
+      // Log para debugging
+      console.log('📦 [AdminController] Productos obtenidos:', productos.length);
+      if (productos.length > 0) {
+        const primerProducto = productos[0];
+        console.log('📦 [AdminController] Primer producto ejemplo:', {
+          id_producto: primerProducto.id_producto,
+          nombre: primerProducto.nombre,
+          id_categoria: primerProducto.id_categoria,
+          categoria_nombre: primerProducto.categoria_nombre,
+          nombre_categoria: primerProducto.nombre_categoria
+        });
+      }
+
+      // Asegurarse de que todos los productos tengan los campos de categoría
+      const productosConCategoria = productos.map((p: any) => ({
+        ...p,
+        categoria_nombre: p.categoria_nombre || 'Sin categoría',
+        nombre_categoria: p.nombre_categoria || p.categoria_nombre || 'Sin categoría'
+      }));
+      
+      console.log('📦 [AdminController] Verificación final - Primer producto:', {
+        id_producto: productosConCategoria[0]?.id_producto,
+        nombre: productosConCategoria[0]?.nombre,
+        id_categoria: productosConCategoria[0]?.id_categoria,
+        categoria_nombre: productosConCategoria[0]?.categoria_nombre,
+        nombre_categoria: productosConCategoria[0]?.nombre_categoria
+      });
 
       ctx.response.status = 200;
       ctx.response.body = {
         success: true,
-        data: productos, // ✅ Formato estándar con data
-        productos, // ✅ Mantener también para compatibilidad
-        total: productos.length,
-        message: `${productos.length} productos encontrados`
+        data: productosConCategoria, // ✅ Formato estándar con data
+        productos: productosConCategoria, // ✅ Mantener también para compatibilidad
+        total: productosConCategoria.length,
+        message: `${productosConCategoria.length} productos encontrados`
       };
     } catch (error) {
       console.error("Error en ObtenerTodosLosProductos:", error);
@@ -361,10 +565,18 @@ export class AdminController {
 
   // 📌 Eliminar producto inapropiado
   static async EliminarProductoInapropiado(ctx: RouterContext<"/admin/producto/:id_producto">) {
+    // Intentar obtener el body, pero no fallar si no existe
+    let motivo = 'Producto eliminado por administrador';
+    try {
+      const body = await ctx.request.body.json();
+      motivo = body.motivo || motivo;
+    } catch (error) {
+      // Si no hay body o hay error al parsearlo, usar motivo por defecto
+      console.log('⚠️ No se pudo obtener el motivo del body, usando motivo por defecto');
+    }
+
     try {
       const { id_producto } = ctx.params;
-      const body = await ctx.request.body.json();
-      const { motivo } = body;
 
       if (!id_producto) {
         ctx.response.status = 400;
@@ -380,34 +592,72 @@ export class AdminController {
       const result = await productosModel.EliminarProducto(parseInt(id_producto));
 
       if (result.success) {
-        // Registrar la acción en los logs del sistema
-        const { conexion } = await import("../Models/Conexion.ts");
-        await conexion.execute(`
-          INSERT INTO configuracion_sistema (clave, valor, descripcion) 
-          VALUES (?, ?, ?)
-        `, [
-          `producto_eliminado_${id_producto}`,
-          motivo || 'Producto eliminado por administrador',
-          `Producto eliminado el ${new Date().toISOString()}`
-        ]);
+        // Registrar la acción en los logs del sistema (opcional, errores solo a consola)
+        try {
+          const { conexion } = await import("../Models/Conexion.ts");
+          await conexion.execute(`
+            INSERT INTO configuracion_sistema (clave, valor, descripcion) 
+            VALUES (?, ?, ?)
+          `, [
+            `producto_eliminado_${id_producto}`,
+            motivo || 'Producto eliminado por administrador',
+            `Producto eliminado el ${new Date().toISOString()}`
+          ]);
+          console.log(`✅ [AdminController] Registro de eliminación guardado en configuracion_sistema`);
+        } catch (logError) {
+          // Error solo en consola, no afecta la respuesta
+          console.error("⚠️ [AdminController] Error al registrar log (no crítico, solo consola):", logError);
+        }
 
+        // Siempre devolver éxito si el producto se eliminó
         ctx.response.status = 200;
         ctx.response.body = {
           success: true,
           message: "Producto eliminado correctamente",
           motivo: motivo || 'Producto eliminado por administrador'
         };
+        return;
       } else {
         ctx.response.status = 400;
         ctx.response.body = result;
+        return;
       }
     } catch (error) {
-      console.error("Error en EliminarProductoInapropiado:", error);
+      // Error en consola
+      console.error("❌ [AdminController] Error en EliminarProductoInapropiado:", error);
+      
+      // Verificar si el producto fue eliminado a pesar del error
+      // Esto puede pasar si el producto se eliminó pero falló algo después
+      try {
+        const { conexion } = await import("../Models/Conexion.ts");
+        const productoExiste = await conexion.query(
+          "SELECT id_producto FROM productos WHERE id_producto = ?",
+          [parseInt(ctx.params.id_producto)]
+        );
+        
+        // Si el producto no existe, significa que se eliminó correctamente
+        if (!productoExiste || productoExiste.length === 0) {
+          console.log(`✅ [AdminController] El producto fue eliminado correctamente (verificado en BD)`);
+          // Devolver éxito aunque haya habido error en el proceso
+          ctx.response.status = 200;
+          ctx.response.body = {
+            success: true,
+            message: "Producto eliminado correctamente",
+            motivo: motivo || 'Producto eliminado por administrador'
+          };
+          return;
+        }
+      } catch (checkError) {
+        // Error solo en consola
+        console.error("❌ [AdminController] Error al verificar si el producto existe:", checkError);
+      }
+      
+      // Solo devolver error si realmente falló la eliminación
       ctx.response.status = 500;
       ctx.response.body = { 
         success: false,
         error: "INTERNAL_ERROR",
-        message: "Error interno del servidor" 
+        message: error instanceof Error ? error.message : "Error interno del servidor" 
       };
     }
   }
@@ -900,6 +1150,86 @@ export class AdminController {
     }
   }
 
+  static async EliminarPedido(ctx: RouterContext<"/admin/pedido/:id_pedido">) {
+    try {
+      const { id_pedido } = ctx.params;
+      
+      if (!id_pedido) {
+        ctx.response.status = 400;
+        ctx.response.body = { 
+          success: false,
+          error: "MISSING_ID",
+          message: "ID del pedido requerido" 
+        };
+        return;
+      }
+
+      const idPedidoNum = parseInt(id_pedido);
+      if (isNaN(idPedidoNum) || idPedidoNum <= 0) {
+        ctx.response.status = 400;
+        ctx.response.body = { 
+          success: false,
+          error: "INVALID_ID",
+          message: "ID de pedido inválido" 
+        };
+        return;
+      }
+
+      // Verificar que el pedido existe
+      const pedido = await conexion.query("SELECT * FROM pedidos WHERE id_pedido = ?", [idPedidoNum]);
+      
+      if (!pedido || pedido.length === 0) {
+        ctx.response.status = 404;
+        ctx.response.body = { 
+          success: false,
+          error: "NOT_FOUND",
+          message: "Pedido no encontrado" 
+        };
+        return;
+      }
+
+      // Eliminar en transacción para asegurar consistencia
+      await conexion.execute("START TRANSACTION");
+
+      try {
+        // Eliminar detalles de pedidos relacionados primero
+        await conexion.execute("DELETE FROM detalle_pedidos WHERE id_pedido = ?", [idPedidoNum]);
+        console.log(`✅ Detalles de pedido ${idPedidoNum} eliminados`);
+
+        // Eliminar el pedido
+        const result = await conexion.execute("DELETE FROM pedidos WHERE id_pedido = ?", [idPedidoNum]);
+
+        if (result && result.affectedRows && result.affectedRows > 0) {
+          await conexion.execute("COMMIT");
+          ctx.response.status = 200;
+          ctx.response.body = {
+            success: true,
+            message: "Pedido y todos sus datos relacionados han sido eliminados correctamente."
+          };
+        } else {
+          await conexion.execute("ROLLBACK");
+          ctx.response.status = 400;
+          ctx.response.body = {
+            success: false,
+            error: "DELETE_FAILED",
+            message: "No se pudo eliminar el pedido"
+          };
+        }
+      } catch (deleteError) {
+        await conexion.execute("ROLLBACK");
+        throw deleteError;
+      }
+    } catch (error) {
+      console.error("❌ [AdminController] Error en EliminarPedido:", error);
+      ctx.response.status = 500;
+      ctx.response.body = { 
+        success: false,
+        error: "INTERNAL_ERROR",
+        message: error instanceof Error ? error.message : "Error interno del servidor" 
+      };
+    }
+  }
+
   // ========== CATEGORÍAS ==========
   static async ObtenerTodasLasCategorias(ctx: Context) {
     try {
@@ -1112,8 +1442,64 @@ export class AdminController {
       }
       query += ` ORDER BY n.fecha_creacion DESC`;
       const notificaciones = await conexion.query(query, params);
+      
+      // Agrupar notificaciones masivas (mismo id_referencia y tipo_referencia = 'usuario')
+      const notificacionesAgrupadas: any[] = [];
+      const gruposMasivos = new Map<number, any[]>();
+      
+      for (const notif of notificaciones) {
+        // Si tiene id_referencia y tipo_referencia es 'usuario', es una notificación masiva
+        if (notif.id_referencia && notif.tipo_referencia === 'usuario') {
+          const idGrupo = notif.id_referencia;
+          if (!gruposMasivos.has(idGrupo)) {
+            gruposMasivos.set(idGrupo, []);
+          }
+          gruposMasivos.get(idGrupo)!.push(notif);
+        } else {
+          // Notificación individual, agregarla directamente
+          notificacionesAgrupadas.push({
+            ...notif,
+            es_masiva: false,
+            total_destinatarios: 1
+          });
+        }
+      }
+      
+      // Agregar notificaciones masivas agrupadas
+      for (const [idGrupo, notifs] of gruposMasivos.entries()) {
+        if (notifs.length > 0) {
+          const primeraNotif = notifs[0];
+          // Obtener lista de destinatarios
+          const destinatarios = notifs.map((n: any) => ({
+            id_usuario: n.id_usuario,
+            nombre: n.nombre_usuario || `Usuario ${n.id_usuario}`,
+            leida: n.leida,
+            fecha_leida: n.fecha_leida
+          }));
+          
+          notificacionesAgrupadas.push({
+            id_notificacion: primeraNotif.id_notificacion,
+            id_grupo: idGrupo,
+            titulo: primeraNotif.titulo,
+            mensaje: primeraNotif.mensaje,
+            tipo: primeraNotif.tipo,
+            fecha_creacion: primeraNotif.fecha_creacion,
+            es_masiva: true,
+            total_destinatarios: notifs.length,
+            destinatarios: destinatarios,
+            leida: notifs.every((n: any) => n.leida), // Leída si todos los destinatarios la leyeron
+            nombre_usuario: `${notifs.length} destinatarios`
+          });
+        }
+      }
+      
+      // Ordenar por fecha de creación descendente
+      notificacionesAgrupadas.sort((a, b) => 
+        new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
+      );
+      
       ctx.response.status = 200;
-      ctx.response.body = { success: true, data: notificaciones, total: notificaciones.length };
+      ctx.response.body = { success: true, data: notificacionesAgrupadas, total: notificacionesAgrupadas.length };
     } catch (error) {
       console.error("Error en ObtenerTodasLasNotificaciones:", error);
       ctx.response.status = 500;
@@ -1178,6 +1564,9 @@ export class AdminController {
 
       await conexion.execute('START TRANSACTION');
 
+      // Generar un ID de grupo único para esta notificación masiva
+      const idGrupo = Date.now(); // Usar timestamp como ID único del grupo
+      
       let creadas = 0;
       let errores = 0;
 
@@ -1187,7 +1576,9 @@ export class AdminController {
             id_usuario: usuario.id_usuario,
             titulo,
             mensaje,
-            tipo: tipo || 'sistema'
+            tipo: tipo || 'sistema',
+            id_referencia: idGrupo, // Usar id_referencia para almacenar el ID del grupo
+            tipo_referencia: 'usuario' as const // Marcar como tipo usuario para identificar masivas
           };
           const notificacionesModel = new NotificacionesModel(notificacionData);
           const result = await notificacionesModel.CrearNotificacion();
@@ -1475,7 +1866,6 @@ export class AdminController {
           email_contacto: 'contacto@agrostock.com',
           telefono_contacto: '+57 300 000 0000',
           direccion: 'Colombia',
-          mantenimiento: false,
           limite_productos: 100,
           dias_expiracion_reportes: 30
         };
@@ -1493,7 +1883,7 @@ export class AdminController {
       const configRows = await conexion.query(`
         SELECT clave, valor 
         FROM configuracion_sistema
-        WHERE clave IN ('nombre_sistema', 'email_contacto', 'telefono_contacto', 'direccion', 'mantenimiento', 'limite_productos', 'dias_expiracion_reportes')
+        WHERE clave IN ('nombre_sistema', 'email_contacto', 'telefono_contacto', 'direccion', 'limite_productos', 'dias_expiracion_reportes')
       `);
 
       const config: any = {
@@ -1501,7 +1891,6 @@ export class AdminController {
         email_contacto: 'contacto@agrostock.com',
         telefono_contacto: '+57 300 000 0000',
         direccion: 'Colombia',
-        mantenimiento: false,
         limite_productos: 100,
         dias_expiracion_reportes: 30
       };
@@ -1511,10 +1900,8 @@ export class AdminController {
         const clave = row.clave;
         let valor = row.valor;
 
-        // Convertir valores booleanos y numéricos
-        if (clave === 'mantenimiento') {
-          valor = valor === 'true' || valor === '1' || valor === 1;
-        } else if (clave === 'limite_productos' || clave === 'dias_expiracion_reportes') {
+        // Convertir valores numéricos
+        if (clave === 'limite_productos' || clave === 'dias_expiracion_reportes') {
           valor = parseInt(valor) || 0;
         }
 
@@ -1547,7 +1934,6 @@ export class AdminController {
         email_contacto,
         telefono_contacto,
         direccion,
-        mantenimiento,
         limite_productos,
         dias_expiracion_reportes
       } = body;
@@ -1579,7 +1965,6 @@ export class AdminController {
         { clave: 'email_contacto', valor: email_contacto || 'contacto@agrostock.com' },
         { clave: 'telefono_contacto', valor: telefono_contacto || '+57 300 000 0000' },
         { clave: 'direccion', valor: direccion || 'Colombia' },
-        { clave: 'mantenimiento', valor: mantenimiento ? 'true' : 'false' },
         { clave: 'limite_productos', valor: String(limite_productos || 100) },
         { clave: 'dias_expiracion_reportes', valor: String(dias_expiracion_reportes || 30) }
       ];
@@ -1611,7 +1996,6 @@ export class AdminController {
           email_contacto: email_contacto || 'contacto@agrostock.com',
           telefono_contacto: telefono_contacto || '+57 300 000 0000',
           direccion: direccion || 'Colombia',
-          mantenimiento: mantenimiento || false,
           limite_productos: limite_productos || 100,
           dias_expiracion_reportes: dias_expiracion_reportes || 30
         }

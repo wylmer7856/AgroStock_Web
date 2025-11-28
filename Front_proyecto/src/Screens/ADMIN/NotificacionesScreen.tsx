@@ -6,15 +6,26 @@ import { Card, Button, Loading, Badge, Modal } from '../../components/ReusableCo
 import Swal from 'sweetalert2';
 import './AdminScreens.css';
 
+interface Destinatario {
+  id_usuario: number;
+  nombre: string;
+  leida: boolean;
+  fecha_leida: string | null;
+}
+
 interface Notificacion {
   id_notificacion: number;
-  id_usuario: number;
+  id_usuario?: number;
+  id_grupo?: number;
   nombre_usuario?: string;
   titulo: string;
   mensaje: string;
   tipo: string;
   leida: boolean;
   fecha_creacion: string;
+  es_masiva?: boolean;
+  total_destinatarios?: number;
+  destinatarios?: Destinatario[];
 }
 
 interface NotificacionesScreenProps {
@@ -290,16 +301,49 @@ export const NotificacionesScreen: React.FC<NotificacionesScreenProps> = ({ onNa
       promocion: '🎁 Promoción'
     }[notif.tipo] || notif.tipo;
 
+    // Construir HTML para destinatarios si es masiva
+    let destinatariosHTML = '';
+    if (notif.es_masiva && notif.destinatarios && notif.destinatarios.length > 0) {
+      const leidas = notif.destinatarios.filter(d => d.leida).length;
+      const noLeidas = notif.destinatarios.length - leidas;
+      destinatariosHTML = `
+        <div style="margin-bottom: 1rem;">
+          <strong>📬 Notificación Masiva:</strong> ${notif.total_destinatarios || 0} destinatarios
+          <div style="margin-top: 0.5rem; padding: 0.75rem; background: #e0f2fe; border-radius: 6px; font-size: 0.875rem;">
+            ✅ Leídas: ${leidas} | ⏳ No leídas: ${noLeidas}
+          </div>
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <strong>👥 Destinatarios:</strong>
+          <div style="max-height: 300px; overflow-y: auto; margin-top: 0.5rem; padding: 0.75rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+            ${notif.destinatarios.map((dest, idx) => `
+              <div style="padding: 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                <span>${idx + 1}. ${dest.nombre} (ID: ${dest.id_usuario})</span>
+                <span style="font-size: 0.875rem; color: ${dest.leida ? '#059669' : '#f59e0b'};">
+                  ${dest.leida ? '✅ Leída' : '⏳ No leída'}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      destinatariosHTML = `
+        <div style="margin-bottom: 1rem;">
+          <strong>Usuario:</strong> ${notif.nombre_usuario || `ID: ${notif.id_usuario || 'N/A'}`}
+        </div>
+      `;
+    }
+
     Swal.fire({
       title: 'Detalles de la Notificación',
       html: `
         <div style="text-align: left;">
           <div style="margin-bottom: 1rem;">
             <strong>ID de Notificación:</strong> #${notif.id_notificacion}
+            ${notif.id_grupo ? ` <span style="color: #6b7280; font-size: 0.875rem;">(Grupo: ${notif.id_grupo})</span>` : ''}
           </div>
-          <div style="margin-bottom: 1rem;">
-            <strong>Usuario:</strong> ${notif.nombre_usuario || `ID: ${notif.id_usuario}`}
-          </div>
+          ${destinatariosHTML}
           <div style="margin-bottom: 1rem;">
             <strong>Tipo:</strong> ${tipoText}
           </div>
@@ -326,7 +370,7 @@ export const NotificacionesScreen: React.FC<NotificacionesScreenProps> = ({ onNa
       `,
       confirmButtonText: 'Cerrar',
       confirmButtonColor: '#059669',
-      width: '600px'
+      width: notif.es_masiva ? '800px' : '600px'
     });
   };
 
@@ -394,7 +438,16 @@ export const NotificacionesScreen: React.FC<NotificacionesScreenProps> = ({ onNa
                         </td>
                         <td className="td-usuario">
                           <span className="notificacion-usuario-text">
-                            {notif.nombre_usuario || `ID: ${notif.id_usuario}`}
+                            {notif.es_masiva 
+                              ? `${notif.total_destinatarios || 0} destinatarios`
+                              : (notif.nombre_usuario || `ID: ${notif.id_usuario}`)
+                            }
+                            {notif.es_masiva && (
+                              <Badge variant="info" size="small" style={{ marginLeft: '0.5rem' }}>
+                                <i className="bi bi-people-fill me-1"></i>
+                                Masiva
+                              </Badge>
+                            )}
                           </span>
                         </td>
                         <td className="td-titulo">

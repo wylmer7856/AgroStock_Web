@@ -404,3 +404,40 @@ button:disabled {
 [data-bs-toggle="tooltip"] {
   position: relative;
 }
+
+/* ===== ESTILOS GLOBALES PARA SWEETALERT2 - Asegurar que aparezca sobre modales ===== */
+/* SweetAlert2 debe tener un z-index mayor que los modales (100000) */
+.swal2-container {
+  z-index: 100001 !important;
+}
+
+.swal2-popup {
+  z-index: 100002 !important;
+}
+
+.swal2-backdrop-show {
+  z-index: 100000 !important;
+}
+
+/* Asegurar que el overlay de SweetAlert2 esté por encima de los modales */
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .swal2-container {
+  z-index: 100001 !important;
+}
+
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .swal2-backdrop-show {
+  z-index: 100000 !important;
+}
+
+/* Modal overlay debe estar por debajo de SweetAlert2 */
+.modal-overlay {
+  z-index: 99999 !important;
+}
+
+.modal {
+  z-index: 100000 !important;
+}
+
+/* Asegurar que los toasts de SweetAlert2 también tengan z-index alto */
+.swal2-toast {
+  z-index: 100003 !important;
+}

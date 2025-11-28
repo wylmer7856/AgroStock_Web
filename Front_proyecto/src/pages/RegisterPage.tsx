@@ -63,6 +63,10 @@ const RegisterPage: React.FC = () => {
       const response = await ubicacionesService.listarDepartamentos();
       return response.data || [];
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   // Cargar ciudades según departamento seleccionado
@@ -74,6 +78,10 @@ const RegisterPage: React.FC = () => {
       return response.data || [];
     },
     enabled: !!selectedDepartamento,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   const departamentos = departamentosData || [];
@@ -185,7 +193,9 @@ const RegisterPage: React.FC = () => {
         }
       }
     } catch (error: any) {
+      // No resetear el formulario, mantener los valores escritos
       toast.error(error.message || 'Error al crear la cuenta');
+      // No hacer setIsLoading(false) aquí para que el usuario pueda corregir y reintentar
     } finally {
       setIsLoading(false);
     }
@@ -258,7 +268,7 @@ const RegisterPage: React.FC = () => {
                   
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="nombre" className="form-label">
+                      <label htmlFor="nombre" className={`form-label ${errors.nombre ? 'label-error' : ''}`}>
                         Nombre Completo *
                       </label>
                       <input
@@ -280,7 +290,7 @@ const RegisterPage: React.FC = () => {
                     </div>
 
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="email" className="form-label">
+                      <label htmlFor="email" className={`form-label ${errors.email ? 'label-error' : ''}`}>
                         <BiEnvelope className="me-2" />
                         Email *
                       </label>
@@ -305,7 +315,7 @@ const RegisterPage: React.FC = () => {
 
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="password" className="form-label">
+                      <label htmlFor="password" className={`form-label ${errors.password ? 'label-error' : ''}`}>
                         <BiLock className="me-2" />
                         Contraseña *
                       </label>
@@ -328,7 +338,7 @@ const RegisterPage: React.FC = () => {
                     </div>
 
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="confirmPassword" className="form-label">
+                      <label htmlFor="confirmPassword" className={`form-label ${errors.confirmPassword ? 'label-error' : ''}`}>
                         <BiLock className="me-2" />
                         Confirmar Contraseña *
                       </label>
@@ -351,7 +361,7 @@ const RegisterPage: React.FC = () => {
 
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="telefono" className="form-label">
+                      <label htmlFor="telefono" className={`form-label ${errors.telefono ? 'label-error' : ''}`}>
                         <BiPhone className="me-2" />
                         Teléfono *
                       </label>
@@ -374,7 +384,7 @@ const RegisterPage: React.FC = () => {
                     </div>
 
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="direccion" className="form-label">
+                      <label htmlFor="direccion" className={`form-label ${errors.direccion ? 'label-error' : ''}`}>
                         <BiMapPin className="me-2" />
                         Dirección *
                       </label>
@@ -399,7 +409,7 @@ const RegisterPage: React.FC = () => {
 
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="id_departamento" className="form-label">
+                      <label htmlFor="id_departamento" className={`form-label ${errors.id_departamento ? 'label-error' : ''}`}>
                         Departamento *
                       </label>
                       <select
@@ -423,7 +433,7 @@ const RegisterPage: React.FC = () => {
                     </div>
 
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="id_ciudad" className="form-label">
+                      <label htmlFor="id_ciudad" className={`form-label ${errors.id_ciudad ? 'label-error' : ''}`}>
                         Ciudad *
                       </label>
                       <select
@@ -465,7 +475,7 @@ const RegisterPage: React.FC = () => {
 
                       <div className="row">
                         <div className="col-md-6 mb-3">
-                          <label htmlFor="nombre_finca" className="form-label">
+                          <label htmlFor="nombre_finca" className={`form-label ${errors.nombre_finca ? 'label-error' : ''}`}>
                             Nombre de la Finca *
                           </label>
                           <input

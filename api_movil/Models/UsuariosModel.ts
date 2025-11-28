@@ -663,7 +663,22 @@ export class Usuario {
   public async FiltrarPorCiudad(id_ciudad: number): Promise<UsuarioData[]> {
     try {
       const result = await conexion.query("SELECT * FROM usuarios WHERE id_ciudad = ?", [id_ciudad]);
-      return result as UsuarioData[];
+      // Normalizar los datos igual que en ListarUsuarios
+      return result.map((row: UsuarioRow) => ({
+        id_usuario: row.id_usuario,
+        nombre: row.nombre,
+        email: row.email,
+        password: row.password,
+        telefono: row.telefono,
+        direccion: row.direccion,
+        id_ciudad: row.id_ciudad,
+        rol: row.rol,
+        activo: row.activo !== 0,
+        email_verificado: row.email_verificado !== 0,
+        foto_perfil: row.foto_perfil || null,
+        fecha_registro: row.fecha_registro || null,
+        ultimo_acceso: row.ultimo_acceso || null
+      })) as UsuarioData[];
     } catch (error) {
       console.error("Error al filtrar usuarios por ciudad: ", error);
       return [];
@@ -680,7 +695,22 @@ export class Usuario {
          WHERE c.id_departamento = ?`,
         [id_departamento]
       );
-      return result as UsuarioData[];
+      // Normalizar los datos igual que en ListarUsuarios
+      return result.map((row: UsuarioRow) => ({
+        id_usuario: row.id_usuario,
+        nombre: row.nombre,
+        email: row.email,
+        password: row.password,
+        telefono: row.telefono,
+        direccion: row.direccion,
+        id_ciudad: row.id_ciudad,
+        rol: row.rol,
+        activo: row.activo !== 0,
+        email_verificado: row.email_verificado !== 0,
+        foto_perfil: row.foto_perfil || null,
+        fecha_registro: row.fecha_registro || null,
+        ultimo_acceso: row.ultimo_acceso || null
+      })) as UsuarioData[];
     } catch (error) {
       console.error("Error al filtrar usuarios por departamento: ", error);
       return [];
@@ -698,7 +728,22 @@ export class Usuario {
          WHERE d.id_region = ?`,
         [id_region]
       );
-      return result as UsuarioData[];
+      // Normalizar los datos igual que en ListarUsuarios
+      return result.map((row: UsuarioRow) => ({
+        id_usuario: row.id_usuario,
+        nombre: row.nombre,
+        email: row.email,
+        password: row.password,
+        telefono: row.telefono,
+        direccion: row.direccion,
+        id_ciudad: row.id_ciudad,
+        rol: row.rol,
+        activo: row.activo !== 0,
+        email_verificado: row.email_verificado !== 0,
+        foto_perfil: row.foto_perfil || null,
+        fecha_registro: row.fecha_registro || null,
+        ultimo_acceso: row.ultimo_acceso || null
+      })) as UsuarioData[];
     } catch (error) {
       console.error("Error al filtrar usuarios por región: ", error);
       return [];

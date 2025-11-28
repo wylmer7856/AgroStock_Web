@@ -1,0 +1,78 @@
+/* Importar estilos base del admin para mantener consistencia */
+@import '../ADMIN/AdminScreens.css';
+
+/* Sobreescribir o extender estilos para el dashboard del productor */
+
+.productor-dashboard {
+  /* Ajustes específicos para el layout del productor si es necesario */
+}
+
+.productor-sidebar {
+  /* Ajustes específicos para el sidebar del productor */
+}
+
+.productor-main {
+  /* Ajustes específicos para el contenido principal del productor */
+}
+
+/* Estilos para el header del productor */
+.productor-main .main-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.productor-main .main-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+/* Estilos para los botones de acción rápida en el header */
+.productor-main .main-header .btn {
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+}
+
+/* Estilos para las tarjetas de métricas en el overview */
+.overview-stats .metric-card {
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.overview-stats .metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.metric-sublabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 0.25rem;
+}
+
+/* Estilos para el botón de notificaciones en el header del ProductorLayout */
+.productor-main .main-header .btn-outline-secondary {
+  border-color: rgba(0,0,0,0.1);
+  color: #333;
+  background-color: #f0f2f5;
+}
+
+.productor-main .main-header .btn-outline-secondary:hover {
+  background-color: #e2e6ea;
+  border-color: rgba(0,0,0,0.2);
+  color: #212529;
+}
+
+.productor-main .main-header .btn-outline-secondary .badge {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border: 2px solid white !important;
+}
+

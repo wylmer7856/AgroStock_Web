@@ -45,6 +45,10 @@ const HomePage: React.FC = () => {
       });
       return response.data || [];
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   // Query para obtener productos recientes
@@ -57,6 +61,10 @@ const HomePage: React.FC = () => {
       });
       return response.data || [];
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   // Query para obtener categorías
@@ -66,6 +74,10 @@ const HomePage: React.FC = () => {
       const response = await categoriasService.listarCategorias();
       return response.data || [];
     },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   // Query para lista de deseos (si estÃ¡ autenticado)
@@ -77,6 +89,10 @@ const HomePage: React.FC = () => {
       return response.data || [];
     },
     enabled: isAuthenticated && user?.rol === 'consumidor',
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
   const productosDestacadosList = productosDestacados || [];

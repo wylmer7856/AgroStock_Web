@@ -10,7 +10,9 @@ import {
   BiUser,
   BiCog,
   BiFile,
-  BiX
+  BiX,
+  BiCart,
+  BiHeart
 } from 'react-icons/bi';
 import './Sidebar.css';
 
@@ -55,7 +57,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       
       case 'consumidor':
         return [
-          { path: '/', label: 'Inicio', icon: <BiHome /> },
+          { path: '/consumidor/dashboard', label: 'Dashboard', icon: <BiHome /> },
+          { path: '/consumidor/carrito', label: 'Mi Carrito', icon: <BiCart /> },
+          { path: '/consumidor/lista-deseos', label: 'Lista de Deseos', icon: <BiHeart /> },
           { path: '/consumidor/pedidos', label: 'Mis Pedidos', icon: <BiReceipt /> },
           { path: '/consumidor/mensajes', label: 'Mensajes', icon: <BiMessageSquare /> },
           { path: '/consumidor/perfil', label: 'Mi Perfil', icon: <BiUser /> },

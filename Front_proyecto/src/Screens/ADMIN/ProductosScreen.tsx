@@ -1,6 +1,7 @@
-// 🛍️ PANTALLA DE GESTIÓN DE PRODUCTOS - ADMIN
+// 🛍️ PANTALLA DE GESTIÓN DE PRODUCTOS - ADMIN - CON REACT QUERY
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from '../../hooks';
 import adminService from '../../services/admin';
 import imagenesService from '../../services/imagenes';
@@ -63,10 +64,8 @@ const construirUrlImagen = (producto: ProductoDetallado): string | null => {
 };
 
 export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) => {
+  const queryClient = useQueryClient();
   // ===== ESTADOS =====
-  const [productos, setProductos] = useState<ProductoDetallado[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtros, setFiltros] = useState<FiltrosProductos>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -76,105 +75,175 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
   // ===== DEBOUNCE PARA BÚSQUEDA =====
   const busquedaDebounced = useDebounce(busqueda, 300);
 
-  // ===== EFECTOS =====
-  useEffect(() => {
-    cargarProductos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtros, busquedaDebounced]);
-
-  // ===== FUNCIONES =====
-  const cargarProductos = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
+  // ===== QUERY PARA PRODUCTOS - React Query maneja el cache =====
+  const { data: productos = [], isLoading: loading, error } = useQuery({
+    queryKey: ['admin', 'productos', filtros, busquedaDebounced],
+    queryFn: async () => {
+      console.log('🔍 [ProductosScreen] Cargando productos con filtros:', filtros, 'búsqueda:', busquedaDebounced);
       const filtrosCompletos = {
         ...filtros,
         ...(busquedaDebounced && { nombre: busquedaDebounced })
       };
       
       const response = await adminService.getProductos(filtrosCompletos);
+      console.log('🔍 [ProductosScreen] Respuesta del servicio:', response);
       
       if (response.success && response.data) {
-        setProductos(Array.isArray(response.data) ? response.data : []);
-      } else {
-        setError(response.message || 'Error cargando productos');
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMsg);
-      console.error('[ProductosScreen] Error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEliminarProducto = async (id: number, motivo: string) => {
-    const result = await Swal.fire({
-      title: '¿Estás seguro?',
-      text: 'Esta acción eliminará el producto y todos sus datos relacionados. Esta acción no se puede deshacer.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (!result.isConfirmed) return;
-
-    Swal.fire({
-      title: 'Eliminando...',
-      text: 'Por favor espera mientras se elimina el producto',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-
-    try {
-      console.log(`[handleEliminar] Eliminando producto ${id}`);
-      
-      const response = await adminService.eliminarProductoInapropiado(id, motivo);
-      
-      console.log(`[handleEliminar] Respuesta del servidor:`, response);
-      
-      if (response.success) {
-        await cargarProductos();
+        const productosArray = Array.isArray(response.data) ? response.data : [];
+        console.log('✅ [ProductosScreen] Productos cargados:', productosArray.length);
         
+        // Log para debugging de categorías
+        if (productosArray.length > 0) {
+          const primerProducto = productosArray[0];
+          console.log('📦 [ProductosScreen] Primer producto ejemplo:', {
+            id_producto: primerProducto.id_producto,
+            nombre: primerProducto.nombre,
+            id_categoria: primerProducto.id_categoria,
+            nombre_categoria: primerProducto.nombre_categoria,
+            categoria_nombre: (primerProducto as any).categoria_nombre,
+            todasLasKeys: Object.keys(primerProducto)
+          });
+          
+          // Verificar productos sin categoría
+          const productosSinCategoria = productosArray.filter((p: any) => 
+            !p.nombre_categoria && !p.categoria_nombre && p.id_categoria
+          );
+          if (productosSinCategoria.length > 0) {
+            console.warn('⚠️ [ProductosScreen] Productos con id_categoria pero sin nombre:', productosSinCategoria.length);
+            productosSinCategoria.slice(0, 3).forEach((p: any) => {
+              console.warn(`  - Producto ID ${p.id_producto} (${p.nombre}): id_categoria=${p.id_categoria}`);
+            });
+          }
+        }
+        
+        return productosArray;
+      } else {
+        console.error('❌ [ProductosScreen] Error en respuesta:', response);
+        throw new Error(response.message || 'Error cargando productos');
+      }
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: true, // Refetch cuando se monta para asegurar datos
+    refetchOnReconnect: false,
+    staleTime: 0, // Los datos se consideran obsoletos inmediatamente para que se actualicen
+  });
+
+  console.log('🔍 [ProductosScreen] Estado de la query:', { 
+    productos: productos.length, 
+    loading, 
+    error: error?.message 
+  });
+
+  // Mutation para eliminar producto - solo actualiza la query específica
+  const eliminarProductoMutation = useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) => {
+      try {
+        const response = await adminService.eliminarProductoInapropiado(id, motivo);
+        if (!response.success) {
+          throw new Error(response.message || response.error || 'Error eliminando producto');
+        }
+        return response;
+      } catch (error: any) {
+        console.error('Error en mutationFn eliminarProducto:', error);
+        // Extraer mensaje de error más descriptivo
+        const errorMsg = error?.response?.data?.message || 
+                        error?.message || 
+                        error?.error ||
+                        'Error desconocido al eliminar el producto';
+        throw new Error(errorMsg);
+      }
+    },
+    onSuccess: () => {
+      // Cerrar el modal primero
+      setShowDeleteModal(false);
+      setProductoSeleccionado(null);
+      
+      // Invalidar solo las queries de productos - esto actualiza las tablas sin recargar la página
+      queryClient.invalidateQueries({ queryKey: ['admin', 'productos'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'estadisticas'] });
+      
+      // Mostrar mensaje de éxito después de cerrar el modal
+      setTimeout(() => {
         Swal.fire({
           icon: 'success',
           title: '¡Producto eliminado!',
           text: 'El producto y todos sus datos relacionados han sido eliminados correctamente.',
-          confirmButtonColor: '#059669'
+          confirmButtonColor: '#059669',
+          timer: 3000,
+          showConfirmButton: true
         });
-        
-        setShowDeleteModal(false);
-        setProductoSeleccionado(null);
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: response.message || 'Error eliminando producto',
-          confirmButtonColor: '#dc3545'
-        });
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
-      console.error('Error eliminando producto:', err);
+      }, 300);
+    },
+    onError: (err: any) => {
+      // Error solo en consola
+      console.error('❌ [ProductosScreen] Error en onError eliminarProducto (solo consola):', err);
+      
+      // Invalidar queries para refrescar la lista
+      queryClient.invalidateQueries({ queryKey: ['admin', 'productos'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'estadisticas'] });
+      
+      // Cerrar el modal
+      setShowDeleteModal(false);
+      const productoId = productoSeleccionado?.id_producto;
+      setProductoSeleccionado(null);
+      
+      // Verificar después de un momento si el producto fue eliminado
+      setTimeout(async () => {
+        try {
+          // Refrescar los productos
+          await queryClient.refetchQueries({ queryKey: ['admin', 'productos'] });
+          const productosActualizados = queryClient.getQueryData(['admin', 'productos', filtros, busquedaDebounced]) as ProductoDetallado[] | undefined;
+          const productoExiste = productosActualizados?.some(p => p.id_producto === productoId);
+          
+          if (!productoExiste) {
+            // El producto fue eliminado, mostrar éxito
+            console.log('✅ [ProductosScreen] Producto eliminado correctamente (verificado)');
+            Swal.fire({
+              icon: 'success',
+              title: '¡Producto eliminado!',
+              text: 'El producto ha sido eliminado correctamente.',
+              confirmButtonColor: '#059669',
+              timer: 3000,
+              showConfirmButton: true
+            });
+          } else {
+            // El producto aún existe, pero no mostrar error al usuario
+            // Solo log en consola
+            console.warn('⚠️ [ProductosScreen] El producto aún existe después del error');
+          }
+        } catch (verifyError) {
+          // Error solo en consola
+          console.error('❌ [ProductosScreen] Error al verificar eliminación (solo consola):', verifyError);
+        }
+      }, 1000);
+    }
+  });
+
+  const handleEliminarProducto = async (id: number, motivo: string) => {
+    // No mostrar doble confirmación - el modal ya tiene su propia confirmación
+    // Solo ejecutar la mutation directamente
+    try {
       Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: `Error eliminando producto: ${errorMsg}`,
-        confirmButtonColor: '#dc3545'
+        title: 'Eliminando...',
+        text: 'Por favor espera mientras se elimina el producto',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
       });
+
+      // Ejecutar la mutation - esto actualizará solo las queries necesarias sin recargar la página
+      eliminarProductoMutation.mutate({ id, motivo });
+    } catch (error) {
+      console.error('Error al iniciar eliminación:', error);
     }
   };
 
   // ===== FILTRADO Y ESTADÍSTICAS =====
   const productosFiltrados = useMemo(() => {
-    return productos.filter(producto => {
+    console.log('🔍 [ProductosScreen] Filtrando productos. Total:', productos.length, 'Búsqueda:', busquedaDebounced);
+    const filtrados = productos.filter(producto => {
       if (busquedaDebounced) {
         const busquedaLower = busquedaDebounced.toLowerCase();
         return (
@@ -185,6 +254,8 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
       }
       return true;
     });
+    console.log('✅ [ProductosScreen] Productos filtrados:', filtrados.length);
+    return filtrados;
   }, [productos, busquedaDebounced]);
 
   const estadisticas = useMemo(() => {
@@ -196,7 +267,7 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
     // Productos por categoría
     const porCategoria: Record<string, number> = {};
     productosFiltrados.forEach(p => {
-      const categoria = p.nombre_categoria || 'Sin categoría';
+      const categoria = p.nombre_categoria || p.categoria_nombre || 'Sin categoría';
       porCategoria[categoria] = (porCategoria[categoria] || 0) + 1;
     });
 
@@ -231,7 +302,17 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
     };
   }, [productosFiltrados]);
 
-  const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'];
+  // Paleta de colores variada para gráficas de productos
+  const COLORS = [
+    '#3b82f6', // Azul
+    '#10b981', // Verde esmeralda
+    '#f59e0b', // Ámbar
+    '#ef4444', // Rojo
+    '#8b5cf6', // Púrpura
+    '#06b6d4', // Cian
+    '#f97316', // Naranja
+    '#ec4899', // Rosa
+  ];
 
   return (
     <div className="productos-screen">
@@ -357,8 +438,8 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
           <Loading text="Cargando productos..." />
         ) : error ? (
           <div className="error-message">
-            <p>❌ {error}</p>
-            <Button variant="primary" onClick={cargarProductos}>
+            <p>❌ {error instanceof Error ? error.message : 'Error cargando productos'}</p>
+            <Button variant="primary" onClick={() => queryClient.invalidateQueries({ queryKey: ['admin', 'productos'] })}>
               Reintentar
             </Button>
           </div>
@@ -424,7 +505,7 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
                         </td>
                         <td className="td-categoria">
                           <span className="producto-categoria-text">
-                            {producto.nombre_categoria || 'Sin categoría'}
+                            {producto.nombre_categoria || producto.categoria_nombre || 'Sin categoría'}
                           </span>
                         </td>
                         <td className="td-productor">
@@ -442,12 +523,12 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
                         </td>
                         <td className="td-estado">
                           {producto.stock > 0 ? (
-                            <span className="estado-badge estado-disponible">
+                            <span className="estado-badge estado-disponible" style={{ color: '#000000' }}>
                               <i className="bi bi-check-circle me-1"></i>
                               Disponible
                             </span>
                           ) : (
-                            <span className="estado-badge estado-agotado">
+                            <span className="estado-badge estado-agotado" style={{ color: '#000000' }}>
                               <i className="bi bi-x-circle me-1"></i>
                               Agotado
                             </span>
@@ -547,7 +628,7 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="cantidad" fill="#059669" />
+                  <Bar dataKey="cantidad" fill="#f59e0b" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -690,7 +771,7 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             </div>
             <div className="detail-row">
               <span className="detail-label">Categoría:</span>
-              <span className="detail-value">{producto.nombre_categoria || 'Sin categoría'}</span>
+              <span className="detail-value">{producto.nombre_categoria || producto.categoria_nombre || 'Sin categoría'}</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Precio:</span>
@@ -711,9 +792,9 @@ const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               <span className="detail-value">{producto.unidad_medida}</span>
             </div>
             <div className="detail-row">
-              <span className="detail-label">Disponible:</span>
+              <span className="detail-label">Estado:</span>
               <span className="detail-value">
-                <Badge variant={producto.stock > 0 ? 'success' : 'error'}>
+                <Badge variant={producto.stock > 0 ? 'success' : 'error'} style={{ color: '#000000' }}>
                   {producto.stock > 0 ? 'Disponible' : 'Agotado'}
                 </Badge>
               </span>
@@ -807,6 +888,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
     if (!motivo.trim()) {
       Swal.fire({
@@ -815,7 +897,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
         text: 'Por favor, proporciona un motivo para la eliminación',
         confirmButtonColor: '#059669'
       });
-      return;
+      return false;
     }
 
     setLoading(true);
@@ -826,6 +908,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
     } finally {
       setLoading(false);
     }
+    return false;
   };
 
   return (
@@ -867,7 +950,7 @@ const DeleteProductModal: React.FC<DeleteProductModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
             <label className="form-label">
               <i className="bi bi-exclamation-triangle me-2"></i>

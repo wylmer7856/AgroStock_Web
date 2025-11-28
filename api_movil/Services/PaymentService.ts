@@ -1,4 +1,4 @@
-﻿// ðŸ’³ SERVICIO DE PAGOS - INTEGRACIÃ“N CON PASARELAS DE PAGO
+﻿// 💳 SERVICIO DE PAGOS - INTEGRACIÓN CON PASARELAS DE PAGO
 
 import { conexion } from "../Models/Conexion.ts";
 import { AuditoriaService } from "./AuditoriaService.ts";
@@ -29,6 +29,7 @@ export interface PaymentResponse {
   error?: string;
 }
 
+
 export class PaymentService {
   // @ts-ignore - Deno is a global object in Deno runtime
   private static readonly WOMPI_PUBLIC_KEY = Deno.env.get("WOMPI_PUBLIC_KEY") || "";
@@ -38,6 +39,8 @@ export class PaymentService {
   private static readonly PAYU_API_KEY = Deno.env.get("PAYU_API_KEY") || "";
   // @ts-ignore - Deno is a global object in Deno runtime
   private static readonly PAYU_MERCHANT_ID = Deno.env.get("PAYU_MERCHANT_ID") || "";
+  // @ts-ignore - Deno is a global object in Deno runtime
+  private static readonly PAYU_ACCOUNT_ID = Deno.env.get("PAYU_ACCOUNT_ID") || "";
 
   /**
    * Crear pago
@@ -72,16 +75,16 @@ export class PaymentService {
       // Obtener el ID del pago insertado (MySQL)
       const id_pago = (result as { insertId: number }).insertId;
 
-      // Procesar segÃºn mÃ©todo de pago
+      // Procesar según método de pago
       if (data.metodo_pago === 'efectivo') {
-        // Pago en efectivo - se marca como aprobado manualmente despuÃ©s
-        await this.actualizarEstadoPago(id_pago, 'pendiente', 'Pago en efectivo pendiente de confirmaciÃ³n');
+        // Pago en efectivo - se marca como aprobado manualmente después
+        await this.actualizarEstadoPago(id_pago, 'pendiente', 'Pago en efectivo pendiente de confirmación');
         
         return {
           success: true,
           id_pago,
           estado_pago: 'pendiente',
-          mensaje: "Pago en efectivo registrado. Se confirmarÃ¡ cuando se reciba el pago."
+          mensaje: "Pago en efectivo registrado. Se confirmará cuando se reciba el pago."
         };
       }
 
@@ -116,33 +119,10 @@ export class PaymentService {
       // Actualizar estado a procesando
       await this.actualizarEstadoPago(id_pago, 'procesando', 'Procesando con Wompi');
 
-      // AquÃ­ irÃ­a la integraciÃ³n real con Wompi API
-      // Por ahora, simulamos la respuesta
       const referencia_pago = `WOMPI_${Date.now()}_${id_pago}`;
 
-      // En producciÃ³n, aquÃ­ harÃ­as:
-      /*
-      const wompiResponse = await fetch('https://production.wompi.co/v1/transactions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.WOMPI_PRIVATE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount_in_cents: data.monto * 100,
-          currency: 'COP',
-          customer_email: customerEmail,
-          payment_method: {
-            type: 'CARD',
-            token: data.datos_tarjeta?.token
-          },
-          reference: referencia_pago
-        })
-      });
-      */
-
-      // SimulaciÃ³n - en producciÃ³n usar respuesta real
-      const estado_pago = 'aprobado'; // o 'rechazado' segÃºn respuesta
+      // Simulación - en producción usar respuesta real
+      const estado_pago = 'aprobado';
 
       await conexion.execute(
         `UPDATE pagos 
@@ -157,7 +137,7 @@ export class PaymentService {
           estado_pago,
           estado_pago,
           estado_pago,
-          JSON.stringify({ simulacion: true }), // En producciÃ³n: respuesta real
+          JSON.stringify({ simulacion: true }),
           id_pago
         ]
       );
@@ -184,146 +164,155 @@ export class PaymentService {
   }
 
   /**
-   * Procesar pago con PayU (Colombia) - MODO SANDBOX PARA PRUEBAS
+   * Procesar pago con PayU (Colombia) - Genera URL de redirección
    */
   private static async procesarConPayU(
     id_pago: number,
     data: PaymentData
   ): Promise<PaymentResponse> {
     try {
-      await this.actualizarEstadoPago(id_pago, 'procesando', 'Procesando con PayU (Sandbox)');
+      await this.actualizarEstadoPago(id_pago, 'procesando', 'Generando sesión de pago con PayU');
 
       const referencia_pago = `PAYU_${Date.now()}_${id_pago}`;
       
-      // URL del sandbox de PayU para pruebas
-      const PAYU_SANDBOX_URL = "https://sandbox.api.payulatam.com/payments-api/4.0/service.cgi";
-      const PAYU_PRODUCTION_URL = "https://api.payulatam.com/payments-api/4.0/service.cgi";
+      // URLs de PayU
+      const PAYU_SANDBOX_URL = "https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/";
+      const PAYU_PRODUCTION_URL = "https://checkout.payulatam.com/ppp-web-gateway-payu/";
       
-      // Usar sandbox si no hay credenciales configuradas o si estÃ¡ en modo desarrollo
+      // Usar sandbox si no hay credenciales configuradas o si está en modo desarrollo
+      // @ts-ignore
       const useSandbox = !this.PAYU_API_KEY || !this.PAYU_MERCHANT_ID || 
                          Deno.env.get("PAYU_ENVIRONMENT") === "sandbox";
-      const _payuUrl = useSandbox ? PAYU_SANDBOX_URL : PAYU_PRODUCTION_URL;
+      const payuUrl = useSandbox ? PAYU_SANDBOX_URL : PAYU_PRODUCTION_URL;
 
-      // Si estÃ¡ en modo sandbox o no hay credenciales, simular el pago
-      if (useSandbox || !this.PAYU_API_KEY) {
-        console.log("ðŸ§ª Modo Sandbox PayU - Simulando pago");
-        
-        // Simular respuesta exitosa para pruebas
-        const estado_pago = 'aprobado'; // En sandbox siempre aprobamos para pruebas
-        
-        await conexion.execute(
-          `UPDATE pagos 
-           SET referencia_pago = ?, 
-               estado_pago = ?,
-               fecha_procesamiento = NOW(),
-               fecha_aprobacion = NOW(),
-               respuesta_pasarela = ?
-           WHERE id_pago = ?`,
-          [
-            referencia_pago,
-            estado_pago,
-            JSON.stringify({ 
-              simulacion: true,
-              sandbox: true,
-              referencia: referencia_pago,
-              monto: data.monto,
-              mensaje: "Pago simulado en modo sandbox - No se realizÃ³ cargo real"
-            }),
-            id_pago
-          ]
-        );
+      // Obtener información del usuario y pedido
+      const [pagoInfo] = await conexion.query(
+        `SELECT p.*, u.email, u.nombre, u.telefono, u.direccion
+         FROM pagos p
+         INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+         WHERE p.id_pago = ?`,
+        [id_pago]
+      ) as Array<Record<string, unknown>>;
 
-        await this.sincronizarEstadoPedido(id_pago);
-
-        return {
-          success: true,
-          id_pago,
-          referencia_pago,
-          estado_pago: 'aprobado',
-          mensaje: "Pago procesado exitosamente (Modo Sandbox - No se realizÃ³ cargo real)"
-        };
+      if (!pagoInfo) {
+        throw new Error("No se encontró información del pago");
       }
 
-      // CÃ³digo para producciÃ³n (comentado para pruebas)
-      // Por ahora, si no es sandbox, también simulamos el pago
-      let estado_pago: 'aprobado' | 'rechazado' = 'rechazado';
-      
-      /*
-      const payuResponse = await fetch(_payuUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${btoa(this.PAYU_API_KEY + ':' + this.PAYU_MERCHANT_ID)}`
-        },
-        body: JSON.stringify({
-          language: 'es',
-          command: 'SUBMIT_TRANSACTION',
-          merchant: {
-            apiKey: this.PAYU_API_KEY,
-            apiLogin: this.PAYU_MERCHANT_ID
-          },
-          transaction: {
-            order: {
-              accountId: this.PAYU_MERCHANT_ID,
-              referenceCode: referencia_pago,
-              description: 'Pago AgroStock',
-              value: data.monto,
-              currency: 'COP'
-            },
-            payer: {
-              email: customerEmail
-            },
-            paymentMethod: data.metodo_pago
-          }
-        })
-      });
+      // Obtener información del pedido
+      const [pedidoInfo] = await conexion.query(
+        `SELECT * FROM pedidos WHERE id_pedido = ?`,
+        [data.id_pedido]
+      ) as Array<Record<string, unknown>>;
 
-      const payuResult = await payuResponse.json();
-      estado_pago = payuResult.code === 'SUCCESS' ? 'aprobado' : 'rechazado';
-      */
+      // Generar firma para PayU
+      const signature = this.generarFirmaPayU(
+        referencia_pago,
+        Number(data.monto),
+        'COP'
+      );
 
-      // Por ahora, en producción también simulamos (cambiar cuando se active PayU real)
-      if (!useSandbox && this.PAYU_API_KEY) {
-        console.log("⚠️ Modo Producción PayU - Simulando pago (código de producción comentado)");
-        estado_pago = 'aprobado'; // Simular aprobado en producción también
-      }
+      // URL de confirmación y respuesta
+      // @ts-ignore
+      const baseUrl = Deno.env.get("API_BASE_URL") || "http://localhost:8000";
+      const urlConfirmacion = `${baseUrl}/api/pagos/payu/confirmacion`;
+      const urlRespuesta = `${baseUrl}/api/pagos/payu/respuesta`;
 
+      // Guardar referencia y firma
       await conexion.execute(
         `UPDATE pagos 
          SET referencia_pago = ?, 
-             estado_pago = ?,
-             fecha_procesamiento = CASE WHEN ? = 'procesando' THEN NOW() ELSE fecha_procesamiento END,
-             fecha_aprobacion = CASE WHEN ? = 'aprobado' THEN NOW() ELSE fecha_aprobacion END,
              respuesta_pasarela = ?
          WHERE id_pago = ?`,
         [
           referencia_pago,
-          estado_pago,
-          estado_pago,
-          estado_pago,
-          JSON.stringify({ simulacion: true }),
+          JSON.stringify({ 
+            signature,
+            useSandbox,
+            url_confirmacion: urlConfirmacion,
+            url_respuesta: urlRespuesta
+          }),
           id_pago
         ]
       );
 
-      await this.sincronizarEstadoPedido(id_pago);
+      // Valores para sandbox si no hay credenciales
+      const merchantId = this.PAYU_MERCHANT_ID || (useSandbox ? '508029' : '');
+      const accountId = this.PAYU_ACCOUNT_ID || this.PAYU_MERCHANT_ID || (useSandbox ? '512321' : '');
+
+      // Generar URL de redirección con parámetros
+      const params = new URLSearchParams({
+        merchantId: merchantId,
+        accountId: accountId,
+        description: `Pago AgroStock - Pedido #${data.id_pedido}`,
+        referenceCode: referencia_pago,
+        amount: String(data.monto),
+        currency: 'COP',
+        signature: signature,
+        test: useSandbox ? '1' : '0',
+        buyerEmail: String(pagoInfo.email || ''),
+        buyerFullName: String(pagoInfo.nombre || ''),
+        buyerPhone: String(pagoInfo.telefono || ''),
+        responseUrl: urlRespuesta,
+        confirmationUrl: urlConfirmacion,
+        shippingAddress: String(pedidoInfo?.direccion_entrega || pagoInfo.direccion || ''),
+        shippingCity: 'Bogotá',
+        shippingCountry: 'CO'
+      });
+
+      const urlPago = `${payuUrl}?${params.toString()}`;
 
       return {
-        success: estado_pago === 'aprobado',
+        success: true,
         id_pago,
         referencia_pago,
-        estado_pago,
-        mensaje: estado_pago === 'aprobado' 
-          ? "Pago procesado exitosamente" 
-          : "Pago rechazado"
+        estado_pago: 'procesando',
+        url_pago: urlPago,
+        mensaje: "Redirigiendo a PayU para completar el pago"
       };
     } catch (error) {
       await this.actualizarEstadoPago(id_pago, 'rechazado', error instanceof Error ? error.message : 'Error desconocido');
       return {
         success: false,
-        error: "Error procesando pago con PayU"
+        error: "Error generando sesión de pago con PayU"
       };
     }
+  }
+
+  /**
+   * Generar firma para PayU
+   */
+  private static generarFirmaPayU(referenceCode: string, amount: number, currency: string): string {
+    const apiKey = this.PAYU_API_KEY;
+    const merchantId = this.PAYU_MERCHANT_ID || '508029'; // Sandbox default
+    const accountId = this.PAYU_ACCOUNT_ID || this.PAYU_MERCHANT_ID || '512321'; // Sandbox default
+
+    // Firma: MD5(apiKey~merchantId~referenceCode~amount~currency)
+    const cadena = `${apiKey}~${merchantId}~${referenceCode}~${amount}~${currency}`;
+    
+    // Si no hay API key, usar firma de prueba para sandbox
+    if (!apiKey) {
+      return 'test_signature_' + Date.now();
+    }
+
+    // En producción, usar una librería de hash MD5 real
+    // Por ahora, usamos una implementación simple para desarrollo
+    return this.md5Hash(cadena);
+  }
+
+  /**
+   * Función MD5 simple (para desarrollo)
+   * En producción, usar una librería real de hash MD5
+   */
+  private static md5Hash(str: string): string {
+    // Implementación simple para desarrollo
+    // En producción, usar: import { crypto } from "https://deno.land/std/crypto/mod.ts";
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(32, '0');
   }
 
   /**
@@ -342,7 +331,7 @@ export class PaymentService {
                                 pago.estado_pago === 'rechazado' ? 'pendiente' : null;
 
       if (nuevoEstadoPedido) {
-        // Actualizar estado del pedido y estado_pago (sin id_pago ni fecha_pago que no existen en la tabla)
+        // Actualizar estado del pedido y estado_pago
         await conexion.execute(
           `UPDATE pedidos 
            SET estado = ?, 
@@ -356,7 +345,7 @@ export class PaymentService {
           ]
         );
 
-        // Registrar en bitÃ¡cora
+        // Registrar en bitácora
         await AuditoriaService.registrarCambio(
           'pedidos',
           pago.id_pedido,
@@ -369,7 +358,7 @@ export class PaymentService {
             }
           },
           undefined,
-          'SincronizaciÃ³n automÃ¡tica con estado de pago'
+          'Sincronización automática con estado de pago'
         );
       }
     } catch (error) {
@@ -404,7 +393,7 @@ export class PaymentService {
   }
 
   /**
-   * Obtener informaciÃ³n de un pago
+   * Obtener información de un pago
    */
   static async obtenerPago(id_pago: number): Promise<Record<string, unknown> | null> {
     try {

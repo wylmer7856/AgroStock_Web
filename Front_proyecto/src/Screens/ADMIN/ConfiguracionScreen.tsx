@@ -17,7 +17,6 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
     emailContacto: 'contacto@agrostock.com',
     telefonoContacto: '+57 300 000 0000',
     direccion: 'Colombia',
-    mantenimiento: false,
     maxProductosUsuario: 100,
     diasExpiracionReportes: 30
   });
@@ -36,7 +35,6 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
           emailContacto: response.data.email_contacto || 'contacto@agrostock.com',
           telefonoContacto: response.data.telefono_contacto || '+57 300 000 0000',
           direccion: response.data.direccion || 'Colombia',
-          mantenimiento: response.data.mantenimiento || false,
           maxProductosUsuario: response.data.limite_productos || 100,
           diasExpiracionReportes: response.data.dias_expiracion_reportes || 30
         });
@@ -51,13 +49,12 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
   const handleGuardar = async () => {
     setLoading(true);
     try {
-      // Solo guardar estado del sistema y límites (no información del sistema)
+      // Solo guardar límites del sistema
       const configData = {
         nombre_sistema: config.nombreSistema, // Mantener valores actuales
         email_contacto: config.emailContacto,
         telefono_contacto: config.telefonoContacto,
         direccion: config.direccion,
-        mantenimiento: config.mantenimiento,
         limite_productos: config.maxProductosUsuario,
         dias_expiracion_reportes: config.diasExpiracionReportes
       };
@@ -195,41 +192,6 @@ export const ConfiguracionScreen: React.FC<ConfiguracionScreenProps> = ({ onNavi
             </div>
           </Card>
 
-          {/* Estado del Sistema */}
-          <Card className="configuracion-card">
-            <div className="card-header">
-              <h3 className="card-title">
-                <i className="bi bi-shield-check"></i> Estado del Sistema
-              </h3>
-            </div>
-            <div className="card-body">
-              <div className="form-group">
-                <div className="form-check form-switch">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="modoMantenimiento"
-                    checked={config.mantenimiento}
-                    onChange={(e) => setConfig({ ...config, mantenimiento: e.target.checked })}
-                  />
-                  <label className="form-check-label" htmlFor="modoMantenimiento">
-                    <i className="bi bi-tools"></i> Modo Mantenimiento
-                  </label>
-                </div>
-                <small className="form-text text-muted d-block mt-2">
-                  {config.mantenimiento ? (
-                    <span className="text-warning">
-                      <i className="bi bi-exclamation-triangle"></i> El sistema está en mantenimiento. Los usuarios no podrán acceder.
-                    </span>
-                  ) : (
-                    <span className="text-success">
-                      <i className="bi bi-check-circle"></i> El sistema está operativo.
-                    </span>
-                  )}
-                </small>
-              </div>
-            </div>
-          </Card>
         </div>
       )}
 

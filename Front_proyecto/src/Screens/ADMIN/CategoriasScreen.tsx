@@ -566,7 +566,7 @@ export const CategoriasScreen: React.FC<CategoriasScreenProps> = ({ onNavigate }
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="cantidad" fill="#059669" />
+                <Bar dataKey="cantidad" fill="#ec4899" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
               </div>

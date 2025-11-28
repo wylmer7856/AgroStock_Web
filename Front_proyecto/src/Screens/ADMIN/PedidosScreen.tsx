@@ -307,7 +307,17 @@ export const PedidosScreen: React.FC<PedidosScreenProps> = ({ onNavigate }) => {
     };
   }, [pedidos]);
 
-  const COLORS = ['#059669', '#10b981', '#3b82f6', '#ffc107', '#dc3545', '#8b5cf6'];
+  // Paleta de colores variada para gráficas de pedidos
+  const COLORS = [
+    '#3b82f6', // Azul
+    '#10b981', // Verde esmeralda
+    '#f59e0b', // Ámbar
+    '#ef4444', // Rojo
+    '#8b5cf6', // Púrpura
+    '#06b6d4', // Cian
+    '#f97316', // Naranja
+    '#ec4899', // Rosa
+  ];
 
   return (
     <div className="pedidos-screen">
@@ -537,7 +547,7 @@ export const PedidosScreen: React.FC<PedidosScreenProps> = ({ onNavigate }) => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="cantidad" stroke="#059669" strokeWidth={2} />
+                  <Line type="monotone" dataKey="cantidad" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -595,7 +605,7 @@ export const PedidosScreen: React.FC<PedidosScreenProps> = ({ onNavigate }) => {
                   <YAxis dataKey="id" type="category" width={80} />
                   <Tooltip formatter={(value: number) => formatearMoneda(value)} />
                   <Legend />
-                  <Bar dataKey="total" fill="#059669" />
+                  <Bar dataKey="total" fill="#10b981" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

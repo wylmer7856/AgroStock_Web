@@ -97,3 +97,29 @@
   }
 }
 
+/* ===== ESTILOS PARA LABELS CON ERROR ===== */
+.form-label.label-error {
+  color: #dc3545 !important;
+  border: 2px solid #dc3545 !important;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba(220, 53, 69, 0.08) !important;
+  transition: all 0.3s ease;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+.form-label.label-error i,
+.form-label.label-error svg,
+.form-label.label-error .me-2 {
+  color: #dc3545 !important;
+}
+
+/* Efecto hover para labels con error */
+.form-label.label-error:hover {
+  background-color: rgba(220, 53, 69, 0.12) !important;
+  box-shadow: 0 3px 6px rgba(220, 53, 69, 0.3);
+}
+

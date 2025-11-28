@@ -1,0 +1,16 @@
+/* 🌾 ESTILOS PARA PANEL DE CONSUMIDOR - Mismo estilo que Admin */
+@import '../ADMIN/AdminScreens.css';
+
+/* El dashboard del consumidor usa los mismos estilos que el admin */
+.consumidor-dashboard {
+  /* Hereda todos los estilos de .admin-dashboard */
+}
+
+.consumidor-sidebar {
+  /* Hereda todos los estilos de .admin-sidebar */
+}
+
+.consumidor-main {
+  /* Hereda todos los estilos de .admin-main */
+}
+

@@ -344,7 +344,7 @@ export class CartController {
       );
 
       if (result.success) {
-        // Obtener información del pedido para notificaciones
+        // Obtener información del pedido
         const { conexion } = await import("../Models/Conexion.ts");
         const pedido = await conexion.query(
           `SELECT p.*, u.nombre as nombre_productor, u.email as email_productor
@@ -362,8 +362,25 @@ export class CartController {
           [result.pedido_id]
         );
 
-        // Notificar al productor
-        if (pedido.length > 0) {
+        const totalPrecio = validation.items_validated.reduce((sum, item) => sum + item.precio_total, 0);
+
+        // Si el método de pago requiere PayU, procesar el pago
+        const requierePayU = ['tarjeta', 'pse', 'nequi', 'daviplata'].includes(validated.metodo_pago);
+        let pagoResponse = null;
+
+        if (requierePayU) {
+          const { PaymentService } = await import("../Services/PaymentService.ts");
+          pagoResponse = await PaymentService.crearPago({
+            id_pedido: result.pedido_id!,
+            id_usuario: user.id,
+            monto: totalPrecio,
+            metodo_pago: validated.metodo_pago as any,
+            pasarela: 'payu'
+          });
+        }
+
+        // Notificar al productor (solo si el pago no está pendiente o fue aprobado)
+        if (pedido.length > 0 && (!requierePayU || (pagoResponse && pagoResponse.estado_pago === 'aprobado'))) {
           await notificationService.notifyNewOrder(
             pedido[0].id_productor,
             result.pedido_id!,
@@ -381,27 +398,48 @@ export class CartController {
         }
 
         // Notificar al consumidor
-        await notificationService.createNotification({
-          id_usuario: user.id,
-          titulo: "🛒 Pedido Realizado",
-          mensaje: `Tu pedido #${result.pedido_id} ha sido procesado exitosamente`,
-          tipo: 'success',
-          datos_extra: {
-            pedido_id: result.pedido_id,
-            action: 'view_order'
-          }
-        });
+        if (!requierePayU || (pagoResponse && pagoResponse.estado_pago === 'aprobado')) {
+          await notificationService.createNotification({
+            id_usuario: user.id,
+            titulo: "🛒 Pedido Realizado",
+            mensaje: `Tu pedido #${result.pedido_id} ha sido procesado exitosamente`,
+            tipo: 'success',
+            datos_extra: {
+              pedido_id: result.pedido_id,
+              action: 'view_order'
+            }
+          });
+        } else if (requierePayU && pagoResponse && pagoResponse.url_pago) {
+          await notificationService.createNotification({
+            id_usuario: user.id,
+            titulo: "💳 Pago Pendiente",
+            mensaje: `Tu pedido #${result.pedido_id} está pendiente de pago. Completa el pago para confirmar tu pedido.`,
+            tipo: 'warning',
+            datos_extra: {
+              pedido_id: result.pedido_id,
+              action: 'view_order'
+            }
+          });
+        }
 
         ctx.response.status = 201;
         ctx.response.body = {
           success: true,
-          message: result.message,
+          message: requierePayU && pagoResponse?.url_pago 
+            ? "Pedido creado. Redirigiendo a PayU para completar el pago..." 
+            : result.message,
           data: {
             pedido_id: result.pedido_id,
             total_items: validation.items_validated.length,
-            total_precio: validation.items_validated.reduce((sum, item) => sum + item.precio_total, 0),
+            total_precio: totalPrecio,
             metodo_pago: validated.metodo_pago,
-            direccion_entrega: validated.direccionEntrega
+            direccion_entrega: validated.direccionEntrega,
+            pago: requierePayU ? {
+              id_pago: pagoResponse?.id_pago,
+              url_pago: pagoResponse?.url_pago,
+              estado_pago: pagoResponse?.estado_pago,
+              referencia_pago: pagoResponse?.referencia_pago
+            } : null
           }
         };
       } else {
