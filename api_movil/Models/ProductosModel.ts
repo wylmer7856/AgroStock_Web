@@ -1,5 +1,5 @@
 import { conexion } from "./Conexion.ts";
-import { join, resolve, fromFileUrl } from "../Dependencies/dependencias.ts";
+import { join, resolve } from "../Dependencies/dependencias.ts";
 import { HistorialPreciosModel, HistorialPrecioCreateData } from "./HistorialPreciosModel.ts";
 
 export interface ProductoData {
@@ -48,7 +48,7 @@ export class ProductosModel {
                 this.UPLOADS_DIR = resolve(cwd, "api_movil", "uploads");
             }
             console.log(`📁 [ProductosModel] UPLOADS_DIR resuelto: ${this.UPLOADS_DIR} (cwd: ${cwd})`);
-        } catch (error) {
+        } catch (_error) {
             // Fallback: usar ruta relativa
             this.UPLOADS_DIR = "./uploads";
             console.log(`⚠️ [ProductosModel] Usando fallback UPLOADS_DIR: ${this.UPLOADS_DIR}`);
@@ -218,10 +218,19 @@ export class ProductosModel {
             }
 
             // Verificar límite de productos por usuario
-            const limiteConfig = await conexion.query(
-                "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
-            );
-            const limiteProductos = limiteConfig.length > 0 ? parseInt(limiteConfig[0].valor) || 100 : 100;
+            // Si la tabla configuracion_sistema no existe, usar valor por defecto
+            let limiteProductos = 100; // Valor por defecto
+            try {
+                const limiteConfig = await conexion.query(
+                    "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
+                );
+                if (limiteConfig.length > 0 && limiteConfig[0].valor) {
+                    limiteProductos = parseInt(limiteConfig[0].valor) || 100;
+                }
+            } catch (_error) {
+                // Si la tabla no existe, usar el valor por defecto
+                console.log('⚠️ [ProductosModel] Tabla configuracion_sistema no existe, usando límite por defecto: 100');
+            }
             
             const productosUsuario = await conexion.query(
                 "SELECT COUNT(*) as total FROM productos WHERE id_usuario = ?",
@@ -250,7 +259,7 @@ export class ProductosModel {
             const queryResult = await conexion.query("SELECT * FROM productos ORDER BY id_producto DESC LIMIT 1");
             const nuevoProducto = queryResult[0] as ProductoData;
 
-            let rutaImagen = null;
+            let rutaImagen: string | null = null;
             if (imagenData) {
                 try {
                     rutaImagen = await this.guardarImagen(nuevoProducto.id_producto, imagenData);
@@ -694,7 +703,7 @@ export class ProductosModel {
             const productosDir = join(this.UPLOADS_DIR, "productos");
             if (await this.existeDirectorio(productosDir)) {
                 try {
-                    const items = [];
+                    const items: Deno.DirEntry[] = [];
                     // @ts-ignore - Deno is a global object in Deno runtime
                     for await (const dirEntry of Deno.readDir(productosDir)) {
                         items.push(dirEntry);
@@ -719,14 +728,10 @@ export class ProductosModel {
             return match ? match[1] : 'jpg';
         }
         
-        // Manejar formato data:image;base64,
         if (imagenData.startsWith('data:image;')) {
-            // Intentar detectar el tipo desde el contenido base64 o usar jpg por defecto
-            // Para JPEG, el inicio suele ser /9j/4AAQ
             if (imagenData.includes('/9j/')) {
                 return 'jpg';
             }
-            // Para PNG, el inicio suele ser iVBORw0KGgo
             if (imagenData.includes('iVBORw0KGgo')) {
                 return 'png';
             }
@@ -761,7 +766,6 @@ export class ProductosModel {
                 return Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
             }
             
-            // Manejar formato data:image;base64,
             if (imagenData.startsWith('data:image;')) {
                 const base64Data = imagenData.split(',')[1];
                 if (!base64Data) {
@@ -839,8 +843,6 @@ export class ProductosModel {
             
             console.log(`✅ [ProductosModel.guardarImagen] Imagen guardada exitosamente`);
             
-            // Retornar la ruta relativa normalizada: uploads/productos/5/imagen_xxx.jpg
-            // Usar siempre / como separador para compatibilidad con URLs
             const rutaRelativa = `uploads/productos/${idProducto.toString()}/${nombreArchivo}`.replace(/\\/g, '/');
             console.log(`🔗 [ProductosModel.guardarImagen] Ruta relativa retornada: ${rutaRelativa}`);
             return rutaRelativa;

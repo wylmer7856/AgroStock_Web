@@ -227,7 +227,6 @@ export class PaymentService {
       const baseUrl = Deno.env.get("API_BASE_URL") || "http://localhost:8000";
       const urlConfirmacion = `${baseUrl}/api/pagos/payu/confirmacion`;
       const urlRespuesta = `${baseUrl}/api/pagos/payu/respuesta`;
-
       // Guardar referencia y firma
       await conexion.execute(
         `UPDATE pagos 
@@ -261,7 +260,6 @@ export class PaymentService {
       // Para PayU Colombia, los parámetros requeridos son:
       // Nota: PayU requiere que el monto sea un número entero (sin decimales) en centavos
       const montoEntero = Math.round(Number(data.monto));
-      
       const params = new URLSearchParams({
         merchantId: merchantId,
         accountId: accountId,

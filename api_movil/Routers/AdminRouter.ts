@@ -31,6 +31,7 @@ router.get("/admin/usuario/:id_usuario/consumidor", AuthMiddleware(['admin']), A
 // 📌 Rutas para administración de pedidos
 router.get("/admin/pedidos", AuthMiddleware(['admin']), AdminController.ObtenerTodosLosPedidos);
 router.put("/admin/pedido/:id_pedido/estado", AuthMiddleware(['admin']), AdminController.CambiarEstadoPedido);
+router.delete("/admin/pedido/:id_pedido", AuthMiddleware(['admin']), AdminController.EliminarPedido);
 
 // 📌 Rutas para administración de categorías
 router.get("/admin/categorias", AuthMiddleware(['admin']), AdminController.ObtenerTodasLasCategorias);

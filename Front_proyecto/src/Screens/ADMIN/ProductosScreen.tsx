@@ -282,7 +282,9 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
           Swal.showLoading();
         }
       });
-
+      
+      setProductoSeleccionado(null);
+      
       // Ejecutar la mutation - esto actualizará solo las queries necesarias sin recargar la página
       eliminarProductoMutation.mutate({ id, motivo });
     } catch (error) {

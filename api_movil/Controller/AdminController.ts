@@ -256,25 +256,36 @@ export class AdminController {
         return;
       }
 
-      // ✅ Hashear password si se proporciona y no está vacío
-      let hashedPassword: string | undefined = undefined;
-      if (password && password.trim() !== '') {
-        const { securityService } = await import("../Services/SecurityService.ts");
-        hashedPassword = await securityService.hashPassword(password);
+      // Obtener el usuario actual para mantener el password si no se proporciona uno nuevo
+      const usuarioActual = await conexion.query("SELECT password FROM usuarios WHERE id_usuario = ?", [parseInt(id_usuario)]);
+      if (!usuarioActual || usuarioActual.length === 0) {
+        ctx.response.status = 404;
+        ctx.response.body = { 
+          success: false,
+          error: "USER_NOT_FOUND",
+          message: "Usuario no encontrado" 
+        };
+        return;
       }
 
-      // ✅ Manejar campos opcionales correctamente
+      // ✅ Hashear password si se proporciona y no está vacío, sino usar el existente
+      let passwordFinal: string = usuarioActual[0].password; // Password actual por defecto
+      if (password && password.trim() !== '') {
+        const { securityService } = await import("../Services/SecurityService.ts");
+        passwordFinal = await securityService.hashPassword(password);
+      }
+
       const usuarioData = {
         id_usuario: parseInt(id_usuario),
         nombre: nombre.trim(),
         email: email.toLowerCase().trim(),
-        password: hashedPassword, // Solo incluir si se proporciona
+        password: passwordFinal,
         telefono: telefono ? telefono.trim() : null,
         direccion: direccion ? direccion.trim() : null,
-        id_ciudad: id_ciudad ? parseInt(id_ciudad) : null, // Permitir null si no se especifica
-        rol: rol || undefined,
-        activo: activo !== undefined ? (activo === true || activo === 1 || activo === 'true') : undefined, // Manejar boolean, number y string
-        email_verificado: email_verificado !== undefined ? (email_verificado === true || email_verificado === 1 || email_verificado === 'true') : undefined
+        id_ciudad: id_ciudad ? parseInt(id_ciudad) : null, 
+        rol: rol || 'consumidor',
+        activo: activo !== undefined ? (activo === true || activo === 1 || activo === 'true') : true,
+        email_verificado: email_verificado !== undefined ? (email_verificado === true || email_verificado === 1 || email_verificado === 'true') : false
       };
 
       console.log('📝 [AdminController.EditarUsuario] Datos procesados:', {
@@ -554,6 +565,16 @@ export class AdminController {
 
   // 📌 Eliminar producto inapropiado
   static async EliminarProductoInapropiado(ctx: RouterContext<"/admin/producto/:id_producto">) {
+    // Intentar obtener el body, pero no fallar si no existe
+    let motivo = 'Producto eliminado por administrador';
+    try {
+      const body = await ctx.request.body.json();
+      motivo = body.motivo || motivo;
+    } catch (error) {
+      // Si no hay body o hay error al parsearlo, usar motivo por defecto
+      console.log('⚠️ No se pudo obtener el motivo del body, usando motivo por defecto');
+    }
+
     try {
       const { id_producto } = ctx.params;
       
@@ -1139,6 +1160,86 @@ export class AdminController {
       ctx.response.body = { 
         success: false, 
         error: "INTERNAL_ERROR", 
+        message: error instanceof Error ? error.message : "Error interno del servidor" 
+      };
+    }
+  }
+
+  static async EliminarPedido(ctx: RouterContext<"/admin/pedido/:id_pedido">) {
+    try {
+      const { id_pedido } = ctx.params;
+      
+      if (!id_pedido) {
+        ctx.response.status = 400;
+        ctx.response.body = { 
+          success: false,
+          error: "MISSING_ID",
+          message: "ID del pedido requerido" 
+        };
+        return;
+      }
+
+      const idPedidoNum = parseInt(id_pedido);
+      if (isNaN(idPedidoNum) || idPedidoNum <= 0) {
+        ctx.response.status = 400;
+        ctx.response.body = { 
+          success: false,
+          error: "INVALID_ID",
+          message: "ID de pedido inválido" 
+        };
+        return;
+      }
+
+      // Verificar que el pedido existe
+      const pedido = await conexion.query("SELECT * FROM pedidos WHERE id_pedido = ?", [idPedidoNum]);
+      
+      if (!pedido || pedido.length === 0) {
+        ctx.response.status = 404;
+        ctx.response.body = { 
+          success: false,
+          error: "NOT_FOUND",
+          message: "Pedido no encontrado" 
+        };
+        return;
+      }
+
+      // Eliminar en transacción para asegurar consistencia
+      await conexion.execute("START TRANSACTION");
+
+      try {
+        // Eliminar detalles de pedidos relacionados primero
+        await conexion.execute("DELETE FROM detalle_pedidos WHERE id_pedido = ?", [idPedidoNum]);
+        console.log(`✅ Detalles de pedido ${idPedidoNum} eliminados`);
+
+        // Eliminar el pedido
+        const result = await conexion.execute("DELETE FROM pedidos WHERE id_pedido = ?", [idPedidoNum]);
+
+        if (result && result.affectedRows && result.affectedRows > 0) {
+          await conexion.execute("COMMIT");
+          ctx.response.status = 200;
+          ctx.response.body = {
+            success: true,
+            message: "Pedido y todos sus datos relacionados han sido eliminados correctamente."
+          };
+        } else {
+          await conexion.execute("ROLLBACK");
+          ctx.response.status = 400;
+          ctx.response.body = {
+            success: false,
+            error: "DELETE_FAILED",
+            message: "No se pudo eliminar el pedido"
+          };
+        }
+      } catch (deleteError) {
+        await conexion.execute("ROLLBACK");
+        throw deleteError;
+      }
+    } catch (error) {
+      console.error("❌ [AdminController] Error en EliminarPedido:", error);
+      ctx.response.status = 500;
+      ctx.response.body = { 
+        success: false,
+        error: "INTERNAL_ERROR",
         message: error instanceof Error ? error.message : "Error interno del servidor" 
       };
     }

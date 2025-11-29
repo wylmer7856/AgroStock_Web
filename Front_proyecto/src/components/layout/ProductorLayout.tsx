@@ -518,5 +518,3 @@ const ProductorLayout: React.FC = () => {
 };
 
 export default ProductorLayout;
-
-
