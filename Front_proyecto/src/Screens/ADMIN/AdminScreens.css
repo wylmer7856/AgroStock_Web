@@ -893,6 +893,21 @@
   padding-right: 1.25rem;
 }
 
+/* Avatar pequeño para tablas */
+.user-avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
 /* Celdas específicas */
 .usuario-avatar-cell {
   display: flex;

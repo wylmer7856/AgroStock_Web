@@ -22,9 +22,7 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [categorias, setCategorias] = useState<any[]>([]);
-  const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [ciudades, setCiudades] = useState<any[]>([]);
-  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null);
 
   const [formData, setFormData] = useState<Partial<Producto>>({
     nombre: '',
@@ -170,15 +168,15 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
 
   const cargarDatos = async () => {
     // Solo cargar datos si el formulario está montado y no hay datos ya cargados
-    if (!isMountedRef.current || categorias.length > 0 || departamentos.length > 0) {
+    if (!isMountedRef.current || categorias.length > 0 || ciudades.length > 0) {
       return;
     }
     
     try {
       setLoading(true);
-      const [categoriasRes, departamentosRes] = await Promise.all([
+      const [categoriasRes, ciudadesRes] = await Promise.all([
         categoriasService.listarCategorias(),
-        ubicacionesService.listarDepartamentos()
+        ubicacionesService.listarCiudades()
       ]);
 
       // Verificar nuevamente si el formulario está montado antes de actualizar el estado
@@ -195,14 +193,14 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
         }
       }
 
-      if (departamentosRes.success && departamentosRes.data) {
-        console.log('Departamentos cargados:', departamentosRes.data.length);
-        setDepartamentos(departamentosRes.data);
+      if (ciudadesRes.success && ciudadesRes.data) {
+        console.log('Ciudades cargadas:', ciudadesRes.data.length);
+        setCiudades(ciudadesRes.data);
       } else {
-        console.error('Error cargando departamentos:', departamentosRes);
+        console.error('Error cargando ciudades:', ciudadesRes);
         // No mostrar toast si el usuario ya está escribiendo
         if (!formData.nombre) {
-          mostrarToast('Error cargando departamentos', 'error');
+          mostrarToast('Error cargando ciudades', 'error');
         }
       }
     } catch (error) {
@@ -245,24 +243,6 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
             imagen_principal: response.data.imagen_principal || '',
             disponible: response.data.disponible
           });
-          
-          // Si hay ciudad de origen, obtener su departamento y cargar ciudades
-          if (response.data.id_ciudad_origen) {
-            try {
-              const ciudadRes = await ubicacionesService.obtenerCiudad(response.data.id_ciudad_origen);
-              if (ciudadRes.success && ciudadRes.data && ciudadRes.data.id_departamento) {
-                setDepartamentoSeleccionado(ciudadRes.data.id_departamento);
-                // Cargar ciudades del departamento
-                const ciudadesRes = await ubicacionesService.listarCiudades(ciudadRes.data.id_departamento);
-                if (ciudadesRes.success && ciudadesRes.data) {
-                  setCiudades(ciudadesRes.data);
-                }
-              }
-            } catch (error) {
-              console.error('Error obteniendo departamento de la ciudad:', error);
-            }
-          }
-          
           // Si es edición, limpiar los campos vacíos ya que todos tienen valores
           setCamposVacios(new Set());
         }
@@ -947,46 +927,6 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
             </div>
 
             <div className="form-group">
-              <label>Departamento de Origen</label>
-              <select
-                value={departamentoSeleccionado ?? ''}
-                onChange={async (e) => {
-                  const deptoId = e.target.value ? Number(e.target.value) : null;
-                  setDepartamentoSeleccionado(deptoId);
-                  setFormData({ ...formData, id_ciudad_origen: null });
-                  
-                  if (deptoId) {
-                    try {
-                      const ciudadesRes = await ubicacionesService.listarCiudades(deptoId);
-                      if (ciudadesRes.success && ciudadesRes.data) {
-                        setCiudades(ciudadesRes.data);
-                      } else {
-                        setCiudades([]);
-                      }
-                    } catch (error) {
-                      console.error('Error cargando ciudades:', error);
-                      setCiudades([]);
-                    }
-                  } else {
-                    setCiudades([]);
-                  }
-                }}
-                className="form-input"
-              >
-                <option value="">Seleccionar departamento</option>
-                {departamentos.length > 0 ? (
-                  departamentos.map(depto => (
-                    <option key={depto.id_departamento} value={depto.id_departamento}>
-                      {depto.nombre}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>Cargando departamentos...</option>
-                )}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label>Ciudad de Origen</label>
               <select
                 value={formData.id_ciudad_origen ?? ''}
@@ -998,22 +938,17 @@ export const ProductoForm: React.FC<ProductoFormProps> = React.memo(({ productoI
                   });
                 }}
                 className="form-input"
-                disabled={!departamentoSeleccionado}
               >
-                <option value="">
-                  {!departamentoSeleccionado 
-                    ? 'Primero selecciona un departamento' 
-                    : ciudades.length === 0 
-                    ? 'Cargando ciudades...' 
-                    : 'Seleccionar ciudad'}
-                </option>
+                <option value="">Seleccionar ciudad</option>
                 {ciudades.length > 0 ? (
                   ciudades.map(ciudad => (
                     <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
                       {ciudad.nombre}
                     </option>
                   ))
-                ) : null}
+                ) : (
+                  <option disabled>Cargando ciudades...</option>
+                )}
               </select>
             </div>
           </div>

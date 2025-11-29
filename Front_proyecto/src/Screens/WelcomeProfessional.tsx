@@ -6,7 +6,7 @@ import { Button, Card, Input, Loading, Toast } from '../components/ReusableCompo
 import { authService } from '../services/auth';
 import { productosService, ubicacionesService, categoriasService } from '../services/index';
 import { useAuth } from '../contexts/AuthContext';
-import type { Producto, Ciudad, Categoria, Departamento } from '../types';
+import type { Producto, Ciudad, Categoria } from '../types';
 import '../assets/fondo.png';
 import './WelcomeProfessional.css';
 
@@ -21,11 +21,9 @@ export const WelcomeProfessional: React.FC<WelcomeProfessionalProps> = ({ onNavi
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const { login: contextLogin } = useAuth();
   const [productosDestacados, setProductosDestacados] = useState<Producto[]>([]);
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [ciudades, setCiudades] = useState<Ciudad[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(true);
-  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null);
 
   // Estados para formularios
   const [loginData, setLoginData] = useState({
@@ -49,9 +47,9 @@ export const WelcomeProfessional: React.FC<WelcomeProfessionalProps> = ({ onNavi
     const cargarDatos = async () => {
       try {
         setLoadingProductos(true);
-        const [productosRes, departamentosRes, categoriasRes] = await Promise.all([
+        const [productosRes, ciudadesRes, categoriasRes] = await Promise.all([
           productosService.obtenerProductosDisponibles({ limite: 6, pagina: 1 }).catch(() => ({ success: false, data: [] })),
-          ubicacionesService.listarDepartamentos().catch(() => ({ success: false, data: [] })),
+          ubicacionesService.listarCiudades().catch(() => ({ success: false, data: [] })),
           categoriasService.listarCategorias().catch(() => ({ success: false, data: [] }))
         ]);
 
@@ -61,10 +59,10 @@ export const WelcomeProfessional: React.FC<WelcomeProfessionalProps> = ({ onNavi
           : [];
         setProductosDestacados(productos);
 
-        const departamentos = departamentosRes?.data && Array.isArray(departamentosRes.data)
-          ? departamentosRes.data
+        const ciudades = ciudadesRes?.data && Array.isArray(ciudadesRes.data)
+          ? ciudadesRes.data
           : [];
-        setDepartamentos(departamentos);
+        setCiudades(ciudades);
 
         const categorias = categoriasRes?.data && Array.isArray(categoriasRes.data)
           ? categoriasRes.data
@@ -780,58 +778,14 @@ export const WelcomeProfessional: React.FC<WelcomeProfessionalProps> = ({ onNavi
                 </div>
                   
                   <div className="form-group">
-                  <label>Departamento</label>
-                    <select
-                    className="input"
-                      value={departamentoSeleccionado || ''}
-                      onChange={async (e) => {
-                        const deptoId = e.target.value ? Number(e.target.value) : null;
-                        setDepartamentoSeleccionado(deptoId);
-                        setRegisterData({ ...registerData, id_ciudad: null });
-                        
-                        if (deptoId) {
-                          try {
-                            const ciudadesRes = await ubicacionesService.listarCiudades(deptoId);
-                            if (ciudadesRes.success && ciudadesRes.data) {
-                              setCiudades(ciudadesRes.data);
-                            } else {
-                              setCiudades([]);
-                            }
-                          } catch (error) {
-                            console.error('Error cargando ciudades:', error);
-                            setCiudades([]);
-                          }
-                        } else {
-                          setCiudades([]);
-                        }
-                      }}
-                      required
-                  >
-                    <option value="">Selecciona un departamento</option>
-                    {departamentos.map((depto) => (
-                      <option key={depto.id_departamento} value={depto.id_departamento}>
-                        {depto.nombre}
-                      </option>
-                    ))}
-                    </select>
-                  </div>
-                  
-                  <div className="form-group">
                   <label>Ciudad</label>
                     <select
                     className="input"
                       value={registerData.id_ciudad || ''}
                       onChange={(e) => setRegisterData({ ...registerData, id_ciudad: e.target.value ? Number(e.target.value) : null })}
                       required
-                      disabled={!departamentoSeleccionado}
                   >
-                    <option value="">
-                      {!departamentoSeleccionado 
-                        ? 'Primero selecciona un departamento' 
-                        : ciudades.length === 0
-                        ? 'No hay ciudades disponibles'
-                        : 'Selecciona una ciudad'}
-                    </option>
+                    <option value="">Selecciona una ciudad</option>
                     {ciudades.map((ciudad) => (
                       <option key={ciudad.id_ciudad} value={ciudad.id_ciudad}>
                         {ciudad.nombre}

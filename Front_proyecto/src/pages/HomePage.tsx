@@ -254,13 +254,6 @@ const HomePage: React.FC = () => {
               )}
               </div>
             </div>
-            <div className="col-lg-6">
-              <div className="hero-image">
-                <div className="hero-image-wrapper">
-                  <BiStore className="hero-icon" />
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>

@@ -121,11 +121,6 @@ const productos = await loadJsonAsset('ejemplo-productos.json');
 
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
-
 
 
 
