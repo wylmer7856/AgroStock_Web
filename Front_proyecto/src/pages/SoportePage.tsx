@@ -11,16 +11,16 @@ const SoportePage: React.FC = () => {
       category: 'General',
       questions: [
         {
-          q: 'Â¿QuÃ© es AgroStock?',
-          a: 'AgroStock es una plataforma que conecta productores agrÃ­colas con consumidores, permitiendo la venta directa de productos frescos del campo.'
+          q: '¿Qué es AgroStock?',
+          a: 'AgroStock es una plataforma que conecta productores agrícolas con consumidores, permitiendo la venta directa de productos frescos del campo.'
         },
         {
-          q: 'Â¿CÃ³mo me registro?',
-          a: 'Haz clic en "Registrarse" en la parte superior de la pÃ¡gina y completa el formulario con tus datos. Puedes registrarte como consumidor o productor.'
+          q: '¿Cómo me registro?',
+          a: 'Haz clic en "Registrarse" en la parte superior de la página y completa el formulario con tus datos. Puedes registrarte como consumidor o productor.'
         },
         {
-          q: 'Â¿Es gratuito registrarse?',
-          a: 'SÃ­, el registro es completamente gratuito. Solo pagas comisiones cuando realizas ventas (para productores).'
+          q: '¿Es gratuito registrarse?',
+          a: 'Sí, el registro es completamente gratuito. Solo pagas comisiones cuando realizas ventas (para productores).'
         }
       ]
     },
@@ -28,16 +28,16 @@ const SoportePage: React.FC = () => {
       category: 'Productores',
       questions: [
         {
-          q: 'Â¿CÃ³mo publico mis productos?',
-          a: 'Una vez registrado como productor, accede a tu panel y haz clic en "Agregar Producto". Completa la informaciÃ³n y sube fotos de calidad.'
+          q: '¿Cómo publico mis productos?',
+          a: 'Una vez registrado como productor, accede a tu panel y haz clic en "Agregar Producto". Completa la información y sube fotos de calidad.'
         },
         {
-          q: 'Â¿CuÃ¡nto cuesta vender en AgroStock?',
-          a: 'No hay costos de registro. Solo pagas una pequeÃ±a comisiÃ³n por cada venta exitosa, que se descuenta automÃ¡ticamente.'
+          q: '¿Cuánto cuesta vender en AgroStock?',
+          a: 'No hay costos de registro. Solo pagas una pequeña comisión por cada venta exitosa, que se descuenta automáticamente.'
         },
         {
-          q: 'Â¿CÃ³mo recibo los pagos?',
-          a: 'Los pagos se procesan de forma segura y se transfieren a tu cuenta bancaria en un plazo de 3-5 dÃ­as hÃ¡biles despuÃ©s de la entrega.'
+          q: '¿Cómo recibo los pagos?',
+          a: 'Los pagos se procesan de forma segura y se transfieren a tu cuenta bancaria en un plazo de 3-5 días hábiles después de la entrega.'
         }
       ]
     },
@@ -45,16 +45,16 @@ const SoportePage: React.FC = () => {
       category: 'Consumidores',
       questions: [
         {
-          q: 'Â¿CÃ³mo realizo una compra?',
-          a: 'Navega por los productos, agrega al carrito los que te interesen y procede al checkout. Puedes pagar con varios mÃ©todos disponibles.'
+          q: '¿Cómo realizo una compra?',
+          a: 'Navega por los productos, agrega al carrito los que te interesen y procede al checkout. Puedes pagar con varios métodos disponibles.'
         },
         {
-          q: 'Â¿CuÃ¡les son los mÃ©todos de pago?',
-          a: 'Aceptamos efectivo, transferencia bancaria, Nequi, Daviplata, PSE y tarjetas de crÃ©dito/dÃ©bito.'
+          q: '¿Cuáles son los métodos de pago?',
+          a: 'Aceptamos efectivo, transferencia bancaria, Nequi, Daviplata, PSE y tarjetas de crédito/débito.'
         },
         {
-          q: 'Â¿Puedo devolver un producto?',
-          a: 'SÃ­, puedes solicitar devoluciones dentro de los 7 dÃ­as posteriores a la recepciÃ³n, siempre que el producto estÃ© en su estado original.'
+          q: '¿Puedo devolver un producto?',
+          a: 'Sí, puedes solicitar devoluciones dentro de los 7 días posteriores a la recepción, siempre que el producto esté en su estado original.'
         }
       ]
     }
@@ -77,10 +77,9 @@ const SoportePage: React.FC = () => {
           <div className="text-center mb-5">
             <BiSupport className="display-1 text-primary mb-3" />
             <h1 className="display-5 fw-bold">Centro de Soporte</h1>
-            <p className="text-muted lead">Estamos aquÃ­ para ayudarte</p>
+            <p className="text-muted lead">Estamos aquí para ayudarte</p>
           </div>
 
-          {/* BÃºsqueda */}
           <div className="card shadow-sm border-0 mb-4">
             <div className="card-body p-4">
               <div className="input-group input-group-lg">
@@ -160,7 +159,7 @@ const SoportePage: React.FC = () => {
               <div className="card h-100 border-0 shadow-sm text-center">
                 <div className="card-body p-4">
                   <BiPhone className="display-4 text-success mb-3" />
-                  <h5 className="fw-bold">TelÃ©fono</h5>
+                  <h5 className="fw-bold">Teléfono</h5>
                   <p className="text-muted mb-0">+57 (1) 234 5678</p>
                   <p className="text-muted small">Lun - Vie: 8:00 AM - 6:00 PM</p>
                 </div>
@@ -180,10 +179,9 @@ const SoportePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Formulario de Contacto */}
           <div className="card shadow-sm border-0 mt-4">
             <div className="card-body p-5">
-              <h2 className="h4 fw-bold mb-4">EnvÃ­anos un Mensaje</h2>
+              <h2 className="h4 fw-bold mb-4">Envíanos un Mensaje</h2>
               <form>
                 <div className="row g-3">
                   <div className="col-md-6">
@@ -199,7 +197,7 @@ const SoportePage: React.FC = () => {
                     <select className="form-select" required>
                       <option value="">Selecciona un asunto</option>
                       <option>Consulta General</option>
-                      <option>Problema TÃ©cnico</option>
+                      <option>Problema Técnico</option>
                       <option>Pregunta sobre Productos</option>
                       <option>Problema con Pedido</option>
                       <option>Otro</option>

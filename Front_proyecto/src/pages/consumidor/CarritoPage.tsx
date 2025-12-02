@@ -3,19 +3,47 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { carritoService } from '../../services';
 import { carritoLocalService } from '../../services/carritoLocal';
+import imagenesService from '../../services/imagenes';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { BiCart, BiTrash, BiPlus, BiMinus, BiRightArrowAlt, BiPackage, BiLogIn } from 'react-icons/bi';
 import { useForm } from 'react-hook-form';
 import ConfirmModal from '../../components/ConfirmModal';
+import StripePaymentForm from '../../components/StripePaymentForm';
 import './CarritoPage.css';
 
 interface CheckoutFormData {
   direccionEntrega: string;
   id_ciudad_entrega?: number;
   notas?: string;
-  metodo_pago: 'efectivo' | 'transferencia' | 'nequi' | 'daviplata' | 'pse' | 'tarjeta';
+  metodo_pago: 'efectivo' | 'tarjeta';
 }
+
+const ProductoImagenCarrito: React.FC<{ imagenPrincipal?: string; nombreProducto: string }> = ({ 
+  imagenPrincipal, 
+  nombreProducto 
+}) => {
+  const [imagenError, setImagenError] = useState(false);
+  const imagenUrl = imagenPrincipal ? imagenesService.construirUrlImagen(imagenPrincipal) : null;
+
+  if (!imagenUrl || imagenError) {
+    return (
+      <div className="bg-light rounded d-flex align-items-center justify-content-center" style={{ height: '100px', width: '100px' }}>
+        <BiPackage className="fs-1 text-muted" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imagenUrl}
+      className="img-fluid rounded"
+      alt={nombreProducto}
+      style={{ height: '100px', width: '100px', objectFit: 'cover' }}
+      onError={() => setImagenError(true)}
+    />
+  );
+};
 
 const CarritoPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,11 +53,20 @@ const CarritoPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState<{ show: boolean; id?: number }>({ show: false });
   const [carritoLocal, setCarritoLocal] = useState(carritoLocalService.obtenerCarrito());
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CheckoutFormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<CheckoutFormData>({
     defaultValues: {
       metodo_pago: 'efectivo',
     },
   });
+
+  const metodoPagoSeleccionado = watch('metodo_pago');
+  const [mostrarStripe, setMostrarStripe] = useState(false);
+  const [pedidoCreado, setPedidoCreado] = useState<{ 
+    id: number; 
+    total: number;
+    client_secret?: string;
+    payment_intent_id?: string;
+  } | null>(null);
 
   const sincronizadoRef = useRef(false);
 
@@ -121,18 +158,20 @@ const CarritoPage: React.FC = () => {
     mutationFn: async (data: CheckoutFormData) => {
       return await carritoService.checkout(data);
     },
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['carrito', 'pedidos'] });
+    onSuccess: async (response) => {
+      queryClient.invalidateQueries({ queryKey: ['carrito'] });
+      queryClient.setQueryData(['carrito'], null);
+      await queryClient.invalidateQueries({ queryKey: ['pedidos', 'consumidor'] });
+      await queryClient.refetchQueries({ queryKey: ['pedidos', 'consumidor'] });
       
-      // Si hay URL de pago (PayU), redirigir
       if (response.data?.pago?.url_pago) {
         toast.info('Redirigiendo a PayU para completar el pago...');
-        // Redirigir a PayU
-        window.location.href = response.data.pago.url_pago;
+        setTimeout(() => {
+          window.location.href = response.data.pago.url_pago;
+        }, 100);
         return;
       }
       
-      // Si no hay pago pendiente, mostrar éxito y navegar
       toast.success('¡Pedido realizado exitosamente!');
       navigate('/consumidor/pedidos');
     },
@@ -157,9 +196,78 @@ const CarritoPage: React.FC = () => {
     }
   };
 
-  const onSubmitCheckout = (data: CheckoutFormData) => {
-    checkoutMutation.mutate(data);
+  const onSubmitCheckout = async (data: CheckoutFormData) => {
+    const requiereStripe = data.metodo_pago !== 'efectivo';
+    
+    if (requiereStripe) {
+      try {
+        const response = await carritoService.checkout({
+          ...data,
+          metodo_pago: data.metodo_pago
+        });
+        
+        if (response.data?.pedido_id) {
+          const pedidoData = {
+            id: response.data.pedido_id,
+            total: response.data.total_precio,
+            client_secret: response.data?.pago?.client_secret,
+            payment_intent_id: response.data?.pago?.payment_intent_id
+          };
+          
+          if (!pedidoData.client_secret) {
+            const errorMsg = response.data?.pago?.error || 'Error desconocido al inicializar el pago';
+            toast.error(`El pedido #${pedidoData.id} se creó pero no se pudo inicializar el pago: ${errorMsg}. Por favor, verifica la configuración de Stripe o intenta nuevamente.`);
+            setPedidoCreado(pedidoData);
+            setMostrarStripe(true);
+            setShowCheckout(true);
+            queryClient.invalidateQueries({ queryKey: ['carrito'] });
+            queryClient.setQueryData(['carrito'], null);
+            return;
+          }
+          
+          setPedidoCreado(pedidoData);
+          setMostrarStripe(true);
+          setShowCheckout(true);
+          queryClient.invalidateQueries({ queryKey: ['carrito'] });
+          queryClient.setQueryData(['carrito'], null);
+          queryClient.invalidateQueries({ queryKey: ['pedidos', 'consumidor'] });
+          queryClient.refetchQueries({ queryKey: ['pedidos', 'consumidor'] });
+        } else {
+          throw new Error('No se pudo crear el pedido');
+        }
+      } catch (error: any) {
+        toast.error(error.message || 'Error al crear el pedido');
+        setShowCheckout(false);
+        setMostrarStripe(false);
+        setPedidoCreado(null);
+      }
+    } else {
+      checkoutMutation.mutate(data);
+    }
   };
+
+  const handleStripeSuccess = async (paymentIntentId: string) => {
+    if (pedidoCreado) {
+      toast.success('¡Pedido y pago procesados exitosamente!');
+      await queryClient.invalidateQueries({ queryKey: ['pedidos', 'consumidor'] });
+      await queryClient.refetchQueries({ queryKey: ['pedidos', 'consumidor'] });
+      await queryClient.invalidateQueries({ queryKey: ['notificaciones'] });
+      navigate('/consumidor/pedidos');
+    }
+  };
+
+  const handleStripeError = (error: string) => {
+    toast.error(error);
+    setMostrarStripe(false);
+    setPedidoCreado(null);
+  };
+
+  const handleStripeCancel = () => {
+    setMostrarStripe(false);
+    setPedidoCreado(null);
+    toast.info('Pago cancelado');
+  };
+
 
   if (isLoading && isAuthenticated) {
     return (
@@ -172,7 +280,7 @@ const CarritoPage: React.FC = () => {
   }
 
   const items = carritoActual?.items || [];
-  if (!items || items.length === 0) {
+  if ((!items || items.length === 0) && !(mostrarStripe && pedidoCreado && pedidoCreado.client_secret)) {
     return (
       <div className="text-center py-5">
         <BiCart className="display-1 text-muted mb-3" />
@@ -186,7 +294,7 @@ const CarritoPage: React.FC = () => {
     );
   }
 
-  const total = items.reduce((sum: number, item: any) => sum + (item.precio_total || 0), 0);
+  const total = mostrarStripe && pedidoCreado ? pedidoCreado.total : items.reduce((sum: number, item: any) => sum + (item.precio_total || 0), 0);
 
   return (
     <div className="container py-4">
@@ -224,18 +332,10 @@ const CarritoPage: React.FC = () => {
                 <div key={item.id_producto} className="cart-item-card border-bottom pb-4 mb-4 last-child-border-0" style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="row align-items-center">
                     <div className="col-md-2">
-                      {item.imagen_principal ? (
-                        <img
-                          src={item.imagen_principal}
-                          className="img-fluid rounded"
-                          alt={item.producto_nombre}
-                          style={{ height: '100px', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div className="bg-light rounded d-flex align-items-center justify-content-center" style={{ height: '100px' }}>
-                          <BiPackage className="fs-1 text-muted" />
-                        </div>
-                      )}
+                      <ProductoImagenCarrito 
+                        imagenPrincipal={item.imagen_principal}
+                        nombreProducto={item.producto_nombre}
+                      />
                     </div>
                     <div className="col-md-4">
                       <h5 className="mb-1">{item.producto_nombre}</h5>
@@ -331,6 +431,29 @@ const CarritoPage: React.FC = () => {
                   Proceder al Checkout
                   <BiRightArrowAlt className="ms-2" />
                 </button>
+              ) : mostrarStripe && pedidoCreado && pedidoCreado.client_secret ? (
+                <div>
+                  <div className="alert alert-info mb-3">
+                    <strong>Pedido creado:</strong> #{pedidoCreado.id}
+                    <br />
+                    <small>Completa el pago para finalizar tu pedido</small>
+                  </div>
+                  <StripePaymentForm
+                    monto={pedidoCreado.total}
+                    id_pedido={pedidoCreado.id}
+                    client_secret={pedidoCreado.client_secret}
+                    payment_intent_id={pedidoCreado.payment_intent_id}
+                    onSuccess={handleStripeSuccess}
+                    onError={handleStripeError}
+                    onCancel={handleStripeCancel}
+                  />
+                </div>
+              ) : mostrarStripe && pedidoCreado && !pedidoCreado.client_secret ? (
+                <div className="alert alert-warning">
+                  <strong>Pedido creado:</strong> #{pedidoCreado.id}
+                  <br />
+                  <small>El pedido se creó pero hubo un problema al inicializar el pago. Por favor, revisa la consola para más detalles.</small>
+                </div>
               ) : (
                 <form onSubmit={handleSubmit(onSubmitCheckout)}>
                   <div className="mb-3">
@@ -353,12 +476,13 @@ const CarritoPage: React.FC = () => {
                       {...register('metodo_pago', { required: 'Selecciona un método de pago' })}
                     >
                       <option value="efectivo">Efectivo</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="nequi">Nequi</option>
-                      <option value="daviplata">Daviplata</option>
-                      <option value="pse">PSE</option>
                       <option value="tarjeta">Tarjeta</option>
                     </select>
+                    {metodoPagoSeleccionado === 'tarjeta' && (
+                      <small className="text-muted d-block mt-1">
+                        Se abrirá un formulario seguro para ingresar los datos de tu tarjeta
+                      </small>
+                    )}
                   </div>
 
                   <div className="mb-3">
@@ -375,7 +499,11 @@ const CarritoPage: React.FC = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary flex-fill"
-                      onClick={() => setShowCheckout(false)}
+                      onClick={() => {
+                        setShowCheckout(false);
+                        setMostrarStripe(false);
+                        setPedidoCreado(null);
+                      }}
                     >
                       Cancelar
                     </button>
@@ -391,7 +519,7 @@ const CarritoPage: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          Confirmar Pedido
+                          {metodoPagoSeleccionado === 'tarjeta' ? 'Continuar con Pago' : 'Confirmar Pedido'}
                           <BiRightArrowAlt className="ms-2" />
                         </>
                       )}

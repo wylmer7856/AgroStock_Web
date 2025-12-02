@@ -1,6 +1,6 @@
 // 💳 CONTROLADOR DE PAGOS
 
-import { Context, RouterContext } from "../Dependencies/dependencias.ts";
+import { Context, RouterContext, load } from "../Dependencies/dependencias.ts";
 import { PaymentService, type PaymentData } from "../Services/PaymentService.ts";
 import { AuditoriaService } from "../Services/AuditoriaService.ts";
 
@@ -75,19 +75,18 @@ export class PaymentController {
       }
 
       const { id } = ctx.params;
-      const pago = await PaymentService.obtenerPago(parseInt(id));
+      const pedido = await PaymentService.obtenerPago(parseInt(id));
 
-      if (!pago) {
+      if (!pedido) {
         ctx.response.status = 404;
         ctx.response.body = {
           success: false,
-          error: "Pago no encontrado"
+          error: "Pedido no encontrado"
         };
         return;
       }
 
-      // Verificar que el usuario tenga acceso (es su pago o es admin)
-      if (pago.id_usuario !== user.id && user.rol !== 'admin') {
+      if (Number(pedido.id_consumidor) !== user.id && user.rol !== 'admin') {
         ctx.response.status = 403;
         ctx.response.body = {
           success: false,
@@ -99,7 +98,7 @@ export class PaymentController {
       ctx.response.status = 200;
       ctx.response.body = {
         success: true,
-        data: pago
+        data: pedido
       };
     } catch (error) {
       console.error("Error obteniendo pago:", error);
@@ -173,139 +172,168 @@ export class PaymentController {
     }
   }
 
-  /**
-   * Webhook de confirmación de PayU
-   */
-  static async payuConfirmacion(ctx: Context) {
+  static async crearStripePaymentIntent(ctx: Context) {
     try {
+      const user = ctx.state.user;
+      if (!user) {
+        ctx.response.status = 401;
+        ctx.response.body = {
+          success: false,
+          error: "No autenticado",
+          message: "Debes estar autenticado"
+        };
+        return;
+      }
+
       const body = await ctx.request.body.json();
-      const { referenceCode, transactionState, value, currency, signature } = body;
+      const { id_pedido, monto } = body;
 
-      // Validar firma
-      // @ts-ignore
-      const apiKey = Deno.env.get("PAYU_API_KEY") || "";
-      // @ts-ignore
-      const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
-      const expectedSignature = this.generarFirmaPayU(referenceCode, Number(value), currency);
-
-      if (signature !== expectedSignature) {
-        console.error("Firma de PayU inválida");
+      if (!id_pedido || !monto) {
         ctx.response.status = 400;
-        ctx.response.body = { success: false, error: "Firma inválida" };
+        ctx.response.body = {
+          success: false,
+          error: "Datos incompletos",
+          message: "Se requiere id_pedido y monto"
+        };
         return;
       }
 
-      // Buscar pago por referencia
-      const { PaymentService } = await import("../Services/PaymentService.ts");
-      const { conexion } = await import("../Models/Conexion.ts");
+      const paymentData: PaymentData = {
+        id_pedido: Number(id_pedido),
+        id_usuario: user.id,
+        monto: Number(monto),
+        metodo_pago: 'tarjeta',
+        pasarela: 'stripe'
+      };
+
+      const result = await PaymentService.crearPago(paymentData, ctx);
+
+      if (result.success && result.datos_adicionales) {
+        ctx.response.status = 201;
+        ctx.response.body = {
+          success: true,
+          client_secret: result.datos_adicionales.client_secret,
+          payment_intent_id: result.datos_adicionales.payment_intent_id,
+          id_pago: result.id_pago,
+          referencia_pago: result.referencia_pago
+        };
+      } else {
+        ctx.response.status = 400;
+        ctx.response.body = result;
+      }
+    } catch (error) {
+      console.error("Error creando Payment Intent de Stripe:", error);
+      ctx.response.status = 500;
+      ctx.response.body = {
+        success: false,
+        error: "Error interno del servidor",
+        message: "Error al crear sesión de pago"
+      };
+    }
+  }
+
+  static async stripeWebhook(ctx: Context) {
+    try {
+      const env = await load();
+      const webhookSecret = env.STRIPE_WEBHOOK_SECRET || "";
+      const signature = ctx.request.headers.get("stripe-signature");
+
+      if (!signature) {
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, error: "Falta firma de Stripe" };
+        return;
+      }
+
+      const body = await ctx.request.body.text();
       
-      const [pago] = await conexion.query(
-        `SELECT * FROM pagos WHERE referencia_pago = ?`,
-        [referenceCode]
-      ) as Array<Record<string, unknown>>;
-
-      if (!pago) {
-        ctx.response.status = 404;
-        ctx.response.body = { success: false, error: "Pago no encontrado" };
+      let event: any;
+      try {
+        event = JSON.parse(body);
+      } catch {
+        ctx.response.status = 400;
+        ctx.response.body = { success: false, error: "Body inválido" };
         return;
       }
 
-      // Actualizar estado según respuesta de PayU
-      const estado_pago = transactionState === '4' ? 'aprobado' : 
-                         transactionState === '6' ? 'rechazado' : 
-                         transactionState === '7' ? 'pendiente' : 'procesando';
+      console.log("[Stripe Webhook] Evento recibido:", event.type);
 
-      await PaymentService.actualizarEstadoPago(
-        Number(pago.id_pago),
-        estado_pago,
-        `Confirmación PayU: ${transactionState}`
-      );
-
-      // Guardar respuesta completa
-      await conexion.execute(
-        `UPDATE pagos SET respuesta_pasarela = ? WHERE id_pago = ?`,
-        [JSON.stringify(body), pago.id_pago]
-      );
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object as { id: string; metadata?: { pedido_id?: string } };
+        const id_pedido = paymentIntent.metadata?.pedido_id ? parseInt(paymentIntent.metadata.pedido_id) : undefined;
+        await PaymentService.confirmarPagoStripe(paymentIntent.id, 'succeeded', id_pedido);
+      } else if (event.type === 'payment_intent.payment_failed') {
+        const paymentIntent = event.data.object as { id: string; metadata?: { pedido_id?: string } };
+        const id_pedido = paymentIntent.metadata?.pedido_id ? parseInt(paymentIntent.metadata.pedido_id) : undefined;
+        await PaymentService.confirmarPagoStripe(paymentIntent.id, 'failed', id_pedido);
+      } else if (event.type === 'payment_intent.canceled') {
+        const paymentIntent = event.data.object as { id: string; metadata?: { pedido_id?: string } };
+        const id_pedido = paymentIntent.metadata?.pedido_id ? parseInt(paymentIntent.metadata.pedido_id) : undefined;
+        await PaymentService.confirmarPagoStripe(paymentIntent.id, 'canceled', id_pedido);
+      }
 
       ctx.response.status = 200;
-      ctx.response.body = { success: true, message: "Confirmación recibida" };
+      ctx.response.body = { success: true, received: true };
     } catch (error) {
-      console.error("Error procesando confirmación PayU:", error);
+      console.error("Error procesando webhook de Stripe:", error);
       ctx.response.status = 500;
-      ctx.response.body = { success: false, error: "Error interno" };
+      ctx.response.body = {
+        success: false,
+        error: "Error procesando webhook"
+      };
     }
   }
 
-  /**
-   * Webhook de respuesta de PayU (cuando el usuario regresa)
-   */
-  static async payuRespuesta(ctx: Context) {
+  static async confirmarPagoStripe(ctx: Context) {
     try {
-      const params = ctx.request.url.searchParams;
-      const referenceCode = params.get('referenceCode');
-      const transactionState = params.get('transactionState');
-      const value = params.get('value');
-      const currency = params.get('currency') || 'COP';
-      const signature = params.get('signature');
+      const user = ctx.state.user;
+      if (!user) {
+        ctx.response.status = 401;
+        ctx.response.body = {
+          success: false,
+          error: "No autenticado"
+        };
+        return;
+      }
 
-      if (!referenceCode) {
+      const body = await ctx.request.body.json();
+      const { payment_intent_id, estado, id_pedido } = body;
+
+      if (!payment_intent_id || !estado) {
         ctx.response.status = 400;
-        ctx.response.body = { success: false, error: "Parámetros inválidos" };
+        ctx.response.body = {
+          success: false,
+          error: "Datos incompletos"
+        };
         return;
       }
 
-      // Buscar pago
-      const { conexion } = await import("../Models/Conexion.ts");
-      const [pago] = await conexion.query(
-        `SELECT * FROM pagos WHERE referencia_pago = ?`,
-        [referenceCode]
-      ) as Array<Record<string, unknown>>;
+      const success = await PaymentService.confirmarPagoStripe(
+        payment_intent_id,
+        estado as 'succeeded' | 'failed' | 'canceled',
+        id_pedido ? Number(id_pedido) : undefined
+      );
 
-      if (!pago) {
+      if (success) {
+        ctx.response.status = 200;
+        ctx.response.body = {
+          success: true,
+          message: "Pago confirmado correctamente"
+        };
+      } else {
         ctx.response.status = 404;
-        ctx.response.body = { success: false, error: "Pago no encontrado" };
-        return;
+        ctx.response.body = {
+          success: false,
+          error: "No se encontró el pago"
+        };
       }
-
-      // Redirigir al frontend con el resultado
-      // @ts-ignore
-      const frontendUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
-      const estado = transactionState === '4' ? 'aprobado' : 
-                    transactionState === '6' ? 'rechazado' : 'pendiente';
-
-      const redirectUrl = `${frontendUrl}/consumidor/pedidos/${pago.id_pedido}?pago=${estado}&ref=${referenceCode}`;
-      
-      ctx.response.redirect(redirectUrl);
     } catch (error) {
-      console.error("Error procesando respuesta PayU:", error);
-      // @ts-ignore
-      const frontendUrl = Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
-      ctx.response.redirect(`${frontendUrl}/consumidor/pedidos?error=pago`);
+      console.error("Error confirmando pago de Stripe:", error);
+      ctx.response.status = 500;
+      ctx.response.body = {
+        success: false,
+        error: "Error interno del servidor"
+      };
     }
-  }
-
-  /**
-   * Generar firma PayU (helper)
-   */
-  private static generarFirmaPayU(referenceCode: string, amount: number, currency: string): string {
-    // @ts-ignore
-    const apiKey = Deno.env.get("PAYU_API_KEY") || "";
-    // @ts-ignore
-    const merchantId = Deno.env.get("PAYU_MERCHANT_ID") || "";
-    const cadena = `${apiKey}~${merchantId}~${referenceCode}~${amount}~${currency}`;
-    
-    if (!apiKey) {
-      return 'test_signature_' + Date.now();
-    }
-
-    // Implementación simple de hash (en producción usar MD5 real)
-    let hash = 0;
-    for (let i = 0; i < cadena.length; i++) {
-      const char = cadena.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).padStart(32, '0');
   }
 
   /**

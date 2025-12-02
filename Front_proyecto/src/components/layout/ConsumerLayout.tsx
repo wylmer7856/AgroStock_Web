@@ -277,11 +277,13 @@ const ConsumerLayout: React.FC = () => {
                 </button>
               </div>
 
-              {/* Notificaciones */}
               <div className="position-relative">
                 <button
                   className="btn btn-link position-relative p-2"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotifications(!showNotifications);
+                  }}
                   style={{ 
                     color: '#111827',
                     textDecoration: 'none',
@@ -326,7 +328,7 @@ const ConsumerLayout: React.FC = () => {
                     />
                     <div
                       className="dropdown-menu show"
-          style={{ 
+                      style={{ 
                         position: 'absolute',
                         top: 'calc(100% + 0.5rem)',
                         right: 0,
@@ -338,8 +340,12 @@ const ConsumerLayout: React.FC = () => {
                         borderRadius: '0.5rem',
                         padding: 0,
                         maxHeight: '500px',
-                        overflowY: 'auto'
+                        overflowY: 'auto',
+                        display: 'block',
+                        visibility: 'visible',
+                        opacity: 1
                       }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-primary text-white" style={{ borderRadius: '0.5rem 0.5rem 0 0' }}>
                         <strong>Notificaciones</strong>

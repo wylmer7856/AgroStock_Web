@@ -408,8 +408,13 @@ export class CartService {
         }
       }
 
-      // Vaciar carrito
-      await this.clearCart(id_usuario);
+      // Vaciar carrito después de crear el pedido exitosamente (dentro de la misma transacción)
+      await conexion.execute(
+        "DELETE FROM carrito WHERE id_usuario = ?",
+        [id_usuario]
+      );
+
+      console.log(`[CartService] Carrito vaciado exitosamente para usuario ${id_usuario}`);
 
       await conexion.execute("COMMIT");
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { productosService, historialPreciosService, listaDeseosService, carritoService, productoresService, mensajesService } from '../services';
+import { productosService, historialPreciosService, listaDeseosService, carritoService, productoresService, mensajesService, reseñasService, pedidosService } from '../services';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -25,10 +25,13 @@ import {
   BiEnvelope,
   BiStore,
   BiAward,
-  BiCalendar
+  BiCalendar,
+  BiStar
 } from 'react-icons/bi';
 import imagenesService from '../services/imagenes';
 import { format } from 'date-fns';
+import ReseñasList from '../components/Reseñas/ReseñasList';
+import AgregarReseña from '../components/Reseñas/AgregarReseña';
 import './ProductoDetailPage.css';
 
 const ProductoDetailPage: React.FC = () => {
@@ -38,6 +41,7 @@ const ProductoDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [cantidad, setCantidad] = useState(1);
   const [showMensajeModal, setShowMensajeModal] = useState(false);
+  const [showReseñaModal, setShowReseñaModal] = useState(false);
   const [mensajeForm, setMensajeForm] = useState({
     asunto: '',
     mensaje: ''
@@ -85,6 +89,18 @@ const ProductoDetailPage: React.FC = () => {
       return response.data || null;
     },
     enabled: !!producto?.id_usuario,
+  });
+
+  // Verificar si el usuario ya reseñó este producto
+  const { data: yaReseñado } = useQuery({
+    queryKey: ['ya-reseñado', user?.id_usuario, id],
+    queryFn: async () => {
+      if (!user?.id_usuario || !id) return false;
+      const response = await reseñasService.obtenerReseñasPorProducto(parseInt(id));
+      const reseñas = response.data?.data || [];
+      return reseñas.some((r: any) => r.id_consumidor === user.id_usuario);
+    },
+    enabled: !!user?.id_usuario && !!id,
   });
 
   const historial = historialData || [];
@@ -1020,8 +1036,50 @@ const ProductoDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Sección de Reseñas */}
+      <div className="container my-5">
+        <div className="row">
+          <div className="col-12">
+            <ReseñasList idProducto={producto.id_producto} />
+            
+            {/* Botón para agregar reseña (cualquier usuario autenticado puede reseñar) */}
+            {isAuthenticated && !yaReseñado && (
+              <div className="mt-4 text-center">
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => setShowReseñaModal(true)}
+                >
+                  <BiStar className="me-2" />
+                  Agregar Reseña
+                </button>
+              </div>
+            )}
+            {yaReseñado && (
+              <div className="mt-4 text-center">
+                <p className="text-muted">
+                  <BiStar className="me-2" />
+                  Ya has reseñado este producto
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
     {mensajeModalPortal}
+    {showReseñaModal && producto && (
+      <AgregarReseña
+        idProducto={producto.id_producto}
+        idProductor={producto.id_usuario}
+        idPedido={undefined}
+        onClose={() => setShowReseñaModal(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['reseñas', producto.id_producto] });
+          queryClient.invalidateQueries({ queryKey: ['ya-reseñado', user?.id_usuario, id] });
+        }}
+      />
+    )}
     </>
   );
 };

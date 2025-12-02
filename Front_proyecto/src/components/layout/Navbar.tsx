@@ -279,16 +279,18 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </li>
             )}
 
-            {/* Productos */}
-            <li className="nav-item">
-              <Link 
-                className={`nav-link ${location.pathname === '/productos' ? 'active fw-bold' : ''}`} 
-                to="/productos"
-              >
-                <BiPackage className="me-1" />
-                Productos
-              </Link>
-            </li>
+            {/* Productos - Oculto en login y register */}
+            {location.pathname !== '/login' && location.pathname !== '/register' && (
+              <li className="nav-item">
+                <Link 
+                  className={`nav-link ${location.pathname === '/productos' ? 'active fw-bold' : ''}`} 
+                  to="/productos"
+                >
+                  <BiPackage className="me-1" />
+                  Productos
+                </Link>
+              </li>
+            )}
 
             {/* Destacados - Solo en inicio */}
             {location.pathname === '/' && (
@@ -356,14 +358,15 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </li>
             )}
 
-            {/* Si está autenticado */}
             {isAuthenticated && user ? (
               <>
-                {/* Notificaciones */}
-                <li className="nav-item dropdown">
+                <li className="nav-item dropdown" style={{ position: 'relative' }}>
                   <button
                     className="nav-link position-relative btn btn-link text-white border-0"
-                    onClick={handleToggleNotifications}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleNotifications();
+                    }}
                     type="button"
                     title="Notificaciones"
                     aria-expanded={showNotifications}
@@ -403,8 +406,12 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                           borderRadius: '0.5rem',
                           padding: 0,
                           maxHeight: '500px',
-                          overflowY: 'auto'
+                          overflowY: 'auto',
+                          display: 'block',
+                          visibility: 'visible',
+                          opacity: 1
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-primary text-white" style={{ borderRadius: '0.5rem 0.5rem 0 0' }}>
                           <strong>Notificaciones</strong>

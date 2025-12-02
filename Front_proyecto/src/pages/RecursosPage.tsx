@@ -9,16 +9,15 @@ const RecursosPage: React.FC = () => {
         <div className="col-lg-10">
           <div className="text-center mb-5">
             <BiBook className="display-1 text-primary mb-3" />
-            <h1 className="display-5 fw-bold">Recursos y GuÃ­as</h1>
-            <p className="text-muted lead">Todo lo que necesitas para aprovechar al mÃ¡ximo AgroStock</p>
+            <h1 className="display-5 fw-bold">Recursos y Guías</h1>
+            <p className="text-muted lead">Todo lo que necesitas para aprovechar al máximo AgroStock</p>
           </div>
 
-          {/* GuÃ­as para Productores */}
           <div className="card shadow-sm border-0 mb-4">
             <div className="card-header bg-primary text-white">
               <h2 className="h4 fw-bold mb-0">
                 <BiBook className="me-2" />
-                GuÃ­as para Productores
+                Guías para Productores
               </h2>
             </div>
             <div className="card-body p-5">
@@ -27,7 +26,7 @@ const RecursosPage: React.FC = () => {
                   <div className="card h-100 border">
                     <div className="card-body">
                       <BiFile className="fs-1 text-primary mb-3" />
-                      <h5 className="fw-bold">GuÃ­a de Inicio RÃ¡pido</h5>
+                      <h5 className="fw-bold">Guía de Inicio Rápido</h5>
                       <p className="text-muted">
                         Aprende a configurar tu cuenta, publicar productos y gestionar tus primeras ventas.
                       </p>
@@ -57,7 +56,7 @@ const RecursosPage: React.FC = () => {
                   <div className="card h-100 border">
                     <div className="card-body">
                       <BiFile className="fs-1 text-success mb-3" />
-                      <h5 className="fw-bold">Mejores PrÃ¡cticas</h5>
+                      <h5 className="fw-bold">Mejores Prácticas</h5>
                       <p className="text-muted">
                         Consejos y estrategias para maximizar tus ventas y satisfacer a tus clientes.
                       </p>
@@ -74,7 +73,7 @@ const RecursosPage: React.FC = () => {
                       <BiQuestionMark className="fs-1 text-warning mb-3" />
                       <h5 className="fw-bold">Preguntas Frecuentes</h5>
                       <p className="text-muted">
-                        Respuestas a las preguntas mÃ¡s comunes sobre cÃ³mo usar la plataforma.
+                        Respuestas a las preguntas más comunes sobre cómo usar la plataforma.
                       </p>
                       <Link to="/soporte" className="btn btn-outline-warning btn-sm">
                         <BiLinkExternal className="me-1" />
@@ -87,12 +86,11 @@ const RecursosPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Recursos para Consumidores */}
           <div className="card shadow-sm border-0 mb-4">
             <div className="card-header bg-success text-white">
               <h2 className="h4 fw-bold mb-0">
                 <BiBook className="me-2" />
-                GuÃ­as para Consumidores
+                Guías para Consumidores
               </h2>
             </div>
             <div className="card-body p-5">
@@ -101,9 +99,9 @@ const RecursosPage: React.FC = () => {
                   <div className="card h-100 border">
                     <div className="card-body">
                       <BiFile className="fs-1 text-primary mb-3" />
-                      <h5 className="fw-bold">CÃ³mo Comprar</h5>
+                      <h5 className="fw-bold">Cómo Comprar</h5>
                       <p className="text-muted">
-                        GuÃ­a completa sobre cÃ³mo navegar, buscar productos y realizar compras seguras.
+                        Guía completa sobre cómo navegar, buscar productos y realizar compras seguras.
                       </p>
                       <button className="btn btn-outline-primary btn-sm">
                         <BiDownload className="me-1" />
@@ -116,7 +114,7 @@ const RecursosPage: React.FC = () => {
                   <div className="card h-100 border">
                     <div className="card-body">
                       <BiFile className="fs-1 text-info mb-3" />
-                      <h5 className="fw-bold">GuÃ­a de Productos</h5>
+                      <h5 className="fw-bold">Guía de Productos</h5>
                       <p className="text-muted">
                         Aprende a identificar productos de calidad y entender las descripciones.
                       </p>
@@ -131,21 +129,20 @@ const RecursosPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Enlaces Ãštiles */}
           <div className="card shadow-sm border-0">
             <div className="card-body p-5">
-              <h2 className="h4 fw-bold mb-4">Enlaces Ãštiles</h2>
+              <h2 className="h4 fw-bold mb-4">Enlaces Útiles</h2>
               <div className="row g-3">
                 <div className="col-md-4">
                   <Link to="/terminos-condiciones" className="text-decoration-none d-block p-3 border rounded">
                     <BiFile className="text-primary me-2" />
-                    <strong>TÃ©rminos y Condiciones</strong>
+                    <strong>Términos y Condiciones</strong>
                   </Link>
                 </div>
                 <div className="col-md-4">
                   <a href="#" className="text-decoration-none d-block p-3 border rounded" onClick={(e) => e.preventDefault()}>
                     <BiFile className="text-primary me-2" />
-                    <strong>PolÃ­tica de Privacidad</strong>
+                    <strong>Política de Privacidad</strong>
                   </a>
                 </div>
                 <div className="col-md-4">

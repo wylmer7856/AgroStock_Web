@@ -1,0 +1,79 @@
+.reseñas-container {
+  margin-top: 2rem;
+}
+
+.reseñas-header h3 {
+  color: #2d5016;
+  font-weight: 600;
+}
+
+.reseñas-summary {
+  margin-top: 1rem;
+}
+
+.promedio-calificacion {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.promedio-numero {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2d5016;
+}
+
+.promedio-stars {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.total-reseñas {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.star-filled {
+  color: #ffc107;
+  fill: #ffc107;
+}
+
+.star-empty {
+  color: #dee2e6;
+}
+
+.reseña-item {
+  border: 1px solid #dee2e6;
+  transition: box-shadow 0.2s;
+}
+
+.reseña-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.reseña-usuario {
+  color: #2d5016;
+  font-size: 1rem;
+}
+
+.reseña-calificacion {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.reseña-comentario {
+  color: #495057;
+  line-height: 1.6;
+}
+
+.no-reseñas {
+  padding: 3rem 1rem;
+}
+
+.no-reseñas .display-1 {
+  opacity: 0.3;
+}
+

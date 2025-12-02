@@ -80,6 +80,19 @@ const PublicRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   return <>{children}</>;
 };
 
+// Componente wrapper para notificaciones que determina el layout según el rol
+const NotificacionesLayoutWrapper: React.FC = () => {
+  const { user } = useAuth();
+  
+  if (user?.rol === 'productor') {
+    return <ProductorLayout />;
+  } else if (user?.rol === 'admin') {
+    return <MainLayout />;
+  } else {
+    return <ConsumerLayout />;
+  }
+};
+
 // Componente interno que usa el contexto
 const AppRoutes: React.FC = () => {
   // TODOS LOS HOOKS DEBEN IR PRIMERO, ANTES DE CUALQUIER RETURN CONDICIONAL
@@ -259,24 +272,12 @@ const AppRoutes: React.FC = () => {
         }
       />
 
-      {/* Notificaciones para productor - ProductorLayout (sin navbar) */}
+      {/* Notificaciones - Layout según rol */}
       <Route
         path="/notificaciones"
         element={
-          <ProtectedRoute allowedRoles={['productor']}>
-            <ProductorLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<NotificacionesPage />} />
-      </Route>
-
-      {/* Notificaciones para consumidor - ConsumerLayout (sin navbar) */}
-      <Route
-        path="/notificaciones"
-        element={
-          <ProtectedRoute allowedRoles={['consumidor']}>
-            <ConsumerLayout />
+          <ProtectedRoute allowedRoles={['consumidor', 'productor', 'admin']}>
+            <NotificacionesLayoutWrapper />
           </ProtectedRoute>
         }
       >
@@ -285,15 +286,7 @@ const AppRoutes: React.FC = () => {
 
       {/* Rutas protegidas con MainLayout (con navbar) - Solo para admin */}
       <Route element={<MainLayout />}>
-        {/* Notificaciones para admin (con navbar) */}
-        <Route
-          path="/notificaciones"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <NotificacionesPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Notificaciones ya está manejada arriba para todos los roles */}
       </Route>
 
         {/* Ruta 404 - Redirigir según autenticación */}

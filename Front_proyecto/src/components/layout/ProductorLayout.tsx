@@ -46,7 +46,6 @@ const ProductorLayout: React.FC = () => {
       '/productor/mensajes': 'mensajes',
       '/productor/estadisticas': 'estadisticas',
       '/productor/perfil': 'perfil',
-      '/notificaciones': 'notificaciones',
     };
     
     setCurrentView(viewMap[path] || 'overview');
@@ -60,7 +59,6 @@ const ProductorLayout: React.FC = () => {
       'mensajes': '/productor/mensajes',
       'estadisticas': '/productor/estadisticas',
       'perfil': '/productor/perfil',
-      'notificaciones': '/notificaciones',
     };
     
     const route = routeMap[view] || '/productor/dashboard';
@@ -223,15 +221,6 @@ const ProductorLayout: React.FC = () => {
             📈 Estadísticas
           </button>
           <button
-            className={`nav-item ${currentView === 'notificaciones' ? 'active' : ''}`}
-            onClick={() => handleNavigate('notificaciones')}
-          >
-            🔔 Notificaciones
-            {notificacionesNoLeidas > 0 && (
-              <span className="badge bg-danger ms-2">{notificacionesNoLeidas > 9 ? '9+' : notificacionesNoLeidas}</span>
-            )}
-          </button>
-          <button
             className={`nav-item ${currentView === 'perfil' ? 'active' : ''}`}
             onClick={() => handleNavigate('perfil')}
           >
@@ -251,28 +240,6 @@ const ProductorLayout: React.FC = () => {
           <div className="d-flex justify-content-between align-items-center w-100">
             <h1>Bienvenido, {user?.nombre || 'Productor'}</h1>
             <div className="d-flex align-items-center gap-3">
-              {/* Botón para ir a productos públicos */}
-              <button
-                className="btn btn-outline-primary d-flex align-items-center gap-2"
-                onClick={() => navigate('/productos')}
-                style={{ 
-                  borderColor: '#2d5016', 
-                  color: '#2d5016',
-                  fontWeight: 500
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#2d5016';
-                  e.currentTarget.style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#2d5016';
-                }}
-              >
-                <BiPackage />
-                <span className="d-none d-md-inline">Ver Catálogo</span>
-              </button>
-
               {/* Botón para ir al inicio */}
               <button
                 className="btn btn-outline-secondary d-flex align-items-center gap-2"
@@ -328,10 +295,17 @@ const ProductorLayout: React.FC = () => {
                       <strong>Notificaciones</strong>
                       <button
                         className="btn btn-link btn-sm p-0 text-decoration-none"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           setShowNotifications(false);
-                          navigate('/notificaciones');
+                          // Usar setTimeout para asegurar que el dropdown se cierre antes de navegar
+                          setTimeout(() => {
+                            navigate('/notificaciones');
+                          }, 100);
                         }}
+                        type="button"
+                        style={{ cursor: 'pointer' }}
                       >
                         Ver todas
                       </button>
@@ -544,4 +518,3 @@ const ProductorLayout: React.FC = () => {
 };
 
 export default ProductorLayout;
-

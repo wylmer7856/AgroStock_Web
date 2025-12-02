@@ -1,0 +1,38 @@
+.calificacion-producto {
+  display: inline-flex;
+  align-items: center;
+}
+
+.calificacion-stars {
+  display: flex;
+  gap: 0.1rem;
+  align-items: center;
+}
+
+.star-filled {
+  color: #ffc107;
+  fill: #ffc107;
+}
+
+.star-empty {
+  color: #dee2e6;
+}
+
+.calificacion-text {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-left: 0.25rem;
+}
+
+.calificacion-small .calificacion-text {
+  font-size: 0.75rem;
+}
+
+.calificacion-medium .calificacion-text {
+  font-size: 0.85rem;
+}
+
+.calificacion-large .calificacion-text {
+  font-size: 1rem;
+}
+

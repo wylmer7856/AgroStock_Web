@@ -59,11 +59,6 @@ Recursos para la página de error 404:
 
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 981c03b2e72622b605b6649da12a5fbfd455951e
-
 
 
 

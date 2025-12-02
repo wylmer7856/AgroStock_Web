@@ -484,8 +484,6 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
         return;
       }
     } catch (error) {
-      // Si falla la validación parcial, intentar actualización completa
-      console.log("Actualización parcial falló, intentando actualización completa:", error);
     }
     
     // Si se envían más campos, hacer actualización completa
@@ -602,15 +600,23 @@ export const getMisPedidos = async (ctx: Context) => {
       return;
     }
 
+    const userId = Number(user.id || user.id_usuario);
+    if (!userId || isNaN(userId)) {
+      ctx.response.status = 401;
+      ctx.response.body = {
+        success: false,
+        message: "ID de usuario no encontrado en el token.",
+      };
+      return;
+    }
+
     const objPedido = new PedidosModel();
     let pedidos: PedidoDB[] = [];
 
     if (user.rol === 'productor') {
-      // Obtener pedidos donde el usuario es el productor
-      pedidos = await objPedido.ObtenerPedidosPorProductor(user.id) as PedidoDB[];
+      pedidos = await objPedido.ObtenerPedidosPorProductor(userId) as PedidoDB[];
     } else if (user.rol === 'consumidor') {
-      // Obtener pedidos donde el usuario es el consumidor
-      pedidos = await objPedido.ObtenerPedidosPorConsumidor(user.id) as PedidoDB[];
+      pedidos = await objPedido.ObtenerPedidosPorConsumidor(userId) as PedidoDB[];
     } else {
       ctx.response.status = 403;
       ctx.response.body = {
@@ -620,7 +626,6 @@ export const getMisPedidos = async (ctx: Context) => {
       return;
     }
 
-    // Obtener detalles para cada pedido
     const pedidosConDetalles = await Promise.all(
       pedidos.map(async (pedido: PedidoDB) => {
         try {
@@ -712,7 +717,6 @@ export const getPedidosRealizados = async (ctx: Context) => {
 
 export const getPedidosRecibidos = async (ctx: Context) => {
   try {
-    console.log(`📋 [GET /pedidos/recibidos] Ruta llamada correctamente`);
     const user = ctx.state.user;
     
     if (!user) {
@@ -723,8 +727,6 @@ export const getPedidosRecibidos = async (ctx: Context) => {
       };
       return;
     }
-
-    console.log(`📋 [GET /pedidos/recibidos] Usuario:`, { id: user.id, rol: user.rol });
 
     // Solo productores pueden ver pedidos recibidos
     if (user.rol !== 'productor' && user.rol !== 'admin') {

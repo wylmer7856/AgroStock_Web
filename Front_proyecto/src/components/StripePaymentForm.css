@@ -1,0 +1,97 @@
+.stripe-payment-wrapper {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.stripe-payment-form {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stripe-form-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.stripe-form-header h5 {
+  margin: 0;
+  font-weight: 600;
+  color: #212529;
+}
+
+.stripe-card-element-container {
+  padding: 16px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #f8f9fa;
+  margin-bottom: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.stripe-card-element-container:focus-within {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.stripe-form-info {
+  margin-bottom: 20px;
+}
+
+.stripe-form-info small {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.stripe-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.stripe-form-actions .btn {
+  flex: 1;
+  min-width: 120px;
+}
+
+.stripe-loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.stripe-test-cards {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #0d6efd;
+}
+
+.stripe-test-cards small {
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.StripeElement {
+  padding: 8px 0;
+}
+
+@media (max-width: 576px) {
+  .stripe-payment-form {
+    padding: 16px;
+  }
+
+  .stripe-form-actions {
+    flex-direction: column;
+  }
+
+  .stripe-form-actions .btn {
+    width: 100%;
+  }
+}
+

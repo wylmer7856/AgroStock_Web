@@ -29,7 +29,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Alcance Nacional</h5>
                       <p className="text-muted mb-0">
-                        Llega a consumidores en todo el paÃ­s sin necesidad de intermediarios costosos.
+                        Llega a consumidores en todo el país sin necesidad de intermediarios costosos.
                       </p>
                     </div>
                   </div>
@@ -40,7 +40,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Precios Justos</h5>
                       <p className="text-muted mb-0">
-                        Establece tus propios precios y obtÃ©n mejores mÃ¡rgenes de ganancia.
+                        Establece tus propios precios y obtén mejores márgenes de ganancia.
                       </p>
                     </div>
                   </div>
@@ -60,7 +60,7 @@ const BeneficiosPage: React.FC = () => {
                   <div className="d-flex align-items-start">
                     <BiTrendingUp className="text-success fs-3 me-3 flex-shrink-0" />
                     <div>
-                      <h5 className="fw-bold">Herramientas de GestiÃ³n</h5>
+                      <h5 className="fw-bold">Herramientas de Gestión</h5>
                       <p className="text-muted mb-0">
                         Panel intuitivo para gestionar productos, pedidos e inventario.
                       </p>
@@ -73,7 +73,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Comunidad de Productores</h5>
                       <p className="text-muted mb-0">
-                        Conecta con otros productores y comparte experiencias y mejores prÃ¡cticas.
+                        Conecta con otros productores y comparte experiencias y mejores prácticas.
                       </p>
                     </div>
                   </div>
@@ -120,7 +120,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Mejores Precios</h5>
                       <p className="text-muted mb-0">
-                        ObtÃ©n productos de calidad a precios justos, directamente del productor.
+                        Obtén productos de calidad a precios justos, directamente del productor.
                       </p>
                     </div>
                   </div>
@@ -131,7 +131,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Transparencia</h5>
                       <p className="text-muted mb-0">
-                        Conoce el origen de tus productos y los mÃ©todos de producciÃ³n utilizados.
+                        Conoce el origen de tus productos y los métodos de producción utilizados.
                       </p>
                     </div>
                   </div>
@@ -142,7 +142,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Variedad de Productos</h5>
                       <p className="text-muted mb-0">
-                        Amplia selecciÃ³n de productos agrÃ­colas de diferentes productores.
+                        Amplia selección de productos agrícolas de diferentes productores.
                       </p>
                     </div>
                   </div>
@@ -153,7 +153,7 @@ const BeneficiosPage: React.FC = () => {
                     <div>
                       <h5 className="fw-bold">Compra Segura</h5>
                       <p className="text-muted mb-0">
-                        Sistema de pagos seguro y protecciÃ³n al consumidor garantizada.
+                        Sistema de pagos seguro y protección al consumidor garantizada.
                       </p>
                     </div>
                   </div>

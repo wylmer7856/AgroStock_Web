@@ -2,6 +2,7 @@
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosService, categoriasService, carritoService, listaDeseosService } from '../services';
+import CalificacionProducto from '../components/Reseñas/CalificacionProducto';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { BiSearch, BiFilter, BiCart, BiPackage, BiX, BiUser } from 'react-icons/bi';
@@ -470,6 +471,9 @@ const ProductosPage: React.FC = () => {
                           <h5 className="card-title fw-bold mb-2" style={{ minHeight: '48px' }}>
                             {producto.nombre}
                           </h5>
+                          <div className="mb-2">
+                            <CalificacionProducto idProducto={producto.id_producto} size="small" showText={true} />
+                          </div>
                           {producto.descripcion && (
                             <p className="card-text text-muted small mb-3" style={{ minHeight: '40px' }}>
                               {producto.descripcion.length > 80 

@@ -80,7 +80,7 @@ const HomePage: React.FC = () => {
     staleTime: Infinity, // Los datos nunca se consideran obsoletos
   });
 
-  // Query para lista de deseos (si estÃ¡ autenticado)
+  // Query para lista de deseos (si está autenticado)
   const { data: listaDeseosData } = useQuery({
     queryKey: ['lista-deseos'],
     queryFn: async () => {
@@ -252,13 +252,6 @@ const HomePage: React.FC = () => {
                     </Link>
                   </div>
               )}
-              </div>
-            </div>
-            <div className="col-lg-6">
-              <div className="hero-image">
-                <div className="hero-image-wrapper">
-                  <BiStore className="hero-icon" />
-                </div>
               </div>
             </div>
           </div>

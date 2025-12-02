@@ -98,7 +98,6 @@ const PedidoDetailPage: React.FC = () => {
     },
   });
 
-  // Mutation para eliminar pedido
   const deletePedidoMutation = useMutation({
     mutationFn: async () => {
       if (!id) throw new Error('ID no válido');
@@ -108,10 +107,11 @@ const PedidoDetailPage: React.FC = () => {
       }
       return response;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('✅ Pedido eliminado correctamente');
+      await queryClient.invalidateQueries({ queryKey: ['pedidos', 'consumidor'] });
+      await queryClient.refetchQueries({ queryKey: ['pedidos', 'consumidor'] });
       navigate('/consumidor/pedidos');
-      queryClient.invalidateQueries({ queryKey: ['pedidos', 'consumidor'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Error al eliminar el pedido');

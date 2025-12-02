@@ -106,7 +106,7 @@ class CarritoService {
 
   // ===== PROCESAR CHECKOUT =====
   async checkout(datosEntrega: {
-    direccionEntrega: string; // El backend espera este nombre
+    direccionEntrega: string;
     id_ciudad_entrega?: number;
     notas?: string;
     metodo_pago: 'efectivo' | 'transferencia' | 'nequi' | 'daviplata' | 'pse' | 'tarjeta';
@@ -118,6 +118,8 @@ class CarritoService {
       url_pago?: string;
       estado_pago?: string;
       referencia_pago?: string;
+      client_secret?: string;
+      payment_intent_id?: string;
     };
   }>> {
     try {
@@ -129,6 +131,8 @@ class CarritoService {
           url_pago?: string;
           estado_pago?: string;
           referencia_pago?: string;
+          client_secret?: string;
+          payment_intent_id?: string;
         };
       }>(
         '/cart/checkout',

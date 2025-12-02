@@ -268,29 +268,415 @@ const OverviewScreen: React.FC<OverviewScreenProps> = ({ onNavigate }) => {
     }).format(cantidad);
   };
 
-  // Funciones de descarga (simplificadas, se pueden expandir)
+  // Descargar PDF
   const descargarPDF = async () => {
     if (!estadisticas) {
       mostrarToast('No hay datos para exportar', 'error');
       return;
     }
-    mostrarToast('Funcionalidad de PDF en desarrollo', 'error');
+
+    try {
+      setDescargando({ tipo: 'pdf' });
+      const doc = new jsPDF();
+      
+      // Encabezado con diseño mejorado
+      doc.setFillColor(45, 80, 22);
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Reporte de Estadísticas', 105, 18, { align: 'center' });
+      
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.text('AgroStock - Sistema de Gestión Agrícola', 105, 28, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(200, 200, 200);
+      doc.text(`Generado el: ${new Date().toLocaleDateString('es-CO', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`, 105, 35, { align: 'center' });
+      
+      let yPos = 50;
+      
+      // Resumen General con diseño mejorado
+      doc.setFillColor(240, 248, 255);
+      doc.rect(10, yPos - 5, 190, 8, 'F');
+      
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(45, 80, 22);
+      doc.text('📊 Resumen General', 14, yPos);
+      yPos += 12;
+
+      const resumenData = [
+        ['Métrica', 'Valor'],
+        ['Total Usuarios', formatearNumero(estadisticas.total_usuarios)],
+        ['Total Productos', formatearNumero(estadisticas.total_productos)],
+        ['Total Pedidos', formatearNumero(estadisticas.total_pedidos)],
+        ['Ingresos Totales', formatearMoneda(estadisticas.ingresos_totales)],
+        ['Pedidos Completados', formatearNumero(estadisticas.pedidos_completados || 0)],
+        ['Pedidos Pendientes', formatearNumero(estadisticas.pedidos_pendientes || 0)],
+        ['Pedidos Cancelados', formatearNumero(estadisticas.pedidos_cancelados || 0)],
+      ];
+
+      autoTable(doc, {
+        head: [resumenData[0]],
+        body: resumenData.slice(1),
+        startY: yPos,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [45, 80, 22], 
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 11
+        },
+        bodyStyles: {
+          fontSize: 10,
+          textColor: [33, 37, 41]
+        },
+        alternateRowStyles: {
+          fillColor: [248, 249, 250]
+        },
+        styles: { 
+          fontSize: 10,
+          cellPadding: 3
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // Usuarios por Rol con diseño mejorado
+      if (estadisticas.usuarios_por_rol) {
+        yPos = (doc as any).lastAutoTable.finalY + 20;
+        
+        doc.setFillColor(240, 248, 255);
+        doc.rect(10, yPos - 5, 190, 8, 'F');
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(45, 80, 22);
+        doc.text('👥 Usuarios por Rol', 14, yPos);
+        yPos += 12;
+
+        const usuariosRolData = [
+          ['Rol', 'Cantidad'],
+          ['Administradores', formatearNumero(estadisticas.usuarios_por_rol.admin || 0)],
+          ['Productores', formatearNumero(estadisticas.usuarios_por_rol.productor || 0)],
+          ['Consumidores', formatearNumero(estadisticas.usuarios_por_rol.consumidor || 0)],
+        ];
+
+        autoTable(doc, {
+          head: [usuariosRolData[0]],
+          body: usuariosRolData.slice(1),
+          startY: yPos,
+          theme: 'striped',
+          headStyles: { 
+            fillColor: [45, 80, 22], 
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 11
+          },
+          bodyStyles: {
+            fontSize: 10,
+            textColor: [33, 37, 41]
+          },
+          alternateRowStyles: {
+            fillColor: [248, 249, 250]
+          },
+          margin: { left: 14, right: 14 }
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 15;
+      }
+
+      // Productos por Categoría con diseño mejorado
+      if (estadisticas.productos_por_categoria && estadisticas.productos_por_categoria.length > 0) {
+        yPos = (doc as any).lastAutoTable.finalY + 20;
+        
+        // Verificar si necesitamos una nueva página
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        doc.setFillColor(240, 248, 255);
+        doc.rect(10, yPos - 5, 190, 8, 'F');
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(45, 80, 22);
+        doc.text('🛍️ Productos por Categoría', 14, yPos);
+        yPos += 12;
+
+        const productosCategoriaData = [
+          ['Categoría', 'Cantidad'],
+          ...estadisticas.productos_por_categoria.map(cat => [
+            cat.nombre || cat.categoria || 'Sin categoría',
+            formatearNumero(cat.total || cat.cantidad || 0)
+          ])
+        ];
+
+        autoTable(doc, {
+          head: [productosCategoriaData[0]],
+          body: productosCategoriaData.slice(1),
+          startY: yPos,
+          theme: 'striped',
+          headStyles: { 
+            fillColor: [45, 80, 22], 
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 11
+          },
+          bodyStyles: {
+            fontSize: 10,
+            textColor: [33, 37, 41]
+          },
+          alternateRowStyles: {
+            fillColor: [248, 249, 250]
+          },
+          margin: { left: 14, right: 14 }
+        });
+      }
+
+      // Guardar PDF
+      const fecha = new Date().toISOString().split('T')[0];
+      doc.save(`Estadisticas_AgroStock_${fecha}.pdf`);
+      mostrarToast('PDF exportado correctamente', 'success');
+    } catch (error) {
+      console.error('Error exportando a PDF:', error);
+      mostrarToast('Error al exportar a PDF', 'error');
+    } finally {
+      setDescargando({ tipo: null });
+    }
   };
 
+  // Descargar Excel
   const descargarExcel = () => {
     if (!estadisticas) {
       mostrarToast('No hay datos para exportar', 'error');
       return;
     }
-    mostrarToast('Funcionalidad de Excel en desarrollo', 'error');
+
+    try {
+      setDescargando({ tipo: 'excel' });
+      const wb = XLSX.utils.book_new();
+
+      // Hoja 1: Resumen General
+      const resumenData = [
+        ['Métrica', 'Valor'],
+        ['Total Usuarios', estadisticas.total_usuarios],
+        ['Total Productos', estadisticas.total_productos],
+        ['Total Pedidos', estadisticas.total_pedidos],
+        ['Ingresos Totales', estadisticas.ingresos_totales],
+        ['Pedidos Completados', estadisticas.pedidos_completados || 0],
+        ['Pedidos Pendientes', estadisticas.pedidos_pendientes || 0],
+        ['Pedidos Cancelados', estadisticas.pedidos_cancelados || 0],
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(resumenData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Resumen General');
+
+      // Hoja 2: Usuarios por Rol
+      const usuariosRolData = [
+        ['Rol', 'Cantidad'],
+        ['Administradores', estadisticas.usuarios_por_rol?.admin || 0],
+        ['Productores', estadisticas.usuarios_por_rol?.productor || 0],
+        ['Consumidores', estadisticas.usuarios_por_rol?.consumidor || 0],
+      ];
+      const ws2 = XLSX.utils.aoa_to_sheet(usuariosRolData);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Usuarios por Rol');
+
+      // Hoja 3: Productos por Categoría
+      const productosCategoriaData = [
+        ['Categoría', 'Cantidad'],
+        ...(estadisticas.productos_por_categoria?.map(cat => [
+          cat.nombre || cat.categoria || 'Sin categoría',
+          cat.total || cat.cantidad || 0
+        ]) || [])
+      ];
+      const ws3 = XLSX.utils.aoa_to_sheet(productosCategoriaData);
+      XLSX.utils.book_append_sheet(wb, ws3, 'Productos por Categoría');
+
+      // Hoja 4: Actividad Reciente
+      if (actividadReciente.length > 0) {
+        const actividadData = [
+          ['Tipo', 'Descripción', 'Usuario', 'Fecha'],
+          ...actividadReciente.map(act => [
+            act.tipo,
+            act.descripcion,
+            act.usuario || 'Sistema',
+            new Date(act.timestamp).toLocaleString('es-CO')
+          ])
+        ];
+        const ws4 = XLSX.utils.aoa_to_sheet(actividadData);
+        XLSX.utils.book_append_sheet(wb, ws4, 'Actividad Reciente');
+      }
+
+      const fecha = new Date().toISOString().split('T')[0];
+      const nombreArchivo = `Estadisticas_AgroStock_${fecha}.xlsx`;
+      XLSX.writeFile(wb, nombreArchivo);
+      mostrarToast('Archivo Excel exportado correctamente', 'success');
+    } catch (error) {
+      console.error('Error exportando a Excel:', error);
+      mostrarToast('Error al exportar a Excel', 'error');
+    } finally {
+      setDescargando({ tipo: null });
+    }
   };
 
+  // Descargar PowerPoint
   const descargarPowerPoint = async () => {
     if (!estadisticas) {
       mostrarToast('No hay datos para exportar', 'error');
       return;
     }
-    mostrarToast('Funcionalidad de PowerPoint en desarrollo', 'error');
+
+    try {
+      setDescargando({ tipo: 'powerpoint' });
+      const pptx = new pptxgenjs();
+
+      // Configuración general
+      pptx.layout = 'LAYOUT_WIDE';
+      pptx.author = 'AgroStock';
+      pptx.company = 'AgroStock';
+      pptx.title = 'Reporte de Estadísticas';
+
+      // Slide 1: Portada
+      const slide1 = pptx.addSlide();
+      slide1.addText('Reporte de Estadísticas', {
+        x: 0.5,
+        y: 1.5,
+        w: 9,
+        h: 1,
+        fontSize: 44,
+        bold: true,
+        color: '2d5016',
+        align: 'center',
+      });
+      slide1.addText('AgroStock', {
+        x: 0.5,
+        y: 2.8,
+        w: 9,
+        h: 0.8,
+        fontSize: 32,
+        color: '3d6b1f',
+        align: 'center',
+      });
+      slide1.addText(`Generado el: ${new Date().toLocaleDateString('es-CO')}`, {
+        x: 0.5,
+        y: 4,
+        w: 9,
+        h: 0.5,
+        fontSize: 18,
+        color: '666666',
+        align: 'center',
+      });
+
+      // Slide 2: Resumen General
+      const slide2 = pptx.addSlide();
+      slide2.addText('Resumen General', {
+        x: 0.5,
+        y: 0.3,
+        w: 9,
+        h: 0.6,
+        fontSize: 32,
+        bold: true,
+        color: '2d5016',
+      });
+
+      const resumenText = [
+        `Total Usuarios: ${formatearNumero(estadisticas.total_usuarios)}`,
+        `Total Productos: ${formatearNumero(estadisticas.total_productos)}`,
+        `Total Pedidos: ${formatearNumero(estadisticas.total_pedidos)}`,
+        `Ingresos Totales: ${formatearMoneda(estadisticas.ingresos_totales)}`,
+        `Pedidos Completados: ${formatearNumero(estadisticas.pedidos_completados || 0)}`,
+        `Pedidos Pendientes: ${formatearNumero(estadisticas.pedidos_pendientes || 0)}`,
+        `Pedidos Cancelados: ${formatearNumero(estadisticas.pedidos_cancelados || 0)}`,
+      ].join('\n');
+
+      slide2.addText(resumenText, {
+        x: 0.5,
+        y: 1.2,
+        w: 9,
+        h: 4,
+        fontSize: 20,
+        bullet: true,
+        color: '333333',
+      });
+
+      // Slide 3: Usuarios por Rol
+      if (estadisticas.usuarios_por_rol) {
+        const slide3 = pptx.addSlide();
+        slide3.addText('Usuarios por Rol', {
+          x: 0.5,
+          y: 0.3,
+          w: 9,
+          h: 0.6,
+          fontSize: 32,
+          bold: true,
+          color: '2d5016',
+        });
+
+        const usuariosText = [
+          `Administradores: ${formatearNumero(estadisticas.usuarios_por_rol.admin || 0)}`,
+          `Productores: ${formatearNumero(estadisticas.usuarios_por_rol.productor || 0)}`,
+          `Consumidores: ${formatearNumero(estadisticas.usuarios_por_rol.consumidor || 0)}`,
+        ].join('\n');
+
+        slide3.addText(usuariosText, {
+          x: 0.5,
+          y: 1.2,
+          w: 9,
+          h: 4,
+          fontSize: 24,
+          bullet: true,
+          color: '333333',
+        });
+      }
+
+      // Slide 4: Productos por Categoría
+      if (estadisticas.productos_por_categoria && estadisticas.productos_por_categoria.length > 0) {
+        const slide4 = pptx.addSlide();
+        slide4.addText('Productos por Categoría', {
+          x: 0.5,
+          y: 0.3,
+          w: 9,
+          h: 0.6,
+          fontSize: 32,
+          bold: true,
+          color: '2d5016',
+        });
+
+        const categoriasText = estadisticas.productos_por_categoria
+          .map(cat => `${cat.nombre || cat.categoria || 'Sin categoría'}: ${formatearNumero(cat.total || cat.cantidad || 0)}`)
+          .join('\n');
+
+        slide4.addText(categoriasText, {
+          x: 0.5,
+          y: 1.2,
+          w: 9,
+          h: 4,
+          fontSize: 20,
+          bullet: true,
+          color: '333333',
+        });
+      }
+
+      const fecha = new Date().toISOString().split('T')[0];
+      await pptx.writeFile({ fileName: `Estadisticas_AgroStock_${fecha}.pptx` });
+      mostrarToast('PowerPoint exportado correctamente', 'success');
+    } catch (error) {
+      console.error('Error exportando a PowerPoint:', error);
+      mostrarToast('Error al exportar a PowerPoint', 'error');
+    } finally {
+      setDescargando({ tipo: null });
+    }
   };
 
   // Datos para gráficas

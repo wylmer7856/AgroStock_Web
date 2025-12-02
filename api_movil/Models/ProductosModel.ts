@@ -1,5 +1,5 @@
 import { conexion } from "./Conexion.ts";
-import { join, resolve, fromFileUrl } from "../Dependencies/dependencias.ts";
+import { join, resolve } from "../Dependencies/dependencias.ts";
 import { HistorialPreciosModel, HistorialPrecioCreateData } from "./HistorialPreciosModel.ts";
 
 export interface ProductoData {
@@ -48,7 +48,7 @@ export class ProductosModel {
                 this.UPLOADS_DIR = resolve(cwd, "api_movil", "uploads");
             }
             console.log(`📁 [ProductosModel] UPLOADS_DIR resuelto: ${this.UPLOADS_DIR} (cwd: ${cwd})`);
-        } catch (error) {
+        } catch (_error) {
             // Fallback: usar ruta relativa
             this.UPLOADS_DIR = "./uploads";
             console.log(`⚠️ [ProductosModel] Usando fallback UPLOADS_DIR: ${this.UPLOADS_DIR}`);
@@ -218,10 +218,19 @@ export class ProductosModel {
             }
 
             // Verificar límite de productos por usuario
-            const limiteConfig = await conexion.query(
-                "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
-            );
-            const limiteProductos = limiteConfig.length > 0 ? parseInt(limiteConfig[0].valor) || 100 : 100;
+            // Si la tabla configuracion_sistema no existe, usar valor por defecto
+            let limiteProductos = 100; // Valor por defecto
+            try {
+                const limiteConfig = await conexion.query(
+                    "SELECT valor FROM configuracion_sistema WHERE clave = 'limite_productos'"
+                );
+                if (limiteConfig.length > 0 && limiteConfig[0].valor) {
+                    limiteProductos = parseInt(limiteConfig[0].valor) || 100;
+                }
+            } catch (_error) {
+                // Si la tabla no existe, usar el valor por defecto
+                console.log('⚠️ [ProductosModel] Tabla configuracion_sistema no existe, usando límite por defecto: 100');
+            }
             
             const productosUsuario = await conexion.query(
                 "SELECT COUNT(*) as total FROM productos WHERE id_usuario = ?",
@@ -438,7 +447,7 @@ export class ProductosModel {
         }
     }
 
-    public async EliminarProducto(id_producto: number): Promise<{ success: boolean; message: string }> {
+    public async EliminarProducto(id_producto: number): Promise<{ success: boolean; message: string; errorCode?: string }> {
         try {
             await conexion.execute("START TRANSACTION");
 
@@ -452,38 +461,57 @@ export class ProductosModel {
                 };
             }
 
-            try {
-                const pedidosActivos = await conexion.query(`
-                    SELECT DISTINCT p.id_pedido, p.estado, p.fecha_pedido
-                    FROM pedidos p
-                    INNER JOIN detalle_pedidos dp ON p.id_pedido = dp.id_pedido
-                    WHERE dp.id_producto = ? 
-                    AND p.estado IN ('pendiente', 'confirmado', 'en_preparacion', 'en_camino')
-                `, [id_producto]);
+            // VALIDACIÓN: Verificar si el producto tiene relaciones que impiden su eliminación
+            // 1. Verificar pedidos registrados (relación crítica - no se puede eliminar)
+            const pedidosAsociados = await conexion.query(
+                `SELECT COUNT(DISTINCT dp.id_pedido) as total_pedidos 
+                 FROM detalle_pedidos dp
+                 INNER JOIN pedidos p ON dp.id_pedido = p.id_pedido
+                 WHERE dp.id_producto = ?`,
+                [id_producto]
+            ) as Array<{ total_pedidos: number | string }>;
 
-                if (pedidosActivos && pedidosActivos.length > 0) {
-                    await conexion.execute("ROLLBACK");
-                    const estados = pedidosActivos.map((p: any) => p.estado).join(', ');
-                    const cantidadPedidos = pedidosActivos.length;
-                    console.warn(`⚠️ No se puede eliminar producto ${id_producto}: tiene ${cantidadPedidos} pedido(s) activo(s) con estado(s): ${estados}`);
-                    return {
-                        success: false,
-                        message: `No se puede eliminar el producto porque tiene ${cantidadPedidos} pedido(s) registrado(s) en estado(s): ${estados}. Solo se pueden eliminar productos cuyos pedidos estén entregados o cancelados.`
-                    };
-                }
-                console.log(`✅ Validación de pedidos: producto ${id_producto} no tiene pedidos activos, se puede eliminar`);
-            } catch (validacionError) {
-                console.warn("⚠️ Error al validar pedidos del producto:", validacionError);
-                // Si falla la validación, hacer rollback por seguridad
+            const totalPedidos = typeof pedidosAsociados[0]?.total_pedidos === 'string' 
+                ? parseInt(pedidosAsociados[0].total_pedidos, 10) 
+                : (pedidosAsociados[0]?.total_pedidos || 0);
+            
+            console.log(`[ProductosModel] Validación de pedidos para producto ${id_producto}: ${totalPedidos} pedido(s) encontrado(s)`);
+
+            if (totalPedidos > 0) {
                 await conexion.execute("ROLLBACK");
                 return {
                     success: false,
-                    message: "Error al validar pedidos asociados al producto. No se pudo completar la eliminación."
+                    message: `No se puede eliminar el producto porque tiene ${totalPedidos} pedido(s) registrado(s). Los productos con pedidos no pueden ser eliminados para mantener la integridad de los registros históricos.`,
+                    errorCode: "HAS_ORDERS"
                 };
             }
 
-            // Eliminar TODOS los detalle_pedidos relacionados (solo los de pedidos finalizados)
-            // Los pedidos se mantienen, solo se elimina la referencia al producto
+            // 2. Verificar reseñas asociadas a pedidos (también bloquean eliminación)
+            const resenasConPedidos = await conexion.query(
+                `SELECT COUNT(*) as total_resenas 
+                 FROM reseñas r
+                 INNER JOIN pedidos p ON r.id_pedido = p.id_pedido
+                 WHERE r.id_producto = ?`,
+                [id_producto]
+            ) as Array<{ total_resenas: number | string }>;
+
+            const totalResenasConPedidos = typeof resenasConPedidos[0]?.total_resenas === 'string' 
+                ? parseInt(resenasConPedidos[0].total_resenas, 10) 
+                : (resenasConPedidos[0]?.total_resenas || 0);
+            
+            console.log(`[ProductosModel] Validación de reseñas con pedidos para producto ${id_producto}: ${totalResenasConPedidos} reseña(s) encontrada(s)`);
+
+            if (totalResenasConPedidos > 0) {
+                await conexion.execute("ROLLBACK");
+                return {
+                    success: false,
+                    message: `No se puede eliminar el producto porque tiene ${totalResenasConPedidos} reseña(s) asociada(s) a pedidos. Los productos con reseñas de pedidos no pueden ser eliminados para mantener la integridad de los registros históricos.`,
+                    errorCode: "HAS_REVIEWS_WITH_ORDERS"
+                };
+            }
+
+            // Si no hay pedidos, proceder con la eliminación
+            // Eliminar TODOS los detalle_pedidos relacionados (si existen sin pedidos activos)
             try {
                 const resultDetalles = await conexion.execute(
                     "DELETE FROM detalle_pedidos WHERE id_producto = ?",
@@ -675,7 +703,7 @@ export class ProductosModel {
             const productosDir = join(this.UPLOADS_DIR, "productos");
             if (await this.existeDirectorio(productosDir)) {
                 try {
-                    const items: any[] = [];
+                    const items: Deno.DirEntry[] = [];
                     // @ts-ignore - Deno is a global object in Deno runtime
                     for await (const dirEntry of Deno.readDir(productosDir)) {
                         items.push(dirEntry);

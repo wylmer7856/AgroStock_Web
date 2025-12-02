@@ -577,6 +577,16 @@ export class AdminController {
 
     try {
       const { id_producto } = ctx.params;
+      
+      // Intentar obtener el body, pero no fallar si no existe
+      let motivo = 'Producto eliminado por administrador';
+      try {
+        const body = await ctx.request.body.json();
+        motivo = body.motivo || motivo;
+      } catch (error) {
+        // Si no hay body o hay error al parsearlo, usar motivo por defecto
+        console.log('⚠️ No se pudo obtener el motivo del body, usando motivo por defecto');
+      }
 
       if (!id_producto) {
         ctx.response.status = 400;
@@ -618,8 +628,13 @@ export class AdminController {
         };
         return;
       } else {
+        // Si el error es por pedidos asociados, devolver código específico
         ctx.response.status = 400;
-        ctx.response.body = result;
+        ctx.response.body = {
+          success: false,
+          message: result.message,
+          errorCode: result.errorCode || 'UNKNOWN_ERROR'
+        };
         return;
       }
     } catch (error) {

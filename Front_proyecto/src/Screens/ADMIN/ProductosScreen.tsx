@@ -175,8 +175,8 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
       }, 300);
     },
     onError: (err: any) => {
-      // Error solo en consola
-      console.error('❌ [ProductosScreen] Error en onError eliminarProducto (solo consola):', err);
+      // Error también en consola
+      console.error('❌ [ProductosScreen] Error en onError eliminarProducto:', err);
       
       // Invalidar queries para refrescar la lista
       queryClient.invalidateQueries({ queryKey: ['admin', 'productos'] });
@@ -185,7 +185,46 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
       // Cerrar el modal
       setShowDeleteModal(false);
       const productoId = productoSeleccionado?.id_producto;
+      const productoNombre = productoSeleccionado?.nombre || 'el producto';
       setProductoSeleccionado(null);
+      
+      // Verificar si el error es por pedidos asociados o reseñas con pedidos
+      const errorCode = err?.response?.data?.errorCode || err?.errorCode;
+      const errorMessage = err.message || 'Error al eliminar el producto';
+      
+      if (errorCode === 'HAS_ORDERS' || errorCode === 'HAS_REVIEWS_WITH_ORDERS') {
+        // Mostrar alerta específica para productos con pedidos o reseñas asociadas
+        const titulo = errorCode === 'HAS_ORDERS' 
+          ? '⚠️ No se puede eliminar el producto'
+          : '⚠️ No se puede eliminar el producto';
+        const mensaje = errorCode === 'HAS_ORDERS'
+          ? `<p><strong>${productoNombre}</strong> no puede ser eliminado porque tiene pedidos registrados.</p>
+             <p class="mt-3">Los productos con pedidos no pueden ser eliminados para mantener la integridad de los registros históricos de compras.</p>
+             <p class="mt-2 text-muted small">Si necesitas ocultar este producto, puedes marcarlo como no disponible en lugar de eliminarlo.</p>`
+          : `<p><strong>${productoNombre}</strong> no puede ser eliminado porque tiene reseñas asociadas a pedidos.</p>
+             <p class="mt-3">Los productos con reseñas de pedidos no pueden ser eliminados para mantener la integridad de los registros históricos.</p>
+             <p class="mt-2 text-muted small">Si necesitas ocultar este producto, puedes marcarlo como no disponible en lugar de eliminarlo.</p>`;
+        
+        Swal.fire({
+          icon: 'warning',
+          title: titulo,
+          html: mensaje,
+          confirmButtonColor: '#059669',
+          confirmButtonText: 'Entendido',
+          showCancelButton: false,
+          width: '500px'
+        });
+        return;
+      }
+      
+      // Si no es un error específico de relaciones, mostrar error genérico
+      Swal.fire({
+        icon: 'error',
+        title: 'Error al eliminar',
+        text: errorMessage,
+        confirmButtonColor: '#dc3545',
+        width: '500px'
+      });
       
       // Verificar después de un momento si el producto fue eliminado
       setTimeout(async () => {
@@ -207,13 +246,24 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
               showConfirmButton: true
             });
           } else {
-            // El producto aún existe, pero no mostrar error al usuario
-            // Solo log en consola
-            console.warn('⚠️ [ProductosScreen] El producto aún existe después del error');
+            // El producto aún existe, mostrar error genérico
+            Swal.fire({
+              icon: 'error',
+              title: 'Error al eliminar',
+              text: errorMessage,
+              confirmButtonColor: '#059669'
+            });
           }
         } catch (verifyError) {
           // Error solo en consola
           console.error('❌ [ProductosScreen] Error al verificar eliminación (solo consola):', verifyError);
+          // Mostrar error genérico
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al eliminar',
+            text: errorMessage,
+            confirmButtonColor: '#059669'
+          });
         }
       }, 1000);
     }
@@ -232,7 +282,9 @@ export const ProductosScreen: React.FC<ProductosScreenProps> = ({ onNavigate }) 
           Swal.showLoading();
         }
       });
-
+      
+      setProductoSeleccionado(null);
+      
       // Ejecutar la mutation - esto actualizará solo las queries necesarias sin recargar la página
       eliminarProductoMutation.mutate({ id, motivo });
     } catch (error) {

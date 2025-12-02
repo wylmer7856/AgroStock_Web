@@ -15,10 +15,11 @@ const updateCartItemSchema = z.object({
 });
 
 const checkoutSchema = z.object({
-  direccionEntrega: z.string().min(10).max(500),
+  direccionEntrega: z.string().min(1).max(500), // Reducido mínimo a 1 para permitir direcciones cortas
   notas: z.string().max(1000).optional(),
-  metodo_pago: z.enum(['efectivo', 'transferencia', 'tarjeta']),
-  cupon_codigo: z.string().optional()
+  metodo_pago: z.enum(['efectivo', 'transferencia', 'tarjeta', 'nequi', 'daviplata', 'pse']),
+  cupon_codigo: z.string().optional(),
+  id_ciudad_entrega: z.number().int().positive().optional()
 });
 
 export class CartController {
@@ -364,41 +365,71 @@ export class CartController {
 
         const totalPrecio = validation.items_validated.reduce((sum, item) => sum + item.precio_total, 0);
 
-        // Si el método de pago requiere PayU, procesar el pago
-        const requierePayU = ['tarjeta', 'pse', 'nequi', 'daviplata'].includes(validated.metodo_pago);
         let pagoResponse = null;
 
-        if (requierePayU) {
+        if (validated.metodo_pago !== 'efectivo') {
           const { PaymentService } = await import("../Services/PaymentService.ts");
+          
           pagoResponse = await PaymentService.crearPago({
             id_pedido: result.pedido_id!,
             id_usuario: user.id,
             monto: totalPrecio,
             metodo_pago: validated.metodo_pago as any,
-            pasarela: 'payu'
+            pasarela: 'stripe'
           });
-        }
-
-        // Notificar al productor (solo si el pago no está pendiente o fue aprobado)
-        if (pedido.length > 0 && (!requierePayU || (pagoResponse && pagoResponse.estado_pago === 'aprobado'))) {
-          await notificationService.notifyNewOrder(
-            pedido[0].id_productor,
-            result.pedido_id!,
-            productos
-          );
-
-          // Enviar email al productor
-          await emailService.sendOrderNotification(
-            pedido[0].email_productor,
-            pedido[0].nombre_productor,
-            result.pedido_id!,
-            productos,
-            Number(pedido[0].total ?? 0)
+        } else {
+          await conexion.execute(
+            `UPDATE pedidos SET estado_pago = 'pendiente' WHERE id_pedido = ?`,
+            [result.pedido_id!]
           );
         }
 
-        // Notificar al consumidor
-        if (!requierePayU || (pagoResponse && pagoResponse.estado_pago === 'aprobado')) {
+        const requiereStripe = validated.metodo_pago !== 'efectivo';
+
+        if (pedido.length > 0 && !requiereStripe) {
+          try {
+            const totalFormateado = totalPrecio.toLocaleString();
+            const idProductor = pedido[0].id_productor;
+            
+            console.log("[Checkout] Notificando al productor (efectivo):", {
+              id_productor: idProductor,
+              id_pedido: result.pedido_id,
+              cantidad_productos: productos.length,
+              total: totalFormateado
+            });
+
+            if (!idProductor) {
+              console.error("[Checkout] ❌ No se encontró id_productor en el pedido");
+            } else {
+              const resultNotif = await notificationService.createNotification({
+                id_usuario: idProductor,
+                titulo: "🛒 Nuevo Pedido Recibido",
+                mensaje: `¡Tienes un nuevo pedido #${result.pedido_id}! El cliente ha realizado un pedido por un total de $${totalFormateado}. El pedido incluye ${productos.length} producto${productos.length !== 1 ? 's' : ''}. El pago será en efectivo y deberás confirmarlo cuando lo recibas.`,
+                tipo: 'info',
+                datos_extra: {
+                  pedido_id: result.pedido_id,
+                  productos: productos,
+                  action: 'view_order'
+                }
+              });
+            }
+          } catch (notifError) {
+            console.error("[Checkout] Error notificando al productor (efectivo):", notifError);
+          }
+        }
+
+        if (!requiereStripe) {
+          await notificationService.createNotification({
+            id_usuario: user.id,
+            titulo: "🛒 Pedido Completado",
+            mensaje: `Tu pedido #${result.pedido_id} ha sido creado exitosamente. El pago está pendiente ya que seleccionaste pago en efectivo. El productor confirmará el pago cuando lo reciba.`,
+            tipo: 'info',
+            datos_extra: {
+              pedido_id: result.pedido_id,
+              action: 'view_order'
+            }
+          });
+        } else if (pagoResponse && pagoResponse.estado_pago === 'pagado') {
           await notificationService.createNotification({
             id_usuario: user.id,
             titulo: "🛒 Pedido Realizado",
@@ -409,37 +440,30 @@ export class CartController {
               action: 'view_order'
             }
           });
-        } else if (requierePayU && pagoResponse && pagoResponse.url_pago) {
-          await notificationService.createNotification({
-            id_usuario: user.id,
-            titulo: "💳 Pago Pendiente",
-            mensaje: `Tu pedido #${result.pedido_id} está pendiente de pago. Completa el pago para confirmar tu pedido.`,
-            tipo: 'warning',
-            datos_extra: {
-              pedido_id: result.pedido_id,
-              action: 'view_order'
-            }
-          });
         }
+
+        const pagoData = requiereStripe && pagoResponse && pagoResponse.success && pagoResponse.datos_adicionales?.client_secret ? {
+          id_pago: pagoResponse.id_pago,
+          estado_pago: pagoResponse.estado_pago,
+          referencia_pago: pagoResponse.referencia_pago,
+          client_secret: pagoResponse.datos_adicionales.client_secret,
+          payment_intent_id: pagoResponse.datos_adicionales.payment_intent_id
+        } : requiereStripe && pagoResponse && !pagoResponse.success ? {
+          error: pagoResponse.error || 'Error desconocido al crear el pago',
+          estado_pago: 'pendiente'
+        } : null;
 
         ctx.response.status = 201;
         ctx.response.body = {
           success: true,
-          message: requierePayU && pagoResponse?.url_pago 
-            ? "Pedido creado. Redirigiendo a PayU para completar el pago..." 
-            : result.message,
+          message: requiereStripe
+            ? "Pedido creado exitosamente. Completa el pago para finalizar."
+            : "Pedido creado exitosamente. El carrito ha sido vaciado.",
           data: {
             pedido_id: result.pedido_id,
-            total_items: validation.items_validated.length,
             total_precio: totalPrecio,
             metodo_pago: validated.metodo_pago,
-            direccion_entrega: validated.direccionEntrega,
-            pago: requierePayU ? {
-              id_pago: pagoResponse?.id_pago,
-              url_pago: pagoResponse?.url_pago,
-              estado_pago: pagoResponse?.estado_pago,
-              referencia_pago: pagoResponse?.referencia_pago
-            } : null
+            pago: pagoData
           }
         };
       } else {
