@@ -15,6 +15,7 @@ import { useMantenimiento } from './hooks/useMantenimiento';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import ProductosPage from './pages/ProductosPage';
 import ProductoDetailPage from './pages/ProductoDetailPage';
 import TestPage from './pages/TestPage';
@@ -182,6 +183,14 @@ const AppRoutes: React.FC = () => {
             element={
               <PublicRouteGuard>
                 <RegisterPage />
+              </PublicRouteGuard>
+            } 
+          />
+          <Route 
+            path="/password-recovery" 
+            element={
+              <PublicRouteGuard>
+                <PasswordRecoveryPage />
               </PublicRouteGuard>
             } 
           />

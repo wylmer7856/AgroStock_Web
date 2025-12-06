@@ -96,8 +96,17 @@ export class PasswordRecoveryController {
 
       const result = await PasswordRecoveryService.validateRecoveryToken(token);
 
+      // Formatear respuesta para que el frontend la entienda correctamente
       ctx.response.status = result.success ? 200 : 400;
-      ctx.response.body = result;
+      ctx.response.body = {
+        success: result.success,
+        data: {
+          valid: result.valid,
+          message: result.message,
+          id_usuario: result.id_usuario
+        },
+        message: result.message
+      };
     } catch (error) {
       console.error("Error validando token:", error);
       ctx.response.status = 500;
@@ -105,6 +114,71 @@ export class PasswordRecoveryController {
         success: false,
         valid: false,
         message: "Error al validar token"
+      };
+    }
+  }
+
+  /**
+   * Validar código de recuperación por email
+   */
+  static async validarCodigo(ctx: Context) {
+    try {
+      const body = await ctx.request.body.json();
+      let { email, codigo } = body;
+
+      // Limpiar y normalizar los datos
+      email = email ? email.toString().trim().toLowerCase() : '';
+      codigo = codigo ? codigo.toString().trim().replace(/\s/g, '') : '';
+
+      console.log(`🔍 Validación de código recibida:`);
+      console.log(`   Email: ${email}`);
+      console.log(`   Código: "${codigo}" (longitud: ${codigo.length})`);
+
+      if (!email || !codigo) {
+        ctx.response.status = 400;
+        ctx.response.body = {
+          success: false,
+          valid: false,
+          message: "Email y código son requeridos"
+        };
+        return;
+      }
+
+      // Validar que el código tenga 6 dígitos
+      if (!/^\d{6}$/.test(codigo)) {
+        console.log(`❌ Código inválido: debe tener 6 dígitos numéricos`);
+        ctx.response.status = 400;
+        ctx.response.body = {
+          success: false,
+          valid: false,
+          message: "El código debe tener 6 dígitos numéricos"
+        };
+        return;
+      }
+
+      const result = await PasswordRecoveryService.validateRecoveryCode(email, codigo);
+
+      console.log(`📊 Resultado de validación: ${result.valid ? 'VÁLIDO' : 'INVÁLIDO'}`);
+
+      // Formatear respuesta para que el frontend la entienda correctamente
+      ctx.response.status = result.success ? 200 : 400;
+      ctx.response.body = {
+        success: result.success,
+        data: {
+          valid: result.valid,
+          message: result.message,
+          id_usuario: result.id_usuario,
+          token: result.token
+        },
+        message: result.message
+      };
+    } catch (error) {
+      console.error("❌ Error validando código:", error);
+      ctx.response.status = 500;
+      ctx.response.body = {
+        success: false,
+        valid: false,
+        message: `Error al validar código: ${error instanceof Error ? error.message : 'Error desconocido'}`
       };
     }
   }
@@ -160,6 +234,37 @@ export class PasswordRecoveryController {
       }
 
       const result = await PasswordRecoveryService.resetPasswordWithToken(token, newPassword);
+
+      ctx.response.status = result.success ? 200 : 400;
+      ctx.response.body = result;
+    } catch (error) {
+      console.error("Error restableciendo contraseña:", error);
+      ctx.response.status = 500;
+      ctx.response.body = {
+        success: false,
+        message: "Error al restablecer contraseña"
+      };
+    }
+  }
+
+  /**
+   * Restablecer contraseña con código
+   */
+  static async restablecerConCodigo(ctx: Context) {
+    try {
+      const body = await ctx.request.body.json();
+      const { email, codigo, newPassword } = body;
+
+      if (!email || !codigo || !newPassword) {
+        ctx.response.status = 400;
+        ctx.response.body = {
+          success: false,
+          message: "Email, código y nueva contraseña son requeridos"
+        };
+        return;
+      }
+
+      const result = await PasswordRecoveryService.resetPasswordWithCode(email, codigo, newPassword);
 
       ctx.response.status = result.success ? 200 : 400;
       ctx.response.body = result;

@@ -76,6 +76,8 @@ export class PedidosModel {
   // 📌 Obtener pedidos por consumidor con información completa
   public async ObtenerPedidosPorConsumidor(id_consumidor: number): Promise<any[]> {
     try {
+      console.log(`🔍 [ObtenerPedidosPorConsumidor] Buscando pedidos para consumidor ID: ${id_consumidor}`);
+      
       const result = await conexion.query(`
         SELECT 
           p.*,
@@ -91,9 +93,22 @@ export class PedidosModel {
         WHERE p.id_consumidor = ? 
         ORDER BY p.fecha_pedido DESC
       `, [id_consumidor]);
+      
+      console.log(`✅ [ObtenerPedidosPorConsumidor] Encontrados ${result.length} pedidos para consumidor ${id_consumidor}`);
+      
+      // Verificar que todos los resultados pertenezcan al consumidor correcto
+      if (result.length > 0) {
+        const idsConsumidores = result.map((p: any) => Number(p.id_consumidor));
+        const todosPertenecen = idsConsumidores.every((id: number) => id === id_consumidor);
+        if (!todosPertenecen) {
+          console.error(`❌ [ObtenerPedidosPorConsumidor] ERROR: Algunos pedidos no pertenecen al consumidor ${id_consumidor}`);
+          console.error(`❌ IDs de consumidores encontrados:`, idsConsumidores);
+        }
+      }
+      
       return result as any[];
     } catch (error) {
-      console.error("Error al obtener pedidos por consumidor:", error);
+      console.error("❌ Error al obtener pedidos por consumidor:", error);
       throw new Error("Error al obtener pedidos del consumidor.");
     }
   }

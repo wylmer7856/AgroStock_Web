@@ -16,6 +16,7 @@ export { default as notificacionesService } from './notificaciones';
 export { default as listaDeseosService } from './listaDeseos';
 export { default as reseñasService } from './reseñas';
 export { default as usuariosService } from './usuarios';
+export { default as passwordRecoveryService } from './passwordRecovery';
 
 // Re-exportar tipos de servicios
 export type { Pedido, DetallePedido, CrearPedidoData } from './pedidos';

@@ -1,5 +1,8 @@
 import { load } from "../Dependencies/dependencias.ts";
 
+// Importar librería SMTP para Deno
+const SMTP = await import("https://deno.land/x/smtp@v0.9.0/mod.ts").catch(() => null);
+
 interface EmailConfig {
   host: string;
   port: number;
@@ -29,11 +32,17 @@ export class EmailService {
       
       this.config = {
         host: env.SMTP_HOST || "smtp.gmail.com",
-        port: parseInt(env.SMTP_PORT || "587"),
-        user: env.SMTP_USER || "",
-        pass: env.SMTP_PASS || "",
-        secure: env.SMTP_SECURE === "true"
+        port: parseInt(env.SMTP_PORT || "465"), // Gmail usa 465 para SSL/TLS
+        user: env.SMTP_USER || env.SMTP_EMAIL || "",
+        pass: env.SMTP_PASS || env.SMTP_PASSWORD || "",
+        secure: env.SMTP_SECURE === "true" || env.SMTP_PORT === "465"
       };
+      
+      console.log(`📧 Configuración SMTP cargada:`);
+      console.log(`   Host: ${this.config.host}`);
+      console.log(`   Port: ${this.config.port}`);
+      console.log(`   User: ${this.config.user ? this.config.user.substring(0, 3) + '***' : 'NO CONFIGURADO'}`);
+      console.log(`   Pass: ${this.config.pass ? '***' + this.config.pass.substring(this.config.pass.length - 3) : 'NO CONFIGURADO'}`);
 
       this.isConfigured = !!(this.config.user && this.config.pass);
       
@@ -49,20 +58,51 @@ export class EmailService {
   }
 
   /**
-   * Envía un email usando la API de Resend (recomendado para producción)
+   * Envía un email usando Resend API o Gmail SMTP
    */
   async sendEmail(data: EmailData): Promise<{ success: boolean; message: string }> {
     try {
       if (!this.isConfigured) {
-        console.log(`📧 Email simulado enviado a: ${data.to}`);
-        console.log(`📧 Asunto: ${data.subject}`);
+        const errorMsg = `⚠️ EmailService no configurado. Email NO enviado a: ${data.to}`;
+        console.error(errorMsg);
+        console.error(`⚠️ Para configurar, crea un archivo .env en api_movil/ con:`);
+        console.error(`   SMTP_USER=tu_email@gmail.com`);
+        console.error(`   SMTP_PASS=tu_resend_api_key (obtén una en https://resend.com/api-keys)`);
+        console.error(`   O para Gmail:`);
+        console.error(`   SMTP_PASS=tu_app_password_de_gmail`);
         return {
-          success: true,
-          message: "Email simulado enviado (servicio no configurado)"
+          success: false,
+          message: "EmailService no configurado. Verifica las variables SMTP_USER y SMTP_PASS en el archivo .env"
         };
       }
 
-      // Usar Resend API para envío de emails profesional
+      console.log(`📧 Intentando enviar email a: ${data.to}`);
+      console.log(`📧 Asunto: ${data.subject}`);
+
+      // Intentar usar Resend API primero (si SMTP_PASS parece una API key de Resend)
+      // Las API keys de Resend empiezan con "re_"
+      if (this.config.pass.startsWith("re_")) {
+        console.log(`📧 Usando Resend API...`);
+        return await this.sendWithResend(data);
+      }
+
+      // Si no, intentar con Gmail usando un servicio SMTP simple
+      console.log(`📧 Usando Gmail SMTP...`);
+      return await this.sendWithGmailSMTP(data);
+    } catch (error) {
+      console.error("❌ Error en EmailService:", error);
+      return {
+        success: false,
+        message: `Error interno del servidor: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      };
+    }
+  }
+
+  /**
+   * Envía email usando Resend API
+   */
+  private async sendWithResend(data: EmailData): Promise<{ success: boolean; message: string }> {
+    try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -78,28 +118,257 @@ export class EmailService {
         }),
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        // const result = await response.json(); // TODO: Usar result si se necesita
-        console.log(`✅ Email enviado exitosamente a: ${data.to}`);
+        console.log(`✅ Email enviado exitosamente a: ${data.to} (Resend)`);
         return {
           success: true,
           message: "Email enviado correctamente"
         };
       } else {
-        const error = await response.text();
-        console.error("Error al enviar email:", error);
+        console.error("❌ Error al enviar email con Resend:", result);
         return {
           success: false,
-          message: "Error al enviar email"
+          message: `Error al enviar email: ${result.message || 'Error desconocido'}`
         };
       }
     } catch (error) {
-      console.error("Error en EmailService:", error);
+      console.error("❌ Error en sendWithResend:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Envía email usando Gmail SMTP directamente
+   * Nota: Para Gmail necesitas una "App Password", no tu contraseña normal
+   */
+  private async sendWithGmailSMTP(data: EmailData): Promise<{ success: boolean; message: string }> {
+    try {
+      // Gmail requiere puerto 465 con TLS directo
+      const smtpPort = this.config.port === 465 ? 465 : 465; // Forzar 465 para Gmail
+      
+      console.log(`📧 Conectando a ${this.config.host}:${smtpPort} con TLS...`);
+      
+      // Conectar con TLS directo (puerto 465)
+      const conn = await Deno.connectTls({
+        hostname: this.config.host,
+        port: smtpPort,
+      });
+
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      let buffer = new Uint8Array(4096);
+      let bytesRead = 0;
+
+      // Leer saludo inicial
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta del servidor SMTP" };
+      }
+      let response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP: ${response}`);
+
+      // EHLO
+      await conn.write(encoder.encode(`EHLO ${this.config.host}\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta EHLO" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP EHLO: OK`);
+
+      // AUTH LOGIN
+      await conn.write(encoder.encode(`AUTH LOGIN\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta AUTH" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP AUTH: ${response}`);
+
+      // Usuario (base64)
+      const userB64 = btoa(this.config.user);
+      await conn.write(encoder.encode(`${userB64}\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta USER" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP USER: OK`);
+
+      // Contraseña (base64)
+      const passB64 = btoa(this.config.pass);
+      await conn.write(encoder.encode(`${passB64}\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta PASS" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP PASS: ${response}`);
+
+      if (!response.includes("235") && !response.includes("2.7.0") && !response.includes("250")) {
+        conn.close();
+        console.error(`❌ Error de autenticación: ${response}`);
+        return {
+          success: false,
+          message: `Error de autenticación SMTP: ${response}. Verifica que SMTP_PASS sea una App Password de Gmail (no tu contraseña normal). Obtén una en: https://myaccount.google.com/apppasswords`
+        };
+      }
+
+      // MAIL FROM
+      await conn.write(encoder.encode(`MAIL FROM:<${this.config.user}>\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta MAIL FROM" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP MAIL FROM: ${response}`);
+
+      if (!response.startsWith("250")) {
+        conn.close();
+        return {
+          success: false,
+          message: `Error MAIL FROM: ${response}`
+        };
+      }
+
+      // RCPT TO
+      await conn.write(encoder.encode(`RCPT TO:<${data.to}>\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta RCPT TO" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP RCPT TO: ${response}`);
+
+      if (!response.startsWith("250")) {
+        conn.close();
+        return {
+          success: false,
+          message: `Error RCPT TO: ${response}`
+        };
+      }
+
+      // DATA
+      await conn.write(encoder.encode(`DATA\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta DATA" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP DATA: ${response}`);
+
+      // Construir mensaje MIME
+      const emailBody = this.buildMIMEMessage(data);
+      
+      // Enviar email
+      await conn.write(encoder.encode(`${emailBody}\r\n.\r\n`));
+      bytesRead = await conn.read(buffer);
+      if (bytesRead === null) {
+        conn.close();
+        return { success: false, message: "Error: No se recibió respuesta al enviar email" };
+      }
+      response = decoder.decode(buffer.subarray(0, bytesRead)).trim();
+      console.log(`📧 SMTP SEND: ${response}`);
+
+      // QUIT
+      await conn.write(encoder.encode(`QUIT\r\n`));
+      conn.close();
+
+      if (response.startsWith("250")) {
+        console.log(`✅ Email enviado exitosamente a: ${data.to} (Gmail SMTP)`);
+        return {
+          success: true,
+          message: "Email enviado correctamente"
+        };
+      } else {
+        return {
+          success: false,
+          message: `Error al enviar: ${response}`
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error en sendWithGmailSMTP:", error);
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      
+      // Mensajes de error más claros
+      if (errorMsg.includes("connection") || errorMsg.includes("TLS") || errorMsg.includes("certificate")) {
+        return {
+          success: false,
+          message: `Error de conexión SMTP: ${errorMsg}. Asegúrate de usar SMTP_PORT=465 y que tu App Password de Gmail sea correcta.`
+        };
+      }
+      
       return {
         success: false,
-        message: "Error interno del servidor"
+        message: `Error SMTP: ${errorMsg}`
       };
     }
+  }
+
+  /**
+   * Construye mensaje MIME
+   */
+  private buildMIMEMessage(data: EmailData): string {
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36)}`;
+    const message = [
+      `From: AgroStock <${this.config.user}>`,
+      `To: ${data.to}`,
+      `Subject: ${data.subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      ``,
+      data.text || this.stripHTML(data.html),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      ``,
+      data.html,
+      ``,
+      `--${boundary}--`
+    ].join('\r\n');
+    
+    return message;
+  }
+
+  /**
+   * Envía email vía SMTP usando un servicio simple
+   * Nota: Para producción, se recomienda usar Resend, SendGrid o Mailgun
+   */
+  private async sendViaSMTP(emailBody: string, data: EmailData): Promise<{ success: boolean; message: string }> {
+    // Para Gmail, necesitas una "App Password" (no tu contraseña normal)
+    // Obtén una en: https://myaccount.google.com/apppasswords
+    
+    // Por ahora, vamos a recomendar usar Resend que es más simple
+    console.error("❌ SMTP directo no está completamente implementado.");
+    console.error("💡 Recomendación: Usa Resend API (gratis hasta 3,000 emails/mes)");
+    console.error("   1. Regístrate en https://resend.com");
+    console.error("   2. Obtén tu API key en https://resend.com/api-keys");
+    console.error("   3. Agrega al .env: SMTP_PASS=re_tu_api_key_aqui");
+    
+    return {
+      success: false,
+      message: "SMTP directo requiere configuración adicional. Usa Resend API (ver instrucciones en consola)"
+    };
+  }
+
+  /**
+   * Elimina HTML de un string
+   */
+  private stripHTML(html: string): string {
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
   }
 
   /**
@@ -348,7 +617,70 @@ export class EmailService {
   }
 
   /**
-   * Envía email de recuperación de contraseña
+   * Envía email de recuperación de contraseña con código
+   */
+  async sendPasswordRecoveryCode(
+    email: string, 
+    nombre: string, 
+    codigo: string
+  ): Promise<{ success: boolean; message: string }> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #2d5016 0%, #4a7c2a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .code-box { background: #ffffff; border: 3px solid #4a7c2a; border-radius: 10px; padding: 30px; text-align: center; margin: 30px 0; }
+          .code { font-size: 48px; font-weight: bold; color: #2d5016; letter-spacing: 10px; font-family: 'Courier New', monospace; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Recuperación de Contraseña</h1>
+          </div>
+          <div class="content">
+            <h2>Hola ${nombre},</h2>
+            <p>Recibimos una solicitud para restablecer tu contraseña en AgroStock.</p>
+            <p>Ingresa el siguiente código en la página de recuperación de contraseña:</p>
+            <div class="code-box">
+              <div class="code">${codigo}</div>
+            </div>
+            <div class="warning">
+              <strong>⚠️ Importante:</strong>
+              <ul>
+                <li>Este código expirará en 1 hora</li>
+                <li>Si no solicitaste este cambio, ignora este email</li>
+                <li>Nunca compartas este código con nadie</li>
+              </ul>
+            </div>
+            <p>Si tienes problemas, contacta a nuestro equipo de soporte.</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} AgroStock. Todos los derechos reservados.</p>
+            <p>Este es un email automático, por favor no respondas.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: "🔐 Código de Recuperación de Contraseña - AgroStock",
+      html: html,
+      text: `Hola ${nombre},\n\nRecibimos una solicitud para restablecer tu contraseña.\n\nTu código de recuperación es: ${codigo}\n\nEste código expira en 1 hora.\n\nSi no solicitaste este cambio, ignora este email.`
+    });
+  }
+
+  /**
+   * Envía email de recuperación de contraseña (método antiguo con token)
    */
   async sendPasswordRecoveryEmail(
     email: string, 

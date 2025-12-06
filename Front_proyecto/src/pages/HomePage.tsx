@@ -2,7 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { productosService, categoriasService, carritoService, listaDeseosService } from '../services';
+import { productosService, categoriasService, carritoService, listaDeseosService, notificacionesService } from '../services';
 import { toast } from 'react-toastify';
 import Footer from '../components/Footer';
 import SplashScreen from '../components/SplashScreen';
@@ -21,7 +21,8 @@ import {
   BiCart,
   BiHeart,
   BiCategory,
-  BiUser
+  BiUser,
+  BiBell
 } from 'react-icons/bi';
 import type { Producto, Categoria } from '../types';
 import './HomePage.css';
@@ -93,6 +94,24 @@ const HomePage: React.FC = () => {
     refetchOnMount: false,
     refetchOnReconnect: false,
     staleTime: Infinity, // Los datos nunca se consideran obsoletos
+  });
+
+  // Query para notificaciones (si está autenticado como consumidor)
+  const { data: notificacionesData } = useQuery({
+    queryKey: ['notificaciones', 'home', user?.id_usuario],
+    queryFn: async () => {
+      if (!isAuthenticated || user?.rol !== 'consumidor') return [];
+      try {
+        const response = await notificacionesService.obtenerMisNotificaciones(5, false);
+        return response.data || [];
+      } catch (error) {
+        console.error('Error obteniendo notificaciones:', error);
+        return [];
+      }
+    },
+    enabled: isAuthenticated && user?.rol === 'consumidor',
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Actualizar cada 30 segundos
   });
 
   const productosDestacadosList = productosDestacados || [];
@@ -691,6 +710,60 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Notificaciones Section - Solo para consumidores autenticados */}
+      {isAuthenticated && user?.rol === 'consumidor' && notificacionesData && notificacionesData.length > 0 && (
+        <section className="notificaciones-section py-5 bg-light">
+          <div className="container">
+            <div className="section-header d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h2 className="section-title fw-bold">
+                  <BiBell className="me-2 text-primary" />
+                  Tus Notificaciones
+                </h2>
+                <p className="section-subtitle text-muted mb-0">
+                  Mantente al día con tus pedidos y actualizaciones
+                </p>
+              </div>
+              <Link to="/notificaciones" className="btn btn-outline-primary">
+                Ver Todas
+                <BiRightArrowAlt className="ms-2" />
+              </Link>
+            </div>
+            <div className="row g-3">
+              {notificacionesData.slice(0, 5).map((notificacion: any) => (
+                <div key={notificacion.id_notificacion} className="col-12">
+                  <div className={`card border-0 shadow-sm ${!notificacion.leida ? 'border-start border-primary border-3' : ''}`}>
+                    <div className="card-body p-3">
+                      <div className="d-flex justify-content-between align-items-start">
+                        <div className="flex-grow-1">
+                          <h6 className={`mb-1 ${!notificacion.leida ? 'fw-bold' : ''}`}>
+                            {notificacion.titulo}
+                          </h6>
+                          <p className="text-muted small mb-0">
+                            {notificacion.mensaje}
+                          </p>
+                          <small className="text-muted">
+                            {new Date(notificacion.fecha_creacion).toLocaleDateString('es-CO', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </small>
+                        </div>
+                        {!notificacion.leida && (
+                          <span className="badge bg-primary rounded-pill ms-2">Nueva</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA Section */}
       {!isAuthenticated && (

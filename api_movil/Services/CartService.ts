@@ -54,7 +54,56 @@ export class CartService {
         return null;
       }
 
-      const items: CartItem[] = result.map((item: any) => ({
+      // Eliminar automáticamente productos no disponibles del carrito
+      const productosNoDisponibles: number[] = [];
+      for (const item of result) {
+        const productoDisponible = item.producto_disponible === 1;
+        const tieneStock = item.stock_actual >= item.cantidad;
+        
+        if (!productoDisponible || !tieneStock) {
+          productosNoDisponibles.push(item.id_producto);
+        }
+      }
+
+      // Eliminar productos no disponibles del carrito
+      if (productosNoDisponibles.length > 0) {
+        await conexion.execute("START TRANSACTION");
+        try {
+          const placeholders = productosNoDisponibles.map(() => '?').join(',');
+          await conexion.execute(
+            `DELETE FROM carrito WHERE id_usuario = ? AND id_producto IN (${placeholders})`,
+            [id_usuario, ...productosNoDisponibles]
+          );
+          await conexion.execute("COMMIT");
+          console.log(`[CartService] Eliminados ${productosNoDisponibles.length} productos no disponibles del carrito del usuario ${id_usuario}`);
+        } catch (error) {
+          await conexion.execute("ROLLBACK");
+          console.error("Error al eliminar productos no disponibles del carrito:", error);
+        }
+      }
+
+      // Obtener el carrito actualizado después de eliminar productos no disponibles
+      const resultActualizado = await conexion.query(
+        `SELECT 
+           c.*,
+           p.nombre as producto_nombre,
+           p.precio as precio_actual,
+           p.stock as stock_actual,
+           p.disponible as producto_disponible,
+           p.imagen_principal,
+           CASE WHEN p.stock >= c.cantidad AND p.disponible = 1 THEN 1 ELSE 0 END as disponible
+         FROM carrito c
+         INNER JOIN productos p ON c.id_producto = p.id_producto
+         WHERE c.id_usuario = ?
+         ORDER BY c.fecha_agregado DESC`,
+        [id_usuario]
+      );
+
+      if (resultActualizado.length === 0) {
+        return null;
+      }
+
+      const items: CartItem[] = resultActualizado.map((item: any) => ({
         id_producto: item.id_producto,
         cantidad: item.cantidad,
         precio_unitario: item.precio_actual,
@@ -65,7 +114,7 @@ export class CartService {
         imagen_principal: item.imagen_principal
       }));
 
-      const fechaActualizacion = result.length > 0 ? new Date(result[0].fecha_agregado) : new Date();
+      const fechaActualizacion = resultActualizado.length > 0 ? new Date(resultActualizado[0].fecha_agregado) : new Date();
       
       return {
         id_usuario: id_usuario,

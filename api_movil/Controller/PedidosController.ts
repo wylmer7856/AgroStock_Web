@@ -410,6 +410,34 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
     // Si solo se envía el estado_pago, hacer actualización parcial
     if (bodyKeys.length === 1 && bodyKeys[0] === 'estado_pago') {
       try {
+        // Obtener el pedido para verificar el método de pago
+        const pedidoActual = await conexion.query(
+          "SELECT metodo_pago, id_productor FROM pedidos WHERE id_pedido = ?",
+          [id_pedido]
+        );
+        
+        if (pedidoActual.length === 0) {
+          ctx.response.status = 404;
+          ctx.response.body = {
+            success: false,
+            message: "Pedido no encontrado.",
+          };
+          return;
+        }
+        
+        const metodoPago = pedidoActual[0].metodo_pago;
+        const idProductor = pedidoActual[0].id_productor;
+        
+        // Si el método de pago es tarjeta y el usuario es productor, no permitir modificar el estado
+        if (metodoPago === 'tarjeta' && user.rol === 'productor' && user.id === idProductor) {
+          ctx.response.status = 403;
+          ctx.response.body = {
+            success: false,
+            message: "No se puede modificar el estado de pago cuando el método de pago es tarjeta. El estado se actualiza automáticamente.",
+          };
+          return;
+        }
+        
         // Actualización solo de estado de pago
         const estadoPagoValido = z.enum(["pendiente", "pagado", "reembolsado"]).parse(body.estado_pago);
         
@@ -467,6 +495,28 @@ export const putPedido = async (ctx: RouterContext<"/pedidos/:id">) => {
       }
       
       if (validatedParcial.estado_pago !== undefined) {
+        // Verificar si se intenta modificar el estado de pago
+        // Obtener el pedido para verificar el método de pago
+        const pedidoActual = await conexion.query(
+          "SELECT metodo_pago, id_productor FROM pedidos WHERE id_pedido = ?",
+          [id_pedido]
+        );
+        
+        if (pedidoActual.length > 0) {
+          const metodoPago = pedidoActual[0].metodo_pago;
+          const idProductor = pedidoActual[0].id_productor;
+          
+          // Si el método de pago es tarjeta y el usuario es productor, no permitir modificar el estado
+          if (metodoPago === 'tarjeta' && user.rol === 'productor' && user.id === idProductor) {
+            ctx.response.status = 403;
+            ctx.response.body = {
+              success: false,
+              message: "No se puede modificar el estado de pago cuando el método de pago es tarjeta. El estado se actualiza automáticamente.",
+            };
+            return;
+          }
+        }
+        
         camposActualizar.push('estado_pago = ?');
         valores.push(validatedParcial.estado_pago);
       }
@@ -591,6 +641,13 @@ export const getMisPedidos = async (ctx: Context) => {
   try {
     const user = ctx.state.user;
     
+    console.log(`📦 [getMisPedidos] Usuario autenticado:`, {
+      id: user?.id,
+      id_usuario: user?.id_usuario,
+      rol: user?.rol,
+      email: user?.email
+    });
+    
     if (!user) {
       ctx.response.status = 401;
       ctx.response.body = {
@@ -602,6 +659,7 @@ export const getMisPedidos = async (ctx: Context) => {
 
     const userId = Number(user.id || user.id_usuario);
     if (!userId || isNaN(userId)) {
+      console.error(`❌ [getMisPedidos] ID de usuario inválido:`, { userId, user });
       ctx.response.status = 401;
       ctx.response.body = {
         success: false,
@@ -610,13 +668,26 @@ export const getMisPedidos = async (ctx: Context) => {
       return;
     }
 
+    console.log(`📦 [getMisPedidos] Filtrando pedidos para usuario ID: ${userId}, rol: ${user.rol}`);
+
     const objPedido = new PedidosModel();
     let pedidos: PedidoDB[] = [];
 
     if (user.rol === 'productor') {
+      console.log(`📦 [getMisPedidos] Obteniendo pedidos del productor ${userId}`);
       pedidos = await objPedido.ObtenerPedidosPorProductor(userId) as PedidoDB[];
+      console.log(`📦 [getMisPedidos] Pedidos encontrados para productor: ${pedidos.length}`);
     } else if (user.rol === 'consumidor') {
+      console.log(`📦 [getMisPedidos] Obteniendo pedidos del consumidor ${userId}`);
       pedidos = await objPedido.ObtenerPedidosPorConsumidor(userId) as PedidoDB[];
+      console.log(`📦 [getMisPedidos] Pedidos encontrados para consumidor: ${pedidos.length}`);
+      
+      // Verificar que todos los pedidos pertenezcan al consumidor
+      const pedidosInvalidos = pedidos.filter(p => Number(p.id_consumidor) !== userId);
+      if (pedidosInvalidos.length > 0) {
+        console.error(`❌ [getMisPedidos] ERROR: Se encontraron ${pedidosInvalidos.length} pedidos que no pertenecen al consumidor ${userId}`);
+        console.error(`❌ Pedidos inválidos:`, pedidosInvalidos.map(p => ({ id: p.id_pedido, id_consumidor: p.id_consumidor })));
+      }
     } else {
       ctx.response.status = 403;
       ctx.response.body = {
@@ -626,8 +697,24 @@ export const getMisPedidos = async (ctx: Context) => {
       return;
     }
 
+    // Filtrar pedidos para asegurar que solo pertenezcan al usuario autenticado
+    let pedidosFiltrados = pedidos;
+    if (user.rol === 'consumidor') {
+      pedidosFiltrados = pedidos.filter((p: PedidoDB) => Number(p.id_consumidor) === userId);
+      if (pedidosFiltrados.length !== pedidos.length) {
+        console.warn(`⚠️ [getMisPedidos] Se filtraron ${pedidos.length - pedidosFiltrados.length} pedidos que no pertenecen al consumidor ${userId}`);
+      }
+    } else if (user.rol === 'productor') {
+      pedidosFiltrados = pedidos.filter((p: PedidoDB) => Number(p.id_productor) === userId);
+      if (pedidosFiltrados.length !== pedidos.length) {
+        console.warn(`⚠️ [getMisPedidos] Se filtraron ${pedidos.length - pedidosFiltrados.length} pedidos que no pertenecen al productor ${userId}`);
+      }
+    }
+
+    console.log(`✅ [getMisPedidos] Devolviendo ${pedidosFiltrados.length} pedidos para ${user.rol} ID ${userId}`);
+
     const pedidosConDetalles = await Promise.all(
-      pedidos.map(async (pedido: PedidoDB) => {
+      pedidosFiltrados.map(async (pedido: PedidoDB) => {
         try {
           const detalles = await objPedido.ObtenerDetallesPedido(pedido.id_pedido);
           return {

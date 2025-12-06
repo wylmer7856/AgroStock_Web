@@ -183,7 +183,15 @@ export const getProductos = async (ctx: Context) => {
     console.log('🔍 Filtros parseados:', filtros);
     console.log('🔍 id_categoria en filtros:', filtros.id_categoria, 'tipo:', typeof filtros.id_categoria);
 
+    // Obtener el usuario del contexto (si está autenticado)
+    const user = ctx.state?.user;
+    const esConsumidor = !user || user.rol === 'consumidor';
+    
+    // Si es consumidor o no está autenticado, solo mostrar productos disponibles
+    const soloDisponibles = esConsumidor;
+
     const objProductos = new ProductosModel();
+    const { conexion } = await import("../Models/Conexion.ts");
     
     // Si hay filtro de categoría, aplicar directamente en SQL para mejor rendimiento
     let lista: ProductoData[];
@@ -193,28 +201,45 @@ export const getProductos = async (ctx: Context) => {
       
       if (isNaN(categoriaId) || categoriaId <= 0) {
         console.log(`⚠️ ID de categoría inválido: ${filtros.id_categoria}, obteniendo todos los productos`);
-        lista = await objProductos.ListarProductos();
+        // Si es consumidor, filtrar por disponible = 1
+        if (soloDisponibles) {
+          const result = await conexion.query(
+            "SELECT * FROM productos WHERE disponible = 1 ORDER BY id_producto DESC"
+          );
+          lista = result as ProductoData[];
+        } else {
+          lista = await objProductos.ListarProductos();
+        }
       } else {
         console.log(`🔍 Aplicando filtro de categoría ${categoriaId} directamente en SQL`);
         console.log(`🔍 Tipo de categoriaId: ${typeof categoriaId}, valor: ${categoriaId}`);
-        const { conexion } = await import("../Models/Conexion.ts");
         
         // Asegurar que categoriaId sea un número entero
         const categoriaIdInt = parseInt(String(categoriaId), 10);
         if (isNaN(categoriaIdInt) || categoriaIdInt <= 0) {
           console.error(`❌ ID de categoría inválido después de conversión: ${categoriaIdInt}`);
-          lista = await objProductos.ListarProductos();
+          if (soloDisponibles) {
+            const result = await conexion.query(
+              "SELECT * FROM productos WHERE disponible = 1 ORDER BY id_producto DESC"
+            );
+            lista = result as ProductoData[];
+          } else {
+            lista = await objProductos.ListarProductos();
+          }
         } else {
+          // Construir la consulta SQL con filtro de disponibilidad si es consumidor
+          const condicionDisponible = soloDisponibles ? "AND disponible = 1" : "";
+          
           // Primero verificar cuántos productos hay con esa categoría
           const countResult = await conexion.query(
-            "SELECT COUNT(*) as total FROM productos WHERE id_categoria = ? AND disponible = 1",
+            `SELECT COUNT(*) as total FROM productos WHERE id_categoria = ? ${condicionDisponible}`,
             [categoriaIdInt]
           );
           const totalConCategoria = (countResult[0] as { total: number }).total;
           console.log(`📊 Total de productos en BD con categoría ${categoriaIdInt}: ${totalConCategoria}`);
           
           const result = await conexion.query(
-            "SELECT * FROM productos WHERE id_categoria = ? AND disponible = 1 ORDER BY id_producto DESC",
+            `SELECT * FROM productos WHERE id_categoria = ? ${condicionDisponible} ORDER BY id_producto DESC`,
             [categoriaIdInt]
           );
           lista = result as ProductoData[];
@@ -253,12 +278,26 @@ export const getProductos = async (ctx: Context) => {
       }
     } else {
       console.log('📋 No hay filtro de categoría, obteniendo todos los productos');
-      lista = await objProductos.ListarProductos();
+      // Si es consumidor, filtrar por disponible = 1
+      if (soloDisponibles) {
+        const result = await conexion.query(
+          "SELECT * FROM productos WHERE disponible = 1 ORDER BY id_producto DESC"
+        );
+        lista = result as ProductoData[];
+      } else {
+        lista = await objProductos.ListarProductos();
+      }
       console.log(`📋 Total productos antes de filtrar: ${lista.length}`);
     }
 
     // Aplicar otros filtros (nombre, precio, etc.)
-    const productosFiltrados = filtrarProductos(lista, filtros);
+    // Si es consumidor, asegurar que solo se muestren productos disponibles
+    let productosFiltrados = filtrarProductos(lista, filtros);
+    
+    // Filtro adicional de seguridad para consumidores
+    if (soloDisponibles) {
+      productosFiltrados = productosFiltrados.filter(p => p.disponible === 1);
+    }
     console.log(`✅ Productos después de filtrar: ${productosFiltrados.length}`);
     const resultado = paginarResultados(productosFiltrados, filtros.pagina || 1, filtros.limite || 50);
     const baseUrl = getBaseUrl(ctx);

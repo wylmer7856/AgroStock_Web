@@ -14,11 +14,17 @@ PasswordRecoveryRouter.post("/password-recovery/sms", PasswordRecoveryController
 // Validar token
 PasswordRecoveryRouter.post("/password-recovery/validate-token", PasswordRecoveryController.validarToken);
 
+// Validar código de recuperación
+PasswordRecoveryRouter.post("/password-recovery/validate-code", PasswordRecoveryController.validarCodigo);
+
 // Validar código SMS
 PasswordRecoveryRouter.post("/password-recovery/validate-sms", PasswordRecoveryController.validarCodigoSMS);
 
 // Restablecer con token
 PasswordRecoveryRouter.post("/password-recovery/reset", PasswordRecoveryController.restablecerConToken);
+
+// Restablecer con código
+PasswordRecoveryRouter.post("/password-recovery/reset-code", PasswordRecoveryController.restablecerConCodigo);
 
 // Restablecer con SMS
 PasswordRecoveryRouter.post("/password-recovery/reset-sms", PasswordRecoveryController.restablecerConSMS);
